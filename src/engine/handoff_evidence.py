@@ -90,7 +90,12 @@ _MOBILE = re.compile(r"⟦VN-(?:MOBILE|NOTE)⟧.*?⟦/VN-(?:MOBILE|NOTE)⟧", re
 _SENT_FROM = re.compile(r"\n?\s*Sent from \S+ at [^\n]*$")
 
 
-_NOT_ASKED = ("<", "⟦VN-EVENT", "[VibeNode", "[Image: original ", "[Image #")
+_NOT_ASKED = ("<", "⟦VN-EVENT", "[VibeNode", "[Image: original ", "[Image #", "[Request interrupted")
+
+# The CLI's marker when the user cuts a turn short.  The message before it
+# was withdrawn or about to be restated, so it and the message after it are
+# read as ONE request: covered when an ask covers either.
+_INTERRUPTED = re.compile(r"^\W*\[Request interrupted by user", re.I)
 
 
 def clean_request(text: str) -> str:
@@ -184,6 +189,30 @@ def _closes_task(text: str) -> bool:
     return not err and isinstance(card, dict) and card.get("type") in ("done", "deliverable", "explain")
 
 
+def _joined_requests(entries: list, human: list) -> list:
+    """The user's requests, with one the user interrupted joined to the one
+    that followed it.
+
+    "make a Rev3 with the tabs in illogical order" / [Request interrupted by
+    user] / "make a Rev3 with the tabs in a logical order ..." is one request,
+    restated; demanding both verbatim sends a card back for an ask the user
+    withdrew.  An interrupted message with nothing after it stays as it is.
+    """
+    out, pending = [], ""
+    for n, i in enumerate(human):
+        text = clean_request(entries[i].text)
+        if pending:
+            text, pending = (pending + " " + text).strip(), ""
+        nxt = human[n + 1] if n + 1 < len(human) else len(entries)
+        cut = any(getattr(e, "kind", "") == "user" and _INTERRUPTED.match(getattr(e, "text", "") or "")
+                  for e in entries[i + 1:nxt])
+        if cut and n + 1 < len(human):
+            pending = text
+            continue
+        out.append(text)
+    return out
+
+
 def facts_from_entries(entries: Iterable, *, trimmed: bool = False, max_requests: int = 12) -> TurnFacts:
     """Facts for the stop that is happening now.
 
@@ -230,7 +259,7 @@ def facts_from_entries(entries: Iterable, *, trimmed: bool = False, max_requests
             if getattr(e, "kind", "") == "asst" and _closes_task(getattr(e, "text", "")):
                 start = i
                 break
-        facts.requests = [clean_request(entries[i].text) for i in human if i > start][-max_requests:]
+        facts.requests = _joined_requests(entries, [i for i in human if i > start])[-max_requests:]
     for e in reversed(entries):
         t = clean_request(getattr(e, "text", "")) if getattr(e, "kind", "") == "user" and not _automated(e) else ""
         if t and not t.startswith(_NOT_ASKED + ("Stop hook feedback",)):
@@ -884,9 +913,12 @@ def _web_action(a: Action) -> bool:
 # skeleton and the self-check (src/engine/handoff_check.py) and the draft file
 # they read, named with "handoff" in it as the instructions say.  Without
 # this, an answer given from knowledge could never say "no tools used".
-# Only these three, never a bare "handoff": a web search for "agent handoff
-# reports" is research the card must report.
-_SUMMARY_WORK = re.compile(r"(?<![\w])handoff_check\b|handoff-card|```handoff", re.I)
+# Only these, never a bare "handoff": a web search for "agent handoff
+# reports" is research the card must report.  A command that opens with the
+# card itself ($card = @'… in PowerShell, <<'CARD' in a shell) is the check
+# being run the documented way: the check's own name is at its END, past
+# the detail an engine that keeps only the head of a command would hold.
+_SUMMARY_WORK = re.compile(r"(?<![\w])handoff_check\b|handoff-card|```handoff|^\s*\$card\s*=\s*@'|<<\s*'CARD'", re.I)
 
 
 def research_problems(card: dict, facts: TurnFacts) -> list:

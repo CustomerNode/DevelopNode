@@ -1216,7 +1216,12 @@ class ClaudeJsonlStore(ChatStore):
                             desc = ""
                             if isinstance(inp, dict) and inp:
                                 if "command" in inp:
-                                    desc = str(inp["command"])[:300]
+                                    # Head and tail: a long command that pipes a
+                                    # card into the handoff check names the check
+                                    # at its END, and the evidence filter that
+                                    # drops the check's own run reads this desc.
+                                    cmd = str(inp["command"])
+                                    desc = cmd if len(cmd) <= 500 else cmd[:300] + " … " + cmd[-200:]
                                 elif "path" in inp:
                                     desc = str(inp["path"])
                                     if "content" in inp:

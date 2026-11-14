@@ -337,3 +337,51 @@ def test_a_test_run_naming_the_checks_test_file_is_still_evidence():
     from engine import handoff_evidence as ev
     assert ev._SUMMARY_WORK.search('python3 src/engine/handoff_check.py <<CARD')
     assert not ev._SUMMARY_WORK.search('python3 -m pytest tests/test_handoff_check.py')
+
+
+def test_a_piped_card_check_is_not_tools_used():
+    """The documented way to run the check puts the card first and the check's
+    name at the very end of a long command; the transcript reader must keep
+    that tail so the evidence filter still drops the check's own run."""
+    from engine import handoff_evidence as ev
+    from engine.backends import claude_store
+    card_text = json.dumps(GOOD, indent=1)
+    cmd = "$card = @'\n" + card_text + "\n'@\n$card | & \"C:/x/python.exe\" \"C:/x/src/engine/handoff_check.py\""
+    assert len(cmd) > 500
+    store = claude_store.ClaudeJsonlStore()
+    row = {"type": "assistant", "message": {"role": "assistant", "content": [
+        {"type": "tool_use", "id": "t1", "name": "PowerShell", "input": {"command": cmd}}]}}
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        f = Path(d) / "s.jsonl"
+        f.write_text(json.dumps(row), encoding="utf-8")
+        import unittest.mock as um
+        with um.patch.object(store, "find_session_path", lambda sid, cwd="": f):
+            rows = store.read_log_entries("s", max_entries=0)
+    desc = [r for r in rows if r.get("kind") == "tool_use"][0]["desc"]
+    assert "handoff_check" in desc and len(desc) < len(cmd)
+    card = dict(GOOD, what_was_done="Answered from earlier work; no tools used this turn")
+    facts = ev.TurnFacts(complete=True, turn_actions=[ev.Action(tool="PowerShell", ok=True, detail=desc)])
+    assert ev.research_problems(card, facts) == []
+
+
+def test_skeleton_names_the_rejected_words_and_targets():
+    text = hc.start_text("done", None)
+    for w in ("caveat", "pre-existing", "genuinely", "once you confirm", "cache", "AIM BELOW THE LIMITS"):
+        assert w in text, w
+    assert f"about {int(rules.MAX_WORDS * 0.8)} words" in text
+
+
+def test_a_command_that_opens_with_the_card_is_the_check_itself():
+    """An engine that holds only the head of a long command still sees the
+    piped card's opening; that opening marks the check's own run."""
+    from engine import handoff_evidence as ev
+    card = dict(GOOD, what_was_done="Answered from earlier work; no tools used this turn")
+    head = ("$card = @'\n{\n \"type\": \"explain\",\n \"path\": [\"Restarts\"],\n \"title\": \"Second window\",\n"
+            " \"headline\": \"A restart no longer opens a second window.\",\n \"context\": \"Restarting opened")[:300]
+    facts = ev.TurnFacts(complete=True, turn_actions=[ev.Action(tool="PowerShell", ok=True, detail=head)])
+    assert ev.research_problems(card, facts) == []
+    facts = ev.TurnFacts(complete=True, turn_actions=[ev.Action(tool="Bash", ok=True, detail="python check.py <<'CARD'\n{")])
+    assert ev.research_problems(card, facts) == []
+    facts = ev.TurnFacts(complete=True, turn_actions=[ev.Action(tool="Bash", ok=True, detail="$cards = 'x'; grep card src")])
+    assert ev.research_problems(card, facts), "an ordinary command is still a tool run"

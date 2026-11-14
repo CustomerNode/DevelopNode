@@ -277,9 +277,38 @@ Do NOT save it to a file: pipe it straight into the check, so there is nothing o
   CARD
 Counted toward the {limit}: headline, context, answer, status, verified, links, validate, needs.
 Not counted: explained, full_answer, asks, zoom, what_was_done, checked, deliverable.
+AIM BELOW THE LIMITS, you cannot count while you write: about {target} words in all, headline {target_headline}, answer {target_answer},
+every other counted line under {target_line}; the limits ({limit} / {max_headline} / {max_answer} / {max_line}) are where it is sent back.
 Write for the reviewer, in the user's words: no engine, hook, cache, module, config, regex, reload (except "reload the tab");
-no option letters ("Header A"); no file paths in the text (files go in links); no "quietly", "honest", "genuinely".
-"""
+no option letters ("Header A") or column letters; no file paths in the text (files go in links).
+{banned}"""
+
+# A session meets the rejected words only by failing on them; naming them in
+# the skeleton lets it avoid them before it writes.  Built from the rule
+# groups themselves so the two never drift apart.
+_BANNED_SAMPLES = (
+    ("unfinished work (never on a done, explain or deliverable card)",
+     "caveat, open item, leftover, deferred, parked, for later, follow-up, unverified, untested, "
+     "not yet fixed, should work, known issue, out of scope"),
+    ("not my fault", "unrelated, pre-existing, predates, flaky, not my change, another session's"),
+    ("handing the job back", "want me to, should I, your call, say the word, do one of these, I'd ship"),
+    ("sounds like AI", "quietly, genuinely, honest, honestly"),
+    ("ritual apology", "you're right, understood, noted, my mistake, that's on me, from now on I"),
+    ("waiting on the user in a none card", "once you confirm, when you say go, on your word, if you want it"),
+)
+
+
+def banned_text() -> str:
+    from engine import handoff_rules as rules
+    lines = ["Words the check rejects (say the thing another way):"]
+    for name, sample in _BANNED_SAMPLES:
+        lines.append(f"  {name}: {sample}")
+    lines.append("  machinery words in the title, headline, zoom lines and ask: "
+                 "cache, engine, module, hook, config, regex, schema, payload, endpoint, parser, handler, "
+                 "backend, frontend, refactor, stale, async, null")
+    lines.append("  a title is a name, not a sentence: no verb or question word first, "
+                 f"at most {rules.MAX_TITLE_WORDS} words; a bare \"card\" or \"fix\" is not a name.")
+    return "\n".join(lines) + "\n"
 
 
 # A card is checked from what is piped in, never from a file: every session
@@ -313,9 +342,14 @@ def _split_hint(kind: str) -> str:
 
 
 def start_text(kind: str, facts=None, limit: int = 120) -> str:
+    from engine import handoff_rules as rules
     card = skeleton(kind, facts)
-    return (_PREAMBLE.format(limit=limit, command=_command()) + _split_hint(kind)
-            + json.dumps(card, indent=1, ensure_ascii=False))
+    pre = _PREAMBLE.format(limit=limit, command=_command(), banned=banned_text(),
+                           target=int(limit * 0.8), target_headline=int(rules.MAX_HEADLINE_WORDS * 0.7),
+                           target_answer=int(rules.MAX_ANSWER_WORDS * 0.75), target_line=int(rules.MAX_LINE_WORDS * 0.8),
+                           max_headline=rules.MAX_HEADLINE_WORDS, max_answer=rules.MAX_ANSWER_WORDS,
+                           max_line=rules.MAX_LINE_WORDS)
+    return pre + _split_hint(kind) + json.dumps(card, indent=1, ensure_ascii=False)
 
 
 def main(argv=None) -> int:

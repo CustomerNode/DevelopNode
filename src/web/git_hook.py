@@ -133,8 +133,25 @@ def ensure_installed(repo: Path = ROOT) -> str:
         return f"not installed: {e}"
 
 
-def main(argv: list) -> int:
+def _load_scanner_package() -> None:
+    """Make ``web.git_scanner`` importable without ``web/__init__.py``.
+
+    Git runs the hook with whatever Python is first on PATH, which usually has
+    none of VibeNode's requirements.  The package's ``__init__`` builds the
+    Flask app, so importing through it failed with "No module named 'flask'"
+    and the scan was skipped.  The scanner itself needs only the standard
+    library, so the package is registered bare and its modules load directly.
+    """
+    import types
     sys.path.insert(0, str(ROOT / "src"))
+    if "web" not in sys.modules:
+        pkg = types.ModuleType("web")
+        pkg.__path__ = [str(ROOT / "src" / "web")]
+        sys.modules["web"] = pkg
+
+
+def main(argv: list) -> int:
+    _load_scanner_package()
     try:
         if argv[:1] == ["pre-commit"]:
             return pre_commit()

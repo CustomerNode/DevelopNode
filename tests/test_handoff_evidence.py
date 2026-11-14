@@ -519,3 +519,27 @@ def test_asking_chrome_its_version_is_not_a_browser_check():
     # a real headless run still counts
     run = tool("Bash", "chromium --headless=new --screenshot=/tmp/s.png http://127.0.0.1:5050", "written")
     assert ev.problems(card, facts(user("fix the status sort"), run)) == []
+
+
+# ── An interrupted request joins the one that followed it ────────────────
+
+def test_an_interrupted_request_joins_the_restatement():
+    # A half-typed request / [Request interrupted by user] / the fuller
+    # restatement: one request, covered when an ask covers either half; the
+    # marker itself is never a request.
+    f = facts(user("build a v2 ledger with the columns in random order"),
+              user("[Request interrupted by user]"),
+              user("build a v2 ledger with the columns sorted, totals first, shade the headers"))
+    assert len(f.requests) == 1
+    assert "random" in f.requests[0] and "shade the headers" in f.requests[0]
+    # The garbled half is covered by an ask that matches the restatement.
+    card = dict(DONE, asks=[{"ask": "filter on the invoice list", "state": "done"},
+                            {"ask": "Quarterly Budget Sheet, how is it built", "state": "done"}])
+    assert ev.request_problems(card, facts(
+        user("fix the filter on the invoice list"), user("where did dget Sheet pull the main ledger"),
+        user("[Request interrupted by user]"), user("Quarterly Budget Sheet how is it built"))) == []
+
+
+def test_an_interrupted_request_with_nothing_after_it_stays():
+    f = facts(user("fix the sort on the journey picker"), user("[Request interrupted by user]"))
+    assert f.requests == ["fix the sort on the journey picker"]

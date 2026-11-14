@@ -8403,7 +8403,11 @@ class SessionManager:
             # Agent tool — use the short description field
             return str(inp["description"])[:200]
         elif "command" in inp:
-            return str(inp["command"])[:300]
+            # Head and tail, like the transcript reader (claude_store): a
+            # command that pipes a summary card into the handoff check names
+            # the check at its end, and the stop's evidence reads this desc.
+            cmd = str(inp["command"])
+            return cmd if len(cmd) <= 500 else cmd[:300] + " … " + cmd[-200:]
         elif "file_path" in inp:
             desc = str(inp["file_path"])
             if "content" in inp:

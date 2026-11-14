@@ -107,3 +107,37 @@ def test_an_older_identical_message_does_not_count_as_this_one(browser):
         assert got["count"] == 2 and got["pending"] == 1, got
     finally:
         app.close()
+
+
+@pytest.mark.slow
+def test_a_new_sessions_first_message_shows_at_once_even_while_the_agent_list_loads(browser):
+    """Send on a new session waited on the agent list (a scan of the project
+    that took seconds) before drawing anything: the box emptied and the
+    greeting stayed. The message must show at once, marked Sending."""
+    from tests._fake_app import FakeApp, fake_sessions, init_script
+    s = fake_sessions(1)
+    app = FakeApp(browser, s, init=init_script("sessions", "grid"),
+                  viewport={"width": 1200, "height": 900})
+    try:
+        # The agent list takes 3 s, as on a large project.
+        app.eval("""() => { const f = window.fetch; window.fetch = (u, ...r) =>
+            String(u).includes('/api/invoke/discover') ? new Promise(ok => setTimeout(() => ok(f(u, ...r)), 3000)) : f(u, ...r);
+            _agentCatalogPath = null; _agentCatalogPromise = null; if (typeof _localWfCache !== 'undefined') _localWfCache = null;
+            window.FOLDER_SUPERSET = window.FOLDER_SUPERSET || {}; }""")
+        app.eval("() => addNewAgent()")
+        app.page.wait_for_selector("#live-input-ta", state="attached", timeout=10000)
+        sid = app.eval("() => liveSessionId")
+        app.eval("""() => { const ta = document.getElementById('live-input-ta'); ta.value = 'Rename the export button';
+            _newSessionSubmit(liveSessionId); }""")
+        app.page.wait_for_timeout(150)
+        got = app.eval(STATE, sid)
+        assert got["count"] == 1 and got["state"].endswith("Sending"), got
+        assert not app.eval("() => !!document.querySelector('#live-log .empty-state')"), "greeting still on screen"
+        # Once the session is started, the server confirms it.
+        app.page.wait_for_function("window.__emits.some(e => e[0] === 'start_session')", timeout=10000)
+        app.push("session_started", {"session_id": sid})
+        got = app.eval(STATE, sid)
+        assert got["count"] == 1 and got["state"].endswith("Delivered"), got
+        assert not app.errors, app.errors
+    finally:
+        app.close()

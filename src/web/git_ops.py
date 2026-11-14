@@ -704,7 +704,13 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             detail("Already checked %d files a moment ago, nothing found" % passed["files"], 100, force=True)
             scan = {"ok": True, "summary": "", "files_scanned": passed["files"], "reused": True}
         else:
+            before = scan_pass.fingerprint(proj)
             scan = scan_staged_files(proj, on_file=scan_file) if progress is not None else scan_staged_files(proj)
+            if scan["ok"]:
+                scan_pass.record_clean(proj, before, scan_pass.fingerprint(proj),
+                                       int(scan.get("files_scanned") or 0))
+            else:
+                scan_pass.forget()
         if not scan["ok"]:
             return {"ok": False, "messages": messages + [
                 "\u26d4 Push blocked by security scan: " + scan["summary"],
@@ -720,8 +726,17 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             subprocess.run(["git", "-C", str(proj), "add", "-A"],
                           capture_output=True, creationflags=_NO_WINDOW)
 
-            # Re-scan after staging (git add -A might pick up new files)
-            scan2 = scan_staged_files(proj, on_file=rescan_file) if progress is not None else scan_staged_files(proj)
+            # Re-scan after staging: git add -A stages exactly the files the
+            # check reads (tracked + untracked not ignored), so when their
+            # fingerprint still equals the clean check's, nothing new can be
+            # in what gets committed and reading every file again proves
+            # nothing.  Any file added or changed since means a full re-scan.
+            again = scan_pass.clean_now(proj)
+            if again:
+                detail("Nothing changed since the check, %d files clean" % again["files"], 100, force=True)
+                scan2 = {"ok": True, "summary": "", "files_scanned": again["files"], "reused": True}
+            else:
+                scan2 = scan_staged_files(proj, on_file=rescan_file) if progress is not None else scan_staged_files(proj)
             if not scan2["ok"]:
                 # Unstage everything to prevent accidental commit
                 subprocess.run(["git", "-C", str(proj), "reset", "HEAD"],

@@ -15,8 +15,12 @@ pre-staging check is skipped only when ALL of these hold:
 - the check finished less than ``MAX_AGE_S`` ago (rules the scanner reads
   from outside the working copy, such as remembered names, can change).
 
-The check after staging always runs: it is the last gate before anything is
-committed.  Anything that cannot be fingerprinted means "check again".
+The server's own clean check is remembered the same way.  The check after
+staging is skipped on the same terms: ``git add -A`` stages exactly the files
+the check reads, so an identical fingerprint means what gets committed is what
+was checked.  A file added or changed since means it reads every file again.
+So a publish reads the files once.  Anything that cannot be fingerprinted
+means "check again".
 """
 
 from __future__ import annotations

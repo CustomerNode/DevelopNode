@@ -44,6 +44,8 @@ class TestDoGitSync:
         monkeypatch.setattr(git_ops, "_requirements_blob", lambda *a: "abc")
         # No clash left over from an earlier Update (checked before stashing).
         monkeypatch.setattr(git_ops, "_unmerged_paths", lambda *a: [])
+        # The git calls below are scripted in order; no fingerprint means "check again".
+        monkeypatch.setattr("web.scan_pass.fingerprint", lambda *a: None)
         # Ordinary pull, not a republished-history adopt (its own tests cover that).
         monkeypatch.setattr(git_ops, "_remote_history_is_unrelated", lambda *a: False)
 
@@ -76,6 +78,8 @@ class TestDoGitSync:
         monkeypatch.setattr("web.git_scanner.scan_outgoing_commits", lambda *a, **kw: [])
         # No leftover merge clash (do_git_sync checks before pushing).
         monkeypatch.setattr(git_ops, "_unmerged_paths", lambda *a: [])
+        # The git calls below are scripted in order; no fingerprint means "check again".
+        monkeypatch.setattr("web.scan_pass.fingerprint", lambda *a: None)
 
         mock_run = MagicMock()
         # status --porcelain (no dirty files)
@@ -137,6 +141,8 @@ class TestBranchGuard:
         monkeypatch.setattr("web.git_scanner.scan_outgoing_commits", lambda *a, **kw: [])
         # No leftover merge clash (do_git_sync checks before pushing).
         monkeypatch.setattr(git_ops, "_unmerged_paths", lambda *a: [])
+        # The git calls below are scripted in order; no fingerprint means "check again".
+        monkeypatch.setattr("web.scan_pass.fingerprint", lambda *a: None)
         status_result = MagicMock(stdout="", returncode=0)   # no dirty files
         push_result = MagicMock(stdout="", returncode=0, stderr="")
         monkeypatch.setattr(subprocess, "run",
@@ -169,6 +175,8 @@ class TestBranchGuard:
         monkeypatch.setattr("web.git_scanner.scan_outgoing_commits", lambda *a, **kw: [])
         # No leftover merge clash (do_git_sync checks before pushing).
         monkeypatch.setattr(git_ops, "_unmerged_paths", lambda *a: [])
+        # The git calls below are scripted in order; no fingerprint means "check again".
+        monkeypatch.setattr("web.scan_pass.fingerprint", lambda *a: None)
         status_result = MagicMock(stdout="", returncode=0)
         push_result = MagicMock(stdout="", returncode=0, stderr="")
         monkeypatch.setattr(subprocess, "run",

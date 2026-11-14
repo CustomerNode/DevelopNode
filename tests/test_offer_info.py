@@ -157,6 +157,11 @@ window.fetch=()=>Promise.reject(new Error('offline'));</script>
     page.goto(f.as_uri(), wait_until="load")
     assert not errors, errors
     page.wait_for_function("document.querySelectorAll('.lm.skim').length === 1")
+    # renderIn re-checks the answer rows on the next frame (_syncDone), and with
+    # no session status here that hides them.  Let that frame pass before
+    # showing them, or it lands later (on the first mouse move) and hides the
+    # row the test is about to click.
+    page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
     page.evaluate("s => document.querySelectorAll('.lm-finish').forEach(f => { f.hidden = false; f.dataset.state = s; })", state)
     return page
 

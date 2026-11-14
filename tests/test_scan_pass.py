@@ -1,6 +1,7 @@
 """A publish relies on the browser's clean security check instead of reading
 every file again, only when the working copy is exactly what was checked
-(src/web/scan_pass.py).  The check after staging always runs."""
+(src/web/scan_pass.py).  A publish reads the files once: the check after
+staging is skipped on the same terms, and runs whenever a file changed."""
 
 import subprocess
 import time
@@ -51,14 +52,14 @@ def _browser_check_passed(repo):
     assert scan_pass.record_clean(repo, fp, scan_pass.fingerprint(repo), 1)
 
 
-def test_a_clean_browser_check_spares_the_first_server_check_but_never_the_last(repo, scans):
+def test_a_clean_browser_check_means_the_server_reads_nothing_again(repo, scans):
     (repo / "app.py").write_text("print('changed')\n")
     _browser_check_passed(repo)
     details = []
     r = git_ops.do_git_sync("push", confirm_branch=True,
                             progress=lambda k, t=None, p=None: t and details.append((k, t)))
     assert r["ok"], r
-    assert len(scans) == 1, "only the check after staging ran"
+    assert scans == [], "the browser's check covered exactly what was committed"
     assert any(k == "scan" and t.startswith("Already checked") for k, t in details), details
 
 
@@ -66,7 +67,7 @@ def test_any_change_after_the_browser_check_means_checking_again(repo, scans):
     _browser_check_passed(repo)
     (repo / "app.py").write_text("print('edited after the check')\n")
     assert git_ops.do_git_sync("push", confirm_branch=True)["ok"]
-    assert len(scans) == 2
+    assert len(scans) == 1, "read once by the server, not again after staging"
 
 
 def test_a_new_file_after_the_browser_check_means_checking_again(repo, scans):
@@ -74,7 +75,34 @@ def test_a_new_file_after_the_browser_check_means_checking_again(repo, scans):
     _browser_check_passed(repo)
     (repo / "extra.py").write_text("x = 1\n")
     assert git_ops.do_git_sync("push", confirm_branch=True)["ok"]
-    assert len(scans) == 2
+    assert len(scans) == 1
+
+
+def test_without_a_browser_check_the_server_reads_the_files_once(repo, scans):
+    (repo / "app.py").write_text("print('changed')\n")
+    assert git_ops.do_git_sync("push", confirm_branch=True)["ok"]
+    assert len(scans) == 1
+
+
+def test_a_file_written_during_the_servers_check_is_read_again_after_staging(repo, monkeypatch):
+    """The server's own check is trusted only if nothing changed while it ran;
+    a key that lands meanwhile is caught by the full check after staging."""
+    calls = []
+    real = git_scanner.scan_staged_files
+
+    def racing(proj=None, on_file=None):
+        calls.append(proj)
+        r = real(proj, on_file=on_file)
+        if len(calls) == 1:
+            (repo / "late.py").write_text('KEY = "sk-ant-api03-' + "A" * 90 + '"\n')
+        return r
+    monkeypatch.setattr(git_scanner, "scan_staged_files", racing)
+    (repo / "app.py").write_text("print('changed')\n")
+    r = git_ops.do_git_sync("push", confirm_branch=True)
+    assert len(calls) == 2
+    assert not r["ok"] and r.get("scan")
+    assert subprocess.run(["git", "-C", str(repo), "log", "--oneline"], capture_output=True,
+                          text=True).stdout.count("\n") == 1, "nothing was committed"
 
 
 def test_files_that_changed_during_the_check_are_never_trusted(repo):

@@ -1345,6 +1345,9 @@ async function addNewAgent() {
   if (viewMode === 'homepage') setViewMode('sessions');
 
   const newId = crypto.randomUUID();
+  // Build the agent list while the person types: Send waits on it, and on a
+  // large project it took seconds with nothing on screen.
+  if (typeof FOLDER_SUPERSET === 'object' && FOLDER_SUPERSET) _ensureAgentCatalog();
 
   // Leaving the open session: keep what was typed there (same as openInGUI).
   if (liveSessionId && liveSessionId !== newId) { _savePendingInputAsDraft(); stopLivePanel(); }
@@ -1566,6 +1569,20 @@ async function _newSessionSubmit(sessionId) {
   // NOW seed as running (session will exist on server after this emit)
   runningIds.add(sessionId);
   sessionKinds[sessionId] = 'working';
+
+  // Draw the chat and the message the moment Send is pressed. The start below
+  // waits on the agent list (a scan of the project that took seconds on a
+  // large one); drawing after it left an empty box and the greeting on screen,
+  // so the message looked lost. Its footer says Sending until the server
+  // takes it.
+  if (liveSessionId === sessionId) {
+    _optimisticMsgId = 0;
+    startLivePanel(sessionId, {skipLog: true});
+    _liveSending = true;
+    const _pend = (typeof _notePendingSend === 'function') ? _notePendingSend(sessionId, text, false) : null;
+    _addOptimisticBubble(sessionId, text, false, _pend ? {pending: _pend} : undefined);
+    setTimeout(() => { _liveSending = false; }, 500);
+  }
   // Which session is on screen as this starts.  The awaits below can take a
   // moment; if the person opens another session meanwhile, the session still
   // starts, but this must not pull the screen back to it.
@@ -1674,11 +1691,11 @@ async function _newSessionSubmit(sessionId) {
   // any prior session during the async await cannot block the bubble.
   // Not when the person has moved to another session meanwhile: opening this
   // one again fetches its log, first message included.
-  if (_stillHere) {
+  // The chat and the message were drawn at Send (above). Only a session that
+  // was not on screen then (started from elsewhere) is drawn now.
+  if (_stillHere && _liveAtSubmit !== sessionId) {
     _optimisticMsgId = 0;
     startLivePanel(sessionId, {skipLog: true});
-
-    // Add optimistic user bubble into the fresh log (after startLivePanel creates it)
     _liveSending = true;
     _addOptimisticBubble(sessionId, text);
     setTimeout(() => { _liveSending = false; }, 500);

@@ -434,3 +434,19 @@ def test_a_card_without_the_skeleton_is_refused_and_not_stamped(monkeypatch):
     f.started = True
     res = hc.check(json.dumps(GOOD), f)
     assert "--start explain" not in (res["reason"] or "")
+
+
+def test_the_skeleton_prints_the_projects_own_checks(tmp_path, monkeypatch):
+    """A session meets a project's stop add-on in its skeleton, not by failing it."""
+    from engine import stop_plugins as sp
+    proj = tmp_path / "Proj"
+    folder = proj / ".vibenode" / "stop_plugins"
+    folder.mkdir(parents=True)
+    (folder / "proof.py").write_text('"""Docstring rules."""\nNAME = "Proof"\nGUIDE = "Carry a proof_run block."\n'
+                                     "def applies(c, f): return True\ndef problems(c, m, f): return []\n", encoding="utf-8")
+    cfg = tmp_path / "stop_plugins.json"
+    cfg.write_text(json.dumps({"folders": [{"dir": str(folder)}]}), encoding="utf-8")
+    monkeypatch.setattr(sp, "CONFIG", cfg)
+    out = hc.project_guides(str(proj / "sub"))
+    assert "Carry a proof_run block." in out and "Proof" in out
+    assert hc.project_guides(str(tmp_path / "Elsewhere")) == ""

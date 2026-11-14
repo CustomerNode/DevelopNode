@@ -183,31 +183,38 @@ def plugins(config=None, card=None, facts=None, scoped: bool = False) -> list:
             continue
         if not _in_scope(entry, hay, facts):
             continue
-        folder = Path(entry["dir"])
-        if not folder.is_dir():
-            out.append((str(folder), "folder is missing"))
-            continue
-        try:
-            pins = _pinned(Path(entry["pin"])) if entry.get("pin") else None
-        except RuntimeError as e:
-            out.append((str(folder), str(e)))
-            continue
-        files = sorted(p for p in folder.glob("*.py") if not p.name.startswith("_"))
-        for path in files:
-            if pins is not None:
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-                if pins.get(path.name) != digest:
-                    out.append((path.stem, "does not match its approved pin (edited without the project's "
-                                           "approval, or never approved), so it was not loaded"))
-                    continue
-            try:
-                out.append((path.stem, _load(path)))
-            except Exception:
-                last = traceback.format_exc(limit=2).strip().splitlines()[-1]
-                out.append((path.stem, "could not be loaded: " + last))
+        out.extend(_entry_plugins(entry))
+    return out
+
+
+def _entry_plugins(entry: dict) -> list:
+    """[(label, module or why it was not loaded)] for one configured folder."""
+    out = []
+    folder = Path(entry["dir"])
+    if not folder.is_dir():
+        out.append((str(folder), "folder is missing"))
+        return out
+    try:
+        pins = _pinned(Path(entry["pin"])) if entry.get("pin") else None
+    except RuntimeError as e:
+        out.append((str(folder), str(e)))
+        return out
+    files = sorted(p for p in folder.glob("*.py") if not p.name.startswith("_"))
+    for path in files:
         if pins is not None:
-            for name in sorted(set(pins) - {p.name for p in files}):
-                out.append((Path(name).stem, "is approved but missing from its folder"))
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if pins.get(path.name) != digest:
+                out.append((path.stem, "does not match its approved pin (edited without the project's "
+                                       "approval, or never approved), so it was not loaded"))
+                continue
+        try:
+            out.append((path.stem, _load(path)))
+        except Exception:
+            last = traceback.format_exc(limit=2).strip().splitlines()[-1]
+            out.append((path.stem, "could not be loaded: " + last))
+    if pins is not None:
+        for name in sorted(set(pins) - {p.name for p in files}):
+            out.append((Path(name).stem, "is approved but missing from its folder"))
     return out
 
 
@@ -242,3 +249,31 @@ def problems(card, message: str, facts=None, config=None) -> list:
             found = [f"the add-on failed ({type(e).__name__}: {e}). The card cannot be checked, so it goes back."]
         out.extend(f"[{name}] {p}" for p in found)
     return out
+
+
+def guides(cwd: str, config=None) -> list:
+    """[(name, text)] for the add-ons that can check a session in ``cwd``.
+
+    A session met a project's checks only by failing them, then read the
+    add-on's code to find which words trip it and reworded around them, a
+    loop of three or four tries per card.  The skeleton prints these up
+    front instead.  The text is the add-on's ``GUIDE`` when it has one,
+    else its own docstring (which already says what sends a card back).
+    Only add-ons that load (pins respected) and whose project folder holds
+    ``cwd``; the ``when`` words are not applied, since there is no card yet.
+    """
+    if not cwd:
+        return []
+    out = []
+    for entry in _folders(config):
+        if "error" in entry or not _inside(cwd, _project_folders(entry)):
+            continue
+        for label, mod in _entry_plugins(entry):
+            if isinstance(mod, str):
+                continue
+            text = getattr(mod, "GUIDE", None) or (mod.__doc__ or "")
+            text = text.strip()
+            if text:
+                out.append((getattr(mod, "NAME", label), text))
+    return out
+

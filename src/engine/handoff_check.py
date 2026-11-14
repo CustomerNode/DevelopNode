@@ -417,7 +417,25 @@ def start_text(kind: str, facts=None, limit: int = 120) -> str:
                            target_answer=int(rules.MAX_ANSWER_WORDS * 0.75), target_line=int(rules.MAX_LINE_WORDS * 0.8),
                            max_headline=rules.MAX_HEADLINE_WORDS, max_answer=rules.MAX_ANSWER_WORDS,
                            max_line=rules.MAX_LINE_WORDS)
-    return pre + _split_hint(kind) + json.dumps(card, indent=1, ensure_ascii=False)
+    return pre + project_guides(getattr(facts, "cwd", "") if facts else "") + _split_hint(kind) \
+        + json.dumps(card, indent=1, ensure_ascii=False)
+
+
+def project_guides(cwd: str) -> str:
+    """This project's own stop checks, printed before the first draft so a
+    session writes to them instead of discovering them by failing and then
+    reading the add-on's code to reword around it."""
+    try:
+        from engine import stop_plugins as sp
+        found = sp.guides(cwd)
+    except Exception:
+        return ""
+    if not found:
+        return ""
+    parts = ["THIS PROJECT ALSO CHECKS THE CARD (follow these; never reword to slip past them):"]
+    for name, text in found:
+        parts.append(f"--- {name} ---\n{text}")
+    return "\n".join(parts) + "\n"
 
 
 def main(argv=None) -> int:

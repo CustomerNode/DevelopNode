@@ -56,9 +56,34 @@ def as_message(draft: str) -> str:
     return text
 
 
-def _entries(session_id: str, cwd: str) -> list:
+_START = re.compile(r"(?<![\w])handoff_check\b[^\n]*--start\b")
+
+
+def started_this_turn(rows: list) -> bool:
+    """Whether the skeleton (``--start``) ran since the user's latest message.
+
+    Cards drafted without it come in at 130 words and bounce two or three
+    times; the skeleton prints the targets that make the first draft fit.
+    Automated messages (a background job's notice, the stop's own feedback)
+    do not start a new turn."""
+    from engine import handoff_evidence as ev
+    last = -1
+    for i, r in enumerate(rows):
+        if r.get("kind") != "user":
+            continue
+        e = SimpleNamespace(**{"auto": "", **r})
+        text = ev.clean_request(r.get("text") or "")
+        if ev._automated(e) or text.startswith("Stop hook feedback") or not ev._is_request(text):
+            continue
+        last = i
+    return any(r.get("kind") == "tool_use" and _START.search(r.get("desc") or "") for r in rows[last + 1:])
+
+
+def _entries(session_id: str, cwd: str, started: list | None = None) -> list:
     from engine.backends.claude_store import ClaudeJsonlStore
     rows = ClaudeJsonlStore().read_log_entries(session_id, cwd, max_entries=0)
+    if started is not None:
+        started.append(started_this_turn(rows))
     out, skip = [], set()
     for r in rows:
         if r.get("kind") == "tool_use" and _SELF.search(r.get("desc") or ""):
@@ -114,10 +139,12 @@ def facts_for(session_id: str, cwd: str = ""):
         return None
     try:
         from engine import handoff_evidence as ev
-        entries = _entries(session_id, cwd)
+        started = []
+        entries = _entries(session_id, cwd, started)
         if not entries:
             return None
         facts = ev.facts_from_entries(entries)
+        facts.started = bool(started and started[0])
         facts.session_id = session_id
         facts.cwd = home_folder(session_id)
         return facts
@@ -135,6 +162,16 @@ def check(draft: str, facts=None, session_id: str = "") -> dict:
     words = rules.card_words(card) if have_card else None
     table = rules.word_table(card) if have_card else []
     reason = st.review(message, continued=False, sendbacks=0, facts=facts, self_check=False)
+    if have_card and facts is not None and getattr(facts, "started", True) is False:
+        # No stamp without the skeleton: the stop refuses an unstamped card,
+        # so a session cannot skip the step that sets the target lengths.
+        kind = card.get("type") if card.get("type") in rules.TYPES else "done"
+        skip = ("Run the skeleton first, then rewrite the card to its targets (about "
+                f"{int(rules.MAX_WORDS * 0.8)} words, headline {int(rules.MAX_HEADLINE_WORDS * 0.7)}, "
+                f"answer {int(rules.MAX_ANSWER_WORDS * 0.75)}):\n  {_command()} --start {kind}\n"
+                "Cards written without it come in long and are sent back two or three times.")
+        reason = ("Smart termination: your handoff card was sent back.\n\n" + skip
+                  + ("\n\n" + reason.split("\n\n", 1)[1] if reason and "\n\n" in reason else ""))
     if reason is None and have_card:
         foreign = getattr(st, "foreign_card_problem", lambda *_a: [])(card, session_id)
         if foreign:
@@ -156,7 +193,38 @@ def where_the_words_are(table: list, limit: int) -> str:
     skipped = [w for w, n, c, _cap in table if not c and n]
     if skipped:
         lines.append("  not counted: " + ", ".join(sorted({w.split("[")[0].split(".")[0] for w in skipped})))
+    lines.append(trim_plan(counted, limit))
     return "\n".join(lines)
+
+
+TRIM_MARGIN = 10
+
+
+def trim_plan(counted: list, limit: int) -> str:
+    """A cut that lands well under the limit in one pass.
+
+    Sessions cut exactly the overshoot, miscount by a few words and are sent
+    back again (137, then 122, then a pass).  The plan aims TRIM_MARGIN
+    under the limit and spreads the cut over the biggest fields in
+    proportion to their size, so each gets a word count to write to.
+    """
+    total = sum(n for _w, n in counted)
+    aim = limit - TRIM_MARGIN
+    need = total - aim
+    if need <= 0:
+        return ""
+    big = [(w, n) for w, n in counted if n >= 6][:5] or counted[:3]
+    pool = sum(n for _w, n in big)
+    out, left = [], need
+    for i, (w, n) in enumerate(big):
+        cut = left if i == len(big) - 1 else min(left, round(need * n / pool))
+        cut = min(cut, n - 2)
+        if cut <= 0:
+            continue
+        out.append(f"  {w}: at most {n - cut} words (now {n})")
+        left -= cut
+    return (f"Trim plan, one pass (lands near {aim}, {TRIM_MARGIN} under the limit so a miscount still passes):\n"
+            + "\n".join(out))
 
 
 # ── The skeleton ─────────────────────────────────────────────────────────

@@ -385,3 +385,52 @@ def test_a_command_that_opens_with_the_card_is_the_check_itself():
     assert ev.research_problems(card, facts) == []
     facts = ev.TurnFacts(complete=True, turn_actions=[ev.Action(tool="Bash", ok=True, detail="$cards = 'x'; grep card src")])
     assert ev.research_problems(card, facts), "an ordinary command is still a tool run"
+
+
+def test_trim_plan_lands_under_the_limit_in_one_pass():
+    """137 words: the plan's caps add up to the limit less the margin, so a
+    session that writes to them is not sent back a second time."""
+    counted = [("answer", 54), ("headline", 20), ("validate.how", 17), ("context", 8),
+               ("needs.next", 8), ("links[0].label", 5), ("needs.why", 4), ("path[1]", 3),
+               ("did[0]", 3), ("verified[0].result", 3), ("verified[1].check", 3), ("path[0]", 2), ("x", 7)]
+    plan = hc.trim_plan(counted, 120)
+    import re
+    caps = {w: int(m) for w, m in re.findall(r"  (\S+): at most (\d+) words", plan)}
+    after = sum(caps.get(w, n) for w, n in counted)
+    assert after <= 120 - hc.TRIM_MARGIN and "answer" in caps
+    assert hc.trim_plan([("answer", 50)], 120) == ""
+
+
+# --- The skeleton is required before a card can pass ---
+
+def _rows(*specs):
+    out = []
+    for kind, text in specs:
+        if kind == "user":
+            out.append({"kind": "user", "text": text})
+        else:
+            out.append({"kind": "tool_use", "name": "Bash", "desc": text, "id": f"t{len(out)}"})
+    return out
+
+
+def test_started_this_turn_needs_the_skeleton_after_the_latest_request():
+    start = '"py.exe" "C:/v/src/engine/handoff_check.py" --start explain'
+    assert hc.started_this_turn(_rows(("user", "fix the sort on the picker"), ("tool", start)))
+    assert not hc.started_this_turn(_rows(("tool", start), ("user", "now do the menus please")))
+    # The stop's own feedback and a background notice do not start a new turn.
+    assert hc.started_this_turn(_rows(("user", "fix the sort on the picker"), ("tool", start),
+                                      ("user", "Stop hook feedback: your card was sent back"),
+                                      ("user", "<task-notification>done</task-notification>")))
+
+
+def test_a_card_without_the_skeleton_is_refused_and_not_stamped(monkeypatch):
+    from engine import handoff_evidence as ev
+    stamped = []
+    monkeypatch.setattr(st, "stamp_card", lambda card, sid: stamped.append(card))
+    f = ev.TurnFacts(complete=True)
+    f.started = False
+    res = hc.check(json.dumps(GOOD), f)
+    assert not res["ok"] and "--start" in res["reason"] and not stamped
+    f.started = True
+    res = hc.check(json.dumps(GOOD), f)
+    assert "--start explain" not in (res["reason"] or "")

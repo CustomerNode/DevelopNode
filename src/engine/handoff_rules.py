@@ -2376,6 +2376,12 @@ def length_problems(card: dict) -> list[str]:
                      "into links. A long text the user asked for goes in a deliverable."]
     if total <= MAX_WORDS and not long_lines and not long_lists:
         return full_long
+    if total <= MAX_WORDS:
+        # The card as a whole fits; only a line or a list is over its own cap.
+        # Saying "too long: 119 words, limit 120" here sent sessions cutting
+        # the whole card when one field was the problem.
+        return [f"The card fits ({total} of {MAX_WORDS} words), but these are over their own cap. "
+                "Shorten only these; leave the rest as it is:"] + long_lines[:5] + long_lists[:3] + full_long
     out = [f"Too long: the card is {total} words; the limit is {MAX_WORDS}. The user reads it "
            "at a glance between many sessions. Keep what happened, where it stands and what the user "
            "must do; cut explanation, background and anything the user does not need to act. "

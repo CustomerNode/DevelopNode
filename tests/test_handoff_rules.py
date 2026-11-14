@@ -1063,3 +1063,12 @@ def test_the_instructions_no_longer_ask_for_a_commit_link():
     assert "kind\": \"link|file|commit" not in hr.INSTRUCTIONS
     assert "the page to try, the \\ncommit" not in hr.INSTRUCTIONS
     assert "never your \nproof" in hr.INSTRUCTIONS or "never your proof" in hr.INSTRUCTIONS.replace("\n", " ")
+
+
+def test_a_card_that_fits_with_one_long_line_is_not_called_too_long():
+    """119 of 120 with only the answer over its cap: the message names the
+    answer and says the card fits, so the session cuts that line, not the card."""
+    card = {"answer": " ".join(["w"] * (hr.MAX_ANSWER_WORDS + 7)), "headline": "short headline here"}
+    probs = hr.length_problems(card)
+    assert probs and not probs[0].startswith("Too long")
+    assert "fits" in probs[0] and any("answer" in p and "limit" in p for p in probs[1:])

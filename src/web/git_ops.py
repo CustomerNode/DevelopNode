@@ -3,6 +3,7 @@ Git operations — background fetch, status cache, and sync logic.
 """
 
 import subprocess
+import re
 import sys
 import threading
 import time
@@ -378,6 +379,102 @@ def sync_steps(action: str) -> list:
     return steps
 
 
+# git's own progress lines ("Writing objects:  45% (9/20), 1.2 MiB | 300 KiB/s")
+# in plain words, so the dialog can say what is moving and how far it is.
+_GIT_PHASES = {
+    "Enumerating objects": "Listing changes",
+    "Counting objects": "Counting changes",
+    "Compressing objects": "Packing changes",
+    "Writing objects": "Uploading",
+    "Receiving objects": "Downloading",
+    "Resolving deltas": "Unpacking",
+    "Updating files": "Updating files",
+}
+_GIT_PROGRESS = re.compile(r"^(?:remote:\s*)?([A-Za-z ]+?):\s+(\d+)%\s*\((\d+)/(\d+)\)(?:,\s*([^|]+?)(?:\s*\|\s*(.+?))?)?(?:,\s*done\.?)?\s*$")
+
+
+# git restarts its count for each phase, so each phase gets its own slice of
+# the step: the ring only ever moves forward.
+_PHASE_SHARE = {
+    "Listing changes": (0, 5), "Counting changes": (5, 10), "Packing changes": (10, 25),
+    "Uploading": (25, 95), "Downloading": (5, 85), "Unpacking": (85, 100),
+    "Updating files": (85, 100),
+}
+
+
+def step_share(text: str, pct):
+    """Where a phase's own 0-100 lands within the whole step, or None."""
+    if pct is None:
+        return None
+    for words, (lo, hi) in _PHASE_SHARE.items():
+        if text.startswith(words + " "):
+            return round(lo + (hi - lo) * pct / 100)
+    return pct
+
+
+def parse_git_progress(line: str):
+    """(text, pct) for one of git's progress lines, or None for anything else."""
+    m = _GIT_PROGRESS.match(line.strip())
+    if not m:
+        return None
+    phase, pct, n, total, size, speed = m.groups()
+    words = _GIT_PHASES.get(phase.strip(), phase.strip())
+    text = "%s %s of %s" % (words, n, total)
+    if size and size.strip() and not size.strip().startswith("done"):
+        text += " · " + size.strip()
+    if speed and speed.strip():
+        text += " · " + speed.strip()
+    return text, int(pct)
+
+
+def _git_live(cmd, timeout, on_progress=None):
+    """Run a git command; with ``on_progress``, pass git's progress lines on as
+    they come (``--progress`` makes git write them when not on a terminal).
+
+    Returns a CompletedProcess like ``subprocess.run(capture_output=True,
+    text=True)``.  Without ``on_progress`` it IS that call, unchanged.
+    """
+    if on_progress is None:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, creationflags=_NO_WINDOW)
+    cmd = list(cmd) + ["--progress"]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=_NO_WINDOW)
+    out_chunks, err_text = [], []
+
+    def read_out():
+        out_chunks.append(proc.stdout.read() or b"")
+    t = threading.Thread(target=read_out, daemon=True)
+    t.start()
+    line = b""
+    deadline = time.monotonic() + timeout
+    while True:
+        ch = proc.stderr.read(1)
+        if not ch:
+            break
+        if ch in (b"\r", b"\n"):
+            text = line.decode("utf-8", "replace")
+            err_text.append(text + ("\n" if ch == b"\n" else "\r"))
+            got = parse_git_progress(text)
+            if got:
+                try:
+                    on_progress(*got)
+                except Exception:
+                    pass
+            line = b""
+        else:
+            line += ch
+        if time.monotonic() > deadline:
+            proc.kill()
+            raise subprocess.TimeoutExpired(cmd, timeout)
+    if line:
+        err_text.append(line.decode("utf-8", "replace"))
+    proc.wait(timeout=max(1, deadline - time.monotonic()))
+    t.join(timeout=5)
+    stdout = b"".join(out_chunks).decode("utf-8", "replace")
+    # Only the lines that are not progress, as git prints them without --progress.
+    stderr = "".join(x for x in err_text if not x.endswith("\r"))
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout=stdout, stderr=stderr)
+
+
 def do_git_sync(action: str, confirm_branch: bool = False,
                 summary: str = "", gate=None, progress=None) -> dict:
     """
@@ -390,8 +487,11 @@ def do_git_sync(action: str, confirm_branch: bool = False,
     generated from the staged paths when empty); ``gate`` records the publish
     gate outcome (see ``format_publish_gate``).
 
-    ``progress(key)`` is called as each step of ``sync_steps(action)`` starts;
-    it never changes what the sync does, and an error in it is ignored.
+    ``progress(key)`` is called as each step of ``sync_steps(action)`` starts,
+    and ``progress(key, text, pct)`` while it runs: what it is doing right now
+    (a file being checked, git's own upload count) and, when known, how far
+    through the step it is (0-100, else None).  It never changes what the sync
+    does, and an error in it is ignored.
 
     If the working copy is not on the repo's default branch, this short-circuits
     and returns {"needs_branch_confirm": True, ...} WITHOUT touching git, so a
@@ -425,12 +525,48 @@ def do_git_sync(action: str, confirm_branch: bool = False,
     ok = True
     pip_result = None
 
+    current = {"key": None, "at": 0.0}
+
     def step(key):
+        current["key"] = key
+        current["at"] = 0.0
+        current["share"] = 0
         if progress is not None:
             try:
                 progress(key)
             except Exception:
                 pass
+
+    def detail(text, pct=None, force=False):
+        # At most ten a second, so a fast scan does not flood the dialog.
+        if progress is None:
+            return
+        now = time.monotonic()
+        if not force and now - current["at"] < 0.1 and pct != 100:
+            return
+        current["at"] = now
+        try:
+            progress(current["key"], text, pct)
+        except Exception:
+            pass
+
+    def git_phase(text, pct):
+        # Keep the step's share rising: a later phase never goes below an earlier one.
+        share = step_share(text, pct)
+        if share is not None:
+            share = max(share, current.get("share") or 0)
+            current["share"] = share
+        detail(text, share)
+
+    live = git_phase if progress is not None else None
+
+    def scan_file(n, total, path):
+        detail("Checked %d of %d files · %s" % (n, total, path), round(100 * n / total) if total else None)
+
+    def rescan_file(n, total, path):
+        # The second check, after the changes are staged: most of saving.
+        detail("Checking again before saving: %d of %d files · %s" % (n, total, path),
+               round(90 * n / total) if total else None)
 
     adopted = False
     if action in ("pull", "both"):
@@ -473,9 +609,8 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             # rebase keeps the LOCAL line of every clashing hunk, which silently
             # drops lines another commit added.  Do NOT put `-X theirs` / `-X ours`
             # back on either pull.
-            pull = subprocess.run(
-                ["git", "-C", str(proj), "pull", "--rebase"],
-                capture_output=True, text=True, timeout=30, creationflags=_NO_WINDOW)
+            detail("Asking the server what is new", force=True)
+            pull = _git_live(["git", "-C", str(proj), "pull", "--rebase"], 30, live)
             clashed = []
             if pull.returncode != 0:
                 clashed = _unmerged_paths(proj)
@@ -508,6 +643,7 @@ def do_git_sync(action: str, confirm_branch: bool = False,
                 return {"ok": False, "messages": messages}
             out = pull.stdout.strip()
             step("restore")
+            detail("Putting your unsaved edits back on top" if stashed else "You had no unsaved edits to put back", force=True)
             if stashed:
                 pop = subprocess.run(["git", "-C", str(proj), "stash", "pop"],
                                      capture_output=True, text=True, creationflags=_NO_WINDOW)
@@ -526,6 +662,7 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             else:
                 messages.append("Pulled latest VibeNode updates from remote.")
             step("finish")
+            detail("Checking for new dependencies and data updates", force=True)
             # The update changed requirements.txt: install what it asks for, with
             # the interpreter that runs this server.  A pip failure is reported
             # but never undoes the pull.
@@ -556,8 +693,18 @@ def do_git_sync(action: str, confirm_branch: bool = False,
 
         # ── Security scan before push ──
         step("scan")
+        detail("Listing the files to check", force=True)
         from .git_scanner import scan_staged_files
-        scan = scan_staged_files(proj)
+        from . import scan_pass
+        # The browser's check just passed on exactly these files: rely on it
+        # instead of reading every file again (src/web/scan_pass.py).  The
+        # check after staging below always runs.
+        passed = scan_pass.clean_now(proj)
+        if passed:
+            detail("Already checked %d files a moment ago, nothing found" % passed["files"], 100, force=True)
+            scan = {"ok": True, "summary": "", "files_scanned": passed["files"], "reused": True}
+        else:
+            scan = scan_staged_files(proj, on_file=scan_file) if progress is not None else scan_staged_files(proj)
         if not scan["ok"]:
             return {"ok": False, "messages": messages + [
                 "\u26d4 Push blocked by security scan: " + scan["summary"],
@@ -566,6 +713,7 @@ def do_git_sync(action: str, confirm_branch: bool = False,
 
         # Auto-commit any uncommitted changes before pushing
         step("save")
+        detail("Looking for changed files", force=True)
         dirty = subprocess.run(["git", "-C", str(proj), "status", "--porcelain"],
                                capture_output=True, text=True, timeout=5, creationflags=_NO_WINDOW)
         if dirty.stdout.strip():
@@ -573,7 +721,7 @@ def do_git_sync(action: str, confirm_branch: bool = False,
                           capture_output=True, creationflags=_NO_WINDOW)
 
             # Re-scan after staging (git add -A might pick up new files)
-            scan2 = scan_staged_files(proj)
+            scan2 = scan_staged_files(proj, on_file=rescan_file) if progress is not None else scan_staged_files(proj)
             if not scan2["ok"]:
                 # Unstage everything to prevent accidental commit
                 subprocess.run(["git", "-C", str(proj), "reset", "HEAD"],
@@ -583,7 +731,9 @@ def do_git_sync(action: str, confirm_branch: bool = False,
                     "Secrets or sensitive files were detected. Run Code Scan for details."
                 ], "scan": scan2}
 
-            msg = build_commit_message(summary, gate, _staged_paths(proj))
+            staged = _staged_paths(proj)
+            detail("Saving %d changed file%s as a new version" % (len(staged), "" if len(staged) == 1 else "s"), 100, force=True)
+            msg = build_commit_message(summary, gate, staged)
             commit = subprocess.run(["git", "-C", str(proj), "commit", "-m", msg],
                                     capture_output=True, text=True, timeout=10, creationflags=_NO_WINDOW)
             if commit.returncode != 0:
@@ -610,8 +760,8 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             ], "scan": {"ok": False, "findings": outgoing, "blocked_files": [],
                         "summary": "Owner names in versions waiting to publish."}}
         step("upload")
-        push = subprocess.run(["git", "-C", str(proj), "push"],
-                               capture_output=True, text=True, timeout=30, creationflags=_NO_WINDOW)
+        detail("Connecting to the server", force=True)
+        push = _git_live(["git", "-C", str(proj), "push"], 30, live)
         if push.returncode != 0:
             ok = False
             messages.append("Could not push: " + (push.stderr.strip() or push.stdout.strip()))

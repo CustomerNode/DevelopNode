@@ -1290,6 +1290,8 @@ socket.on('message_ack', (data) => {
     // Reset watchdog timer — server confirmed receipt, give it more time
     // for the first response event to arrive
     if (typeof _resetMessageWatchdog === 'function') _resetMessageWatchdog(data.session_id);
+    // The sent bubble's footer goes from "Sending" to "Delivered" / "Queued".
+    if (window._pendingSendsApi) _pendingSendsApi.ack(data.session_id, !!data.queued);
 });
 
 // Message send failed — show a clear inline error with the user's text
@@ -1302,6 +1304,7 @@ socket.on('send_failed', (data) => {
 
     // Cancel watchdog — we know it failed
     if (typeof _cancelMessageWatchdog === 'function') _cancelMessageWatchdog(sid);
+    if (window._pendingSendsApi) _pendingSendsApi.drop(sid);
 
     // Revert session to idle so user can retry
     sessionKinds[sid] = 'idle';
@@ -1700,6 +1703,7 @@ socket.on('session_entry', (data) => {
     // every append, so `:last-child` never matches a message and every sent
     // message renders twice. See _findTrailingOptimisticBubble() in live-panel.js.
     if (data.entry.kind === 'user') {
+        if (window._pendingSendsApi) _pendingSendsApi.confirm(data.session_id, data.entry.text);
         const optimistic = (typeof _findTrailingOptimisticBubble === 'function')
             ? _findTrailingOptimisticBubble(logEl)
             : logEl.querySelector('.msg.user.optimistic-bubble:last-child');
@@ -1954,6 +1958,8 @@ socket.on('session_started', (data) => {
     if (data.session_id) {
         if (_isHiddenSession(data.session_id, data)) return;
         runningIds.add(data.session_id);
+        // A wake that carries the message: the server has it now.
+        if (window._pendingSendsApi) _pendingSendsApi.ack(data.session_id, false);
         // Don't overwrite optimistic 'working' state (set before start_session emit)
         if (sessionKinds[data.session_id] !== 'working') {
             sessionKinds[data.session_id] = 'idle';
@@ -2001,6 +2007,7 @@ socket.on('session_id_remapped', (data) => {
     const newId = data.new_id;
     if (!oldId || !newId) return;
     console.log('[WS] Session ID remapped:', oldId, '->', newId);
+    if (window._pendingSendsApi) _pendingSendsApi.rekey(oldId, newId);
 
     // Update planner session ID if it was remapped (before hidden check)
     if (typeof _plannerSessionId !== 'undefined' && _plannerSessionId === oldId) {
@@ -2249,6 +2256,9 @@ socket.on('session_log', (data) => {
     } else {
         liveLineCount = 0;
     }
+    // Messages sent from this tab that the server's log does not hold yet are
+    // drawn again: a redraw must never make a sent message vanish.
+    if (window._pendingSendsApi) _pendingSendsApi.restore(data.session_id, entries);
 
     if (typeof _updateLastMessageTimes === 'function') _updateLastMessageTimes();
     if (liveAutoScroll) {

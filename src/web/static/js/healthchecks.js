@@ -114,12 +114,47 @@ function _restartHealthPoll(ms) {
  */
 var _internetReachable = navigator.onLine;  // seed with browser hint
 
+// A page opened from this machine (localhost / 127.x / ::1) reaches its own
+// server with no network at all, so on the computer a working /api/ping says
+// nothing about the internet. Only a page that came over the network (Mobile
+// Command on the phone) may treat its server as proof of a connection.
+// Without this, booting a PC with the wifi off showed endless skeletons and
+// never the "No Internet Connection" overlay.
+var _pageIsLocal = (function() {
+    var h = (location.hostname || '').replace(/^\[|\]$/g, '').toLowerCase();
+    return h === 'localhost' || h === '::1' || /^127\./.test(h) || h === '';
+})();
+
+function _serverProvesInternet() {
+    return _serverReachable && !_pageIsLocal;
+}
+
+// Two hosts, either one answering counts: gstatic is blocked on some networks,
+// and Claude's own API is what VibeNode actually needs. On the computer this
+// probe is the only signal (see _pageIsLocal), so one blocked host must not
+// put up the overlay.
+var _INTERNET_PROBES = [
+    'https://www.gstatic.com/generate_204',
+    'https://api.anthropic.com/'
+];
+
 function _probeInternet() {
-    fetch('https://www.gstatic.com/generate_204', {
-        method: 'HEAD', mode: 'no-cors', cache: 'no-store'
-    })
-    .then(function() { _internetReachable = true;  _runHealthChecks(); })
-    .catch(function() { _internetReachable = false; _runHealthChecks(); });
+    var pending = _INTERNET_PROBES.length, answered = false;
+    _INTERNET_PROBES.forEach(function(url) {
+        fetch(url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
+        .then(function() {
+            if (answered) return;
+            answered = true;
+            _internetReachable = true;
+            _runHealthChecks();
+        })
+        .catch(function() {
+            if (--pending === 0 && !answered) {
+                _internetReachable = false;
+                _runHealthChecks();
+            }
+        });
+    });
 }
 
 registerHealthCheck('wifi', {
@@ -130,7 +165,7 @@ registerHealthCheck('wifi', {
         // If our own server is reachable, we have internet by definition.
         // This suppresses false-positive wifi overlays during Tailscale
         // reconnection where gstatic can be slow/blocked but /api/ping works.
-        if (_serverReachable) return true;
+        if (_serverProvesInternet()) return true;
         return _internetReachable;
     }
 });
@@ -259,7 +294,9 @@ function _probeServer() {
                 // Server reachability implies internet reachability.
                 // Refresh the gstatic-derived flag so a subsequent stale
                 // probe doesn't flash the wifi overlay.
-                _internetReachable = true;
+                // Not on a page from this machine: there the server answers
+                // with the network down.
+                if (!_pageIsLocal) _internetReachable = true;
                 if (!_serverReachable) {
                     _serverReachable = true;
                     _runHealthChecks();

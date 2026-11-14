@@ -734,10 +734,13 @@ def count_scannable_files(proj: Path = None) -> Dict:
         return {"count": 0}
 
 
-def scan_staged_files(proj: Path = None) -> Dict:
+def scan_staged_files(proj: Path = None, on_file=None) -> Dict:
     """
     Scan ALL tracked files + untracked files for secrets before push.
     Returns: {"ok": bool, "findings": [...], "blocked_files": [...], "summary": str}
+
+    ``on_file(n, total, path)`` is called before each file is read, so a caller
+    can show the scan working; it never changes the result.
     """
     proj = proj or _VIBENODE_DIR
     findings = []
@@ -764,7 +767,13 @@ def scan_staged_files(proj: Path = None) -> Dict:
     if not all_files:
         return {"ok": True, "findings": [], "blocked_files": [], "summary": "No files to scan."}
 
-    for fpath in sorted(all_files):
+    total = len(all_files)
+    for idx, fpath in enumerate(sorted(all_files)):
+        if on_file is not None:
+            try:
+                on_file(idx + 1, total, fpath)
+            except Exception:
+                pass
         full = proj / fpath
         norm = fpath.replace('\\', '/')
 

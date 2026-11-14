@@ -16,8 +16,11 @@ def _usable_cpus() -> int:
 
 
 def worker_count() -> int:
-    """xdist workers: each is its own interpreter."""
-    return max(2, min(8, _usable_cpus() - 2))
+    """xdist workers: each is its own interpreter.  Measured on 24 usable
+    CPUs (Windows, the Publish gate's run): 8 / 16 / 22 workers took
+    117 / 96 / 116 seconds, so past 16 the start-up of each interpreter
+    costs more than it saves."""
+    return max(2, min(16, _usable_cpus() - 2))
 
 
 def fork_worker_count() -> int:

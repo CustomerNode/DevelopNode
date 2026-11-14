@@ -218,10 +218,11 @@ def test_a_clash_in_the_pull_itself_tells_the_session_to_redo_the_pull(page):
     assert "git pull --rebase" in prompt and "never with -X theirs" in prompt
 
 
-def test_publishing_fills_the_ring_step_by_step_and_never_spins(page):
-    """The server names its steps and says when each starts
-    (/api/git-sync-stream); the dialog shows the step, "Step i of n", and a
-    ring that has moved, never a spinning ring."""
+def test_publishing_shows_the_work_as_it_happens(page):
+    """The server names its steps, says when each starts and what it is doing
+    inside it (/api/git-sync-stream).  The dialog shows the step, git's own
+    live line, a checklist with times, and a ring and percentage that follow
+    the reported counts; it never sits on a spinner."""
     page.evaluate("""() => {
       const enc = new TextEncoder();
       window.__push = null;
@@ -232,24 +233,33 @@ def test_publishing_fills_the_ring_step_by_step_and_never_spins(page):
     page.evaluate("""() => {
       __push({type: 'steps', steps: [{key: 'scan', label: 'Checking files for keys'},
         {key: 'save', label: 'Saving a new version'}, {key: 'upload', label: 'Uploading'}]});
-      __push({type: 'step', key: 'save'});
+      __push({type: 'step', key: 'scan'});
+      __push({type: 'detail', key: 'scan', text: 'Checked 270 of 540 files · src/web/app.py', pct: 50});
     }""")
-    _until(page, "() => /Saving a new version/.test(document.getElementById('sync-step-label').textContent)")
-    assert page.locator("#scan-progress-text").text_content() == "Step 2 of 3"
-    page.clock.run_for(3000)
+    _until(page, "() => /Checked 270 of 540 files/.test(document.getElementById('scan-progress-text').textContent)")
+    assert page.locator("#gs-big").text_content() == "16%"            # half of the first of three steps
+    page.clock.run_for(2000)
+    assert page.locator("#gs-big").text_content() == "16%", "a reported count is shown as it is, not eased"
+    page.evaluate("""() => { __push({type: 'step', key: 'upload'});
+      __push({type: 'detail', key: 'upload', text: 'Uploading 9 of 20 · 1.20 MiB · 300.00 KiB/s', pct: 45}); }""")
+    _until(page, "() => /Uploading 9 of 20/.test(document.getElementById('scan-progress-text').textContent)")
+    assert page.locator("#sync-step-label").text_content() == "Uploading"
+    assert page.locator("#gs-big").text_content() == "81%"            # two steps done, 45% of the third
+    steps = page.locator("#gs-steps li")
+    assert [steps.nth(i).get_attribute("class") for i in range(3)] == ["gs-st done", "gs-st done", "gs-st cur"]
+    clock = page.locator("#gs-step-clock").text_content()
+    page.clock.run_for(2000)
+    assert page.locator("#gs-step-clock").text_content() != clock, "the running step's clock ticks"
+    assert "so far" in page.locator("#gs-total-clock").text_content()
     full = 2 * 3.141592653589793 * 52
     off = float(page.get_attribute("#gs-ring", "stroke-dashoffset"))
-    assert full * (1 - 2 / 3) < off < full * (1 - 1 / 3), "the ring sits inside step 2's share"
+    assert abs((1 - off / full) - 0.8166) < 0.01
     assert page.evaluate("() => document.querySelectorAll('.gs-spin').length") == 0
     # Minimized, the pill shows the same progress: a filled ring and a percentage, no spinner.
     page.evaluate("() => minimizeGitSyncModal()")
     page.clock.run_for(600)
-    pct = page.locator("#git-sync-mini-pct").text_content()
-    assert pct.endswith("%") and 34 <= int(pct[:-1]) < 67, pct
+    assert page.locator("#git-sync-mini-pct").text_content() == "81%"
     assert page.locator("#git-sync-mini-spinner.working").count() == 0
-    mini_off = float(page.get_attribute("#git-sync-mini-ring", "stroke-dashoffset"))
-    mini_full = 2 * 3.141592653589793 * 8
-    assert abs((1 - mini_off / mini_full) - (1 - off / full)) < 0.1
     page.evaluate("""() => { __push({type: 'done', result: {ok: true, messages: ['Pushed.'],
       git_status: {ahead: 0, behind: 0, uncommitted: false}}}); __end(); }""")
     _until(page, "() => /Published/.test(document.getElementById('git-sync-mini-label').textContent)")

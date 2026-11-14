@@ -485,7 +485,8 @@ os.environ["VIBENODE_PLANNED_RESTART_FILE"] = os.path.join(
 # record and skip the run they are testing (src/web/gate_reuse.py); nested pytest
 # runs the suite starts must not write records either.  tests/test_gate_reuse.py
 # turns it back on for itself.
-_REUSE_OFF_BY_CALLER = os.environ.get("VIBENODE_TEST_REUSE") == "0"  # the caller's wish, before ours
+_CALLER_REUSE = os.environ.get("VIBENODE_TEST_REUSE")    # the caller's value, before ours
+_REUSE_OFF_BY_CALLER = _CALLER_REUSE == "0"  # the caller's wish, before ours
 os.environ["VIBENODE_TEST_REUSE"] = "0"
 # Smart termination refuses a card the self-check (src/engine/handoff_check.py)
 # did not pass.  The suite's cards are written in tests, never checked, so the
@@ -1024,6 +1025,15 @@ def pytest_configure(config):
         return
     env = dict(os.environ)
     env[_SANDBOX_ENV] = "1"
+    # The re-exec'd run reads "the caller's wish" from its environment at import;
+    # hand it the CALLER's value, not the "0" this process set for itself above.
+    # Passing ours along made every Linux run believe the caller had turned
+    # recording off, so no passing run was ever recorded and Publish never
+    # reused one.
+    if _CALLER_REUSE is None:
+        env.pop("VIBENODE_TEST_REUSE", None)
+    else:
+        env["VIBENODE_TEST_REUSE"] = _CALLER_REUSE
     args = list(config.invocation_params.args)
     cmd = _SANDBOX_CMD + [
         "bash", "-c", 'setsid -w "$@"; exit $?', "bash",

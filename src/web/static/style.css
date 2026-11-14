@@ -2145,6 +2145,20 @@ pre.vn-code code { white-space: inherit; overflow-wrap: inherit; }
 .trun-ring-fill.trun-ring-ok { stroke: var(--green); }
 .trun-pct.trun-ok { color: var(--green); }
 .gs-file { font-size: var(--fs-sm); color: var(--text-faint); margin-top: 3px; max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The steps of a sync, under the ring: done, running, still to come. */
+.gs-steps { list-style: none; margin: 16px auto 0; padding: 0; max-width: 300px; text-align: left; }
+.gs-st { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: var(--fs-md); color: var(--text-faint); }
+.gs-st-mark { width: 14px; height: 14px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.gs-st-mark svg { width: 13px; height: 13px; }
+.gs-st-mark i { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
+.gs-st-name { flex: 1; min-width: 0; }
+.gs-st-time { font-variant-numeric: tabular-nums; }
+.gs-st.done { color: var(--text-muted); }
+.gs-st.done .gs-st-mark { color: var(--green); }
+.gs-st.cur { color: var(--text-heading); font-weight: 600; }
+.gs-st.cur .gs-st-mark i { border: 0; background: var(--accent); width: 8px; height: 8px; }
+.gs-st.cur .gs-st-time { color: var(--text-muted); font-weight: 400; }
+#git-sync-body #scan-progress-text { max-width: 380px; margin-left: auto; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-lines { list-style: none; margin: 12px 0 0; padding: 0; font-size: var(--fs-md); color: var(--text-muted); line-height: 1.55; }
 .gs-lines li + li { margin-top: 2px; }
 /* Raw output a person may need to read or copy (failing tests, pip). */
@@ -13805,6 +13819,14 @@ body.mc-mode #main-panel { width: 100% !important; margin-left: 0 !important; he
 .conversation .vn-msg-footer { font-family: var(--font-sans); font-size: 10.5px; letter-spacing: 0; font-weight: 400; margin-top: 5px; }
 .conversation .msg.user:hover .vn-msg-footer, .conversation .msg.user:not(:has(~ .msg)) .vn-msg-footer { opacity: .6; }
 .vn-msg-footer-mic { display: inline-block; vertical-align: -1.5px; margin-right: 4px; }
+/* A sent message the server has not accepted yet keeps its footer on screen:
+   "Sending" with a pulsing dot, then "Delivered" / "Queued" (live-panel.js,
+   _sendStateHtml). */
+.msg.user[data-pending-id] .vn-msg-footer { opacity: .75 !important; }
+.vn-send-state.is-sending { color: var(--text-secondary); }
+.vn-send-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; background: currentColor; animation: vnSendPulse 1s ease-in-out infinite; }
+@keyframes vnSendPulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vn-send-dot { animation: none; } }
 
 /* ── Rich content inside Claude's replies: tables, headings, quotes, rules, links ──
    Same language as the rest of the thread: hairlines instead of filled grids,

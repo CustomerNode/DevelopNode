@@ -3855,7 +3855,7 @@ async function _liveSubmitDirect(sid, text, opts) {
   // Add optimistic user bubble only for real messages (not permission answers, not slash commands)
   const _isSlash = text.trim().startsWith('/') && !text.trim().includes(' ');
   if (!wasPermission && text.length > 1 && !_isSlash) {
-    _addOptimisticBubble(sid, text, _isVoice);
+    _addOptimisticBubble(sid, text, _isVoice, {pending: _notePendingSend(sid, text, _isVoice)});
   }
 
   // Optimistically set working state and render the full working bar immediately
@@ -4055,11 +4055,128 @@ function _addOptimisticBubble(sid, text, isVoice, opts) {
   const _timeStr = nowH + ':' + String(now.getMinutes()).padStart(2, '0') + ' ' + (now.getHours() >= 12 ? 'PM' : 'AM');
   vnFooter.innerHTML = _vnMsgFooterHtml(isVoice, _timeStr);
   if (!_vnEvent) userMsg.appendChild(vnFooter);   // "sent from" belongs to what the user typed
+  const _pend = opts && opts.pending;
+  if (_pend) {
+    userMsg.dataset.pendingId = _pend.id;
+    if (!_vnEvent) vnFooter.insertAdjacentHTML('beforeend', _sendStateHtml(_pend));
+  }
   userMsg.addEventListener('animationend', () => userMsg.classList.remove('msg-entering'), {once: true});
   logEl.appendChild(userMsg);
   // [classic] Classic scroll: every bubble jumps to the bottom.
   if (!(opts && opts.passive) || (window.vnClassicScroll && vnClassicScroll())) logEl.scrollTop = logEl.scrollHeight;
 }
+
+// ── Sent, not yet in the thread: the bubble never vanishes ──────────────────
+//
+// A message the user sends is drawn at once (the optimistic bubble), but the
+// server writes it into the session's log only when the session takes it,
+// which for a sleeping session means after the CLI has woken (seconds to a
+// minute). Any full redraw of the thread in between (a wake's state change,
+// a reconnect, switching away and back) rebuilt the thread from the server's
+// log and the bubble disappeared, so the message looked lost.
+//
+// Each send from this tab is remembered per session until the server's log
+// holds it. A full redraw puts the bubble back, and its footer says where the
+// message is: "Sending" until the server accepts it (message_ack /
+// session_started), then "Delivered" (or "Queued"). Once accepted, the server
+// owns the message, so switching sessions is safe.
+const _pendingSends = {};             // sid -> [{id, text, voice, at, state}]
+const _PENDING_SEND_TTL_MS = 15 * 60 * 1000;
+let _pendingSendSeq = 0;
+
+function _pendingSendList(sid) {
+  const list = _pendingSends[sid];
+  if (!list) return [];
+  const now = Date.now();
+  const live = list.filter(r => now - r.at < _PENDING_SEND_TTL_MS);
+  if (live.length) _pendingSends[sid] = live; else delete _pendingSends[sid];
+  return live;
+}
+
+function _notePendingSend(sid, text, voice) {
+  const rec = {id: 'ps' + (++_pendingSendSeq), text: String(text || ''), voice: !!voice,
+               at: Date.now(), state: 'sending'};
+  (_pendingSends[sid] = _pendingSendList(sid)).push(rec);
+  return rec;
+}
+
+function _sendStateHtml(rec) {
+  const label = rec.state === 'queued' ? 'Queued'
+    : rec.state === 'delivered' ? 'Delivered' : 'Sending';
+  return '<span class="vn-send-state is-' + rec.state + '" title="' +
+    (rec.state === 'sending' ? 'On its way to the server'
+      : 'The server has it: safe to switch sessions') + '">' +
+    ' · ' + (rec.state === 'sending' ? '<i class="vn-send-dot"></i>' : '') + label + '</span>';
+}
+
+function _paintSendState(rec) {
+  document.querySelectorAll('.msg[data-pending-id="' + rec.id + '"] .vn-send-state')
+    .forEach(el => { el.outerHTML = _sendStateHtml(rec); });
+}
+
+/** The server accepted the oldest message still marked Sending. */
+function _ackPendingSend(sid, queued) {
+  const rec = _pendingSendList(sid).find(r => r.state === 'sending');
+  if (!rec) return;
+  rec.state = queued ? 'queued' : 'delivered';
+  _paintSendState(rec);
+}
+
+function _sameSentText(sent, logged) {
+  const a = String(sent || '').trim();
+  const b = _stripVnMeta(String(logged || '')).clean.trim();
+  if (!a || !b) return false;
+  return a === b || b.includes(a) || a.includes(b);
+}
+
+/** The server's log now holds this message: forget it. */
+function _confirmPendingSend(sid, loggedText) {
+  const list = _pendingSendList(sid);
+  const i = list.findIndex(r => _sameSentText(r.text, loggedText));
+  if (i >= 0) list.splice(i, 1);
+  if (!list.length) delete _pendingSends[sid];
+}
+
+function _dropPendingSends(sid) { delete _pendingSends[sid]; }
+
+function _entryEpochMs(e) {
+  const t = e && e.timestamp;
+  if (t == null || t === '') return NaN;
+  if (typeof t === 'number') return t < 1e12 ? t * 1000 : t;
+  const n = Number(t);
+  if (!isNaN(n)) return n < 1e12 ? n * 1000 : n;
+  return Date.parse(t);
+}
+
+/** After a full redraw from the server's log: drop what the log now holds,
+ *  draw the rest again at the end of the thread. */
+function _restorePendingBubbles(sid, entries) {
+  const list = _pendingSendList(sid);
+  if (!list.length || sid !== liveSessionId) return;
+  const users = (entries || []).filter(e => e && e.kind === 'user');
+  const lastUser = users[users.length - 1];
+  for (const rec of list.slice()) {
+    // A user entry logged at or after the send (2 min of clock slack between
+    // devices) with the same words is this message. With no timestamp, only
+    // the newest user entry may count, so an older identical "yes" never does.
+    const hit = users.some(e => {
+      const ms = _entryEpochMs(e);
+      if (isNaN(ms)) return e === lastUser && _sameSentText(rec.text, e.text);
+      return ms >= rec.at - 120000 && _sameSentText(rec.text, e.text);
+    });
+    if (hit) { _confirmPendingSend(sid, rec.text); continue; }
+    _addOptimisticBubble(sid, rec.text, rec.voice, {pending: rec, passive: true});
+  }
+}
+
+function _rekeyPendingSends(oldSid, newSid) {
+  if (!_pendingSends[oldSid] || oldSid === newSid) return;
+  _pendingSends[newSid] = (_pendingSends[newSid] || []).concat(_pendingSends[oldSid]);
+  delete _pendingSends[oldSid];
+}
+window._pendingSendsApi = {ack: _ackPendingSend, confirm: _confirmPendingSend,
+  drop: _dropPendingSends, restore: _restorePendingBubbles, rekey: _rekeyPendingSends,
+  list: _pendingSendList};
 
 // ── Optimistic bubble lookup — MUST ignore ThreadScroll's tail nodes ────────
 //
@@ -4139,7 +4256,7 @@ function liveSubmitContinue(fromId) {
   if (wasVoice) _lastSubmitWasVoice = false;
 
   // Add optimistic user bubble (with voice tag if applicable)
-  _addOptimisticBubble(sid, text, wasVoice);
+  _addOptimisticBubble(sid, text, wasVoice, {pending: _notePendingSend(sid, text, wasVoice)});
 
   _liveSending = true;
   performance.mark('submit-' + sid);

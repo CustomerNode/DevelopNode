@@ -41,14 +41,16 @@ class TestParallelArgs:
     def test_uses_xdist_when_installed(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "xdist", object())
         monkeypatch.setattr("os.cpu_count", lambda: 12)
-        assert ta._parallel_args() == ["-n", "8", "--dist", "loadfile"]
+        assert ta._parallel_args() == ["-n", "10", "--dist", "loadfile"]
 
     def test_worker_count_bounds(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "xdist", object())
         monkeypatch.setattr("os.cpu_count", lambda: 2)
         assert ta._parallel_args()[:2] == ["-n", "2"]
         monkeypatch.setattr("os.cpu_count", lambda: 64)
-        assert ta._parallel_args()[:2] == ["-n", "8"]
+        assert ta._parallel_args()[:2] == ["-n", "16"]
+        monkeypatch.setattr("os.cpu_count", lambda: 18)
+        assert ta._parallel_args()[:2] == ["-n", "16"]
 
     def test_serial_fallback_without_xdist(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "xdist", None)  # import raises

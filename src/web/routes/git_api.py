@@ -45,7 +45,9 @@ def api_git_sync_stream():
     """The same sync as /api/git-sync, reporting each step as it starts.
 
     One JSON object per line: ``{"type": "steps", "steps": [{key, label}]}``
-    first, then ``{"type": "step", "key": ...}`` as each step begins, then
+    first, then ``{"type": "step", "key": ...}`` as each step begins and
+    ``{"type": "detail", "key", "text", "pct"}`` while it runs (what it is
+    doing right now, and how far through the step when known), then
     ``{"type": "done", "result": {...}}`` with exactly what /api/git-sync
     returns.  The sync runs on its own thread, so a reader that goes away never
     stops it half way.
@@ -61,10 +63,16 @@ def api_git_sync_stream():
     gate = data.get("gate") if isinstance(data.get("gate"), dict) else None
     events = queue.Queue()
 
+    def report(key, text=None, pct=None):
+        if text is None:
+            events.put({"type": "step", "key": key})
+        else:
+            events.put({"type": "detail", "key": key, "text": text, "pct": pct})
+
     def run():
         try:
             result = do_git_sync(action, confirm_branch=confirm_branch, summary=summary, gate=gate,
-                                 progress=lambda key: events.put({"type": "step", "key": key}))
+                                 progress=report)
         except Exception as e:   # the dialog must always get an answer
             result = {"ok": False, "messages": ["Could not complete: " + str(e)]}
         result["git_status"] = get_git_cache()
@@ -94,11 +102,30 @@ def api_git_scan():
 
 @bp.route("/api/git-scan-stream")
 def api_git_scan_stream():
-    """SSE endpoint — streams real file-by-file scan progress."""
+    """SSE endpoint — streams real file-by-file scan progress.
+
+    A clean result is remembered with a fingerprint of the files, taken before
+    and after the check, so the publish that follows can skip reading the same
+    files again (src/web/scan_pass.py).
+    """
+    import json
     from ..git_scanner import scan_staged_files_stream
+    from .. import scan_pass
+    from ..config import _VIBENODE_DIR
 
     def generate():
+        before = scan_pass.fingerprint(_VIBENODE_DIR)
         for line in scan_staged_files_stream():
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                ev = {}
+            if ev.get("type") == "done":
+                if ev.get("ok"):
+                    scan_pass.record_clean(_VIBENODE_DIR, before, scan_pass.fingerprint(_VIBENODE_DIR),
+                                           int(ev.get("files_scanned") or 0))
+                else:
+                    scan_pass.forget()
             yield f"data: {line}\n\n"
 
     return Response(generate(), mimetype='text/event-stream',

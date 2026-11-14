@@ -135,39 +135,96 @@ function _gsFill(pct) {
   if (fill) fill.setAttribute('stroke-dashoffset', (_GS_RC * (1 - Math.max(0, Math.min(100, pct)) / 100)).toFixed(2));
 }
 
-// ── The git steps: the ring fills step by step, never spins ──
-// The server names its steps up front and says when each starts
-// (/api/git-sync-stream).  Within a step the ring moves slowly toward the
-// step's end and never reaches it, so it always shows where the run is and
-// that it is still moving.  A server without the stream gives one step.
-let _gsSteps = null;     // [{key, label}]
+// ── The git steps: the dialog shows the work itself ──
+// The server names its steps up front, says when each starts, and while one
+// runs reports what it is doing right now: each file the security check reads,
+// git's own upload and download counts and speed (/api/git-sync-stream).  The
+// ring and the number in it are the real share done; under it, the step, the
+// live line, and a checklist of every step with how long it took.  Only when
+// a step reports no count does its share of the ring ease forward.
+let _gsSteps = null;     // [{key, label, start, end}]
+let _gsCur = -1;         // index of the step running now
 let _gsCreepTimer = null;
+let _gsRunStart = 0;     // when this sync started
+let _gsStepStart = 0;    // when the current step started
+let _gsStepPct = null;   // the current step's own reported share, 0-100, or null
 
 function _gsStopCreep() {
   if (_gsCreepTimer) { clearInterval(_gsCreepTimer); _gsCreepTimer = null; }
 }
 
-/** Show step `i` of the run: its name, "Step i of n", and the ring moving through it. */
-function _gsStep(i, label) {
+function _gsClock(ms) {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+
+/** The checklist of steps under the ring. */
+function _gsDrawChecklist() {
+  const body = document.getElementById('git-sync-body');
+  if (!body || !_gsSteps || _gsSteps.length < 2) return;
+  let list = document.getElementById('gs-steps');
+  if (!list) {
+    list = document.createElement('ul');
+    list.id = 'gs-steps';
+    list.className = 'gs-steps';
+    body.appendChild(list);
+  }
+  list.innerHTML = _gsSteps.map((s, i) => {
+    const state = i < _gsCur ? 'done' : i === _gsCur ? 'cur' : 'todo';
+    const time = state === 'done' ? _gsClock((s.end || 0) - (s.start || 0))
+      : state === 'cur' ? '<span id="gs-step-clock">' + _gsClock(Date.now() - _gsStepStart) + '</span>' : '';
+    const mark = state === 'done' ? _GS_ICON.check : '<i></i>';
+    return '<li class="gs-st ' + state + '"><span class="gs-st-mark">' + mark + '</span>'
+      + '<span class="gs-st-name">' + escHtml(s.label) + '</span><span class="gs-st-time">' + time + '</span></li>';
+  }).join('');
+}
+
+/** The ring, the number in it and the clocks, from where the run is now. */
+function _gsDrawNow() {
   const n = (_gsSteps && _gsSteps.length) || 1;
-  const from = 100 * i / n, span = 100 / n;
+  const i = Math.max(0, _gsCur);
+  const inStep = _gsStepPct !== null
+    ? _gsStepPct / 100
+    : 0.9 * (1 - Math.exp(-(Date.now() - _gsStepStart) / 5000));   // no count reported: ease forward
+  const overall = 100 * (i + inStep) / n;
+  _gsFill(overall);
+  const big = document.getElementById('gs-big');
+  if (big) big.textContent = Math.floor(overall) + '%';
+  const clock = document.getElementById('gs-step-clock');
+  if (clock) clock.textContent = _gsClock(Date.now() - _gsStepStart);
+  const total = document.getElementById('gs-total-clock');
+  if (total) total.textContent = _gsClock(Date.now() - _gsRunStart) + ' so far';
+}
+
+/** Step `i` has started. */
+function _gsStep(i, label) {
+  const now = Date.now();
+  if (_gsSteps && _gsCur >= 0 && _gsSteps[_gsCur]) _gsSteps[_gsCur].end = now;
+  _gsCur = i;
+  if (_gsSteps && _gsSteps[i]) _gsSteps[i].start = now;
+  _gsStepStart = now;
+  _gsStepPct = null;
+  if (!_gsRunStart) _gsRunStart = now;
   const el = document.getElementById('sync-step-label');
   const text = document.getElementById('scan-progress-text');
   const fname = document.getElementById('scan-file-name');
-  const big = document.getElementById('gs-big');
   if (el) el.textContent = label;
-  if (text) text.textContent = n > 1 ? 'Step ' + (i + 1) + ' of ' + n : '';
+  if (text) text.textContent = 'Starting…';
   if (fname) fname.textContent = '';
-  if (big) big.textContent = '';
+  if (!document.getElementById('gs-total-clock')) {
+    const t = document.createElement('div');
+    t.id = 'gs-total-clock';
+    t.className = 'gs-file';
+    const trun = document.querySelector('#git-sync-body .trun');
+    if (trun) trun.appendChild(t);
+  }
+  _gsDrawChecklist();
   _gsStopCreep();
-  _gsFill(from);
-  const t0 = Date.now();
-  // Moves 90% of the way through the step's share, quickly at first; a step
-  // that runs long still moves, more slowly.
+  _gsDrawNow();
   _gsCreepTimer = setInterval(() => {
     if (!document.getElementById('gs-ring')) return _gsStopCreep();
-    _gsFill(from + span * 0.9 * (1 - Math.exp(-(Date.now() - t0) / 5000)));
-  }, 120);
+    _gsDrawNow();
+  }, 200);
   _gitSyncMiniLabel = label;
   if (_gitSyncMinimized) {
     const miniLabel = document.getElementById('git-sync-mini-label');
@@ -175,18 +232,33 @@ function _gsStep(i, label) {
   }
 }
 
-/** Run the sync, showing each step the server reports.  Returns its result. */
+/** What the current step is doing right now, and how far through it is. */
+function _gsDetail(ev) {
+  const i = (_gsSteps || []).findIndex(s => s.key === ev.key);
+  if (i >= 0 && i !== _gsCur) _gsStep(i, _gsSteps[i].label);
+  const text = document.getElementById('scan-progress-text');
+  if (text && ev.text) text.textContent = ev.text;
+  if (typeof ev.pct === 'number') _gsStepPct = Math.max(0, Math.min(100, ev.pct));
+  _gsDrawNow();
+}
+
+/** Run the sync, showing the work as the server reports it.  Returns its result. */
 async function _gsRunSync(payload) {
   const req = {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)};
   _gsSteps = null;
+  _gsCur = -1;
+  _gsRunStart = Date.now();
   let res = null;
   try { res = await fetch('/api/git-sync-stream', req); } catch (_) { res = null; }
   const ndjson = res && res.ok && res.body && res.headers
     && /ndjson/.test(res.headers.get('content-type') || '');
   if (!ndjson) {
-    // A web server from before the stream: one step, the same request.
+    // A web server that has not restarted onto the stream: one step with a
+    // clock, the same request.
     _gsSteps = [{key: 'all', label: payload.action === 'pull' ? 'Pulling in updates' : 'Saving and uploading'}];
     _gsStep(0, _gsSteps[0].label);
+    const text = document.getElementById('scan-progress-text');
+    if (text) text.textContent = 'Working on the server';
     const r = await (await fetch('/api/git-sync', req)).json();
     _gsStopCreep();
     return r;
@@ -205,10 +277,12 @@ async function _gsRunSync(payload) {
       let ev;
       try { ev = JSON.parse(line); } catch (_) { continue; }
       if (ev.type === 'steps') {
-        _gsSteps = ev.steps || [];
+        _gsSteps = (ev.steps || []).map(s => ({key: s.key, label: s.label}));
       } else if (ev.type === 'step') {
         const i = (_gsSteps || []).findIndex(s => s.key === ev.key);
         if (i >= 0) _gsStep(i, _gsSteps[i].label);
+      } else if (ev.type === 'detail') {
+        _gsDetail(ev);
       } else if (ev.type === 'done') {
         result = ev.result;
       }
@@ -683,7 +757,7 @@ function _gsMiniFollow() {
       pct.className = 'git-sync-mini-pct';
       label.after(pct);
     }
-    if (pct) pct.textContent = f === null ? '' : Math.round(f * 100) + '%';
+    if (pct) pct.textContent = f === null ? '' : Math.floor(f * 100 + 1e-6) + '%';   // as the dialog's number
   };
   tick();
   _gsMiniTimer = setInterval(tick, 250);

@@ -1190,7 +1190,10 @@ def reviewer_problems(card: dict, facts: TurnFacts) -> list:
                     if isinstance(r, dict)]
         picks = needs.get("kind") == "decision" and bool(
             handoff_rules.shows_variants(card)
-            or sum(1 for r in replies_ if any(_shown_screen(x) for x in handoff_rules._items(r.get("screens")))) >= 2)
+            or sum(1 for r in replies_ if any(_shown_screen(x) for x in handoff_rules._items(r.get("screens")))) >= 2
+            # A form whose options carry pictures shows its variants in the popup.
+            or sum(1 for q in handoff_rules.split_items(needs, "form") for o in handoff_rules._items(q.get("options"))
+                   if handoff_rules.form_option_screen(o)) >= 2)
         # And a yes on work the user asked for: an answer whose next step
         # waits on the user carries the button for it.  It must answer first
         # and be tied to the request in "asks"; a new idea is still not an

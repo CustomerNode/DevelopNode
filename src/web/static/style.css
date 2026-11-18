@@ -14148,6 +14148,24 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 #project-overlay .project-act-btn { width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 7px; color: var(--text-muted); }
 #project-overlay .project-act-btn:hover { background: rgba(var(--bt), .10); border: 0; color: var(--text-primary); }
 #project-overlay .project-act-btn.danger:hover { background: rgba(220,38,38,.12); color: #dc2626; }
+/* Smart termination on: Needs you · Standby · Working columns under icon
+   headings in place of the session total (_renderProjectOverlay, app.js).
+   The path line goes, so each row is one line and the columns scan down. */
+#project-overlay .ps-head { display: grid; grid-template-columns: 1fr repeat(3, 32px); align-items: center; padding: 2px 12px 2px 52px; height: 22px; }
+#project-overlay .ps-head > span { display: flex; justify-content: center; }
+#project-overlay .ps-cols { display: grid; grid-template-columns: repeat(3, 32px); align-items: center; }
+#project-overlay .ps-n { text-align: center; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--vs)); }
+#project-overlay .ps-n.zero { color: var(--text-faint); opacity: .55; font-weight: 400; }
+#project-overlay .ps-n.vs-working { --vs: 138, 140, 255; }
+[data-theme="light"] #project-overlay .ps-n.vs-working { --vs: 90, 95, 225; }
+#project-overlay .ps-pick { display: block; filter: brightness(0) saturate(100%) invert(55%) sepia(78%) saturate(1000%) hue-rotate(215deg); }
+#project-overlay .ps-cols-on .project-item-path { display: none; }
+#project-overlay .ps-cols-on .project-item-right { min-width: 0; }
+/* The counts never hide: on hover rename and delete appear in their own
+   space just left of the columns (reserved, so nothing shifts). */
+@media (hover: hover) {
+  #project-overlay .ps-cols-on .project-item-actions { position: static; inset: auto; order: -1; margin-right: 6px; }
+}
 
 /* ── Continuous shell (desktop) ──
    The top nav and the left panel are one surface: same colour, no line between

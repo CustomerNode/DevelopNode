@@ -232,11 +232,17 @@
   }
 
   /** Is the very end of the thread strictly inside the visible box? */
+  /** 2px absorbs sub-pixel rounding. A full render empties the log and the
+   *  sentinel is put back only in the next mutation callback; until then its
+   *  rect is all zeros and read as "in view", so measure the scroll instead. */
   function _tailInView() {
     if (!_logEl || !_sentinel) return true;
+    if (_sentinel.parentNode !== _logEl) {
+      return _logEl.scrollHeight - _logEl.scrollTop - _logEl.clientHeight <= 2;
+    }
     var s = _sentinel.getBoundingClientRect();
     var c = _logEl.getBoundingClientRect();
-    return s.top <= c.bottom + 2;   // 2px absorbs sub-pixel rounding
+    return s.top <= c.bottom + 2;
   }
 
   function _clearNew() {
@@ -927,6 +933,11 @@
    */
   function positioned() {
     _clearNew();
+    // Where the render left the view, now: the observer reports it only on
+    // the next rendering frame, and a holdBottom() before then (the composer
+    // redraw on the next state push) would pull a view positioned on a tall
+    // card's top down to its last line.
+    _atBottom = _tailInView();
     _skipNextBatch = true;
     // The render's mutation callback is already queued ahead of this
     // microtask, so this only drops the flag if the render added nothing.

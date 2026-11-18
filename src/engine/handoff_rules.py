@@ -84,7 +84,8 @@ def card_is_kind(card, key: str) -> bool:
 # Fields that are not prose the user reads as the session's words: links,
 # commands, button keys, enum values, and the reply text a button sends AS
 # the user.
-_SKIP_KEYS = frozenset({"url", "href", "command", "key", "kind", "type", "when", "reply", "recommended", "ok"})
+# "image": a form option's picture, an address the popup draws, not words.
+_SKIP_KEYS = frozenset({"url", "href", "command", "key", "kind", "type", "when", "reply", "recommended", "ok", "image"})
 
 # ── Phrase groups ─────────────────────────────────────────────────────────
 # (name, what to tell the session, regex).  Matching is case-insensitive on
@@ -1748,7 +1749,9 @@ SPLIT_TEMPLATES = {
                  "history go in Full); 2 to 6 options and exactly one recommended per question, each label at most 8 words, "
                  "its gain and verdict 4 to 12. The popup shows one question at a time, so the question, its context and "
                  "its options together are read as one screen: at most 60 words with two options, 15 more for each "
-                 "further option. Open the popup and look at it before you send",
+                 "further option. A choice that is a look (a design, an icon style, a layout) gives each option an "
+                 "\"image\": a picture of that choice (/static/... or /api/preview/asset/<id>), drawn atop its card; "
+                 "give every option of that question one or none. Open the popup and look at it before you send",
     },
     "pairs": {
         "prefix": "My review of the", "title": "title", "min": 1, "max": 12,
@@ -1780,8 +1783,9 @@ def split_instructions() -> str:
             f"When {t['when']}: ONE decision with needs.{k} instead of needs.replies, "
             f"{t['min']} to {t['max']} items, each shaped like {json.dumps(t['example'], ensure_ascii=False)}; "
             f"{t['rules']}. {t['does'][0].upper() + t['does'][1:]}, and sends every answer back in one "
-            f"message starting \"{t['prefix']}\". No needs.look or screens needed; not counted in "
-            f"the card's length. The summary starter prints a blank one: --start {k}.\n")
+            f"message starting \"{t['prefix']}\". "
+            + (f"Visuals: {t['visual']}. " if t.get("visual") else "")
+            + f"Not counted in the card's length. The summary starter prints a blank one: --start {k}.\n")
     return "".join(out)
 FORM_MIN_OPTIONS, FORM_MAX_OPTIONS = 2, 6
 # A form question is listed on the card AND down the popup's left side, so it
@@ -1867,8 +1871,14 @@ def _form_question_faults(name: str, q: dict) -> list:
                 faults.append(f"{name}, option {k}: \"{f}\" is at most {FORM_LINE_MAX_WORDS} words (now {fw})")
         if _HEX_ID.search(_s(o.get("gain")) + " " + _s(o.get("verdict"))):
             faults.append(f"{name}, option {k}: say what the thing is, not its hash")
+        if "image" in o and not _VALIDATE_URL.match(_s(o.get("image"))):
+            faults.append(f"{name}, option {k}: \"image\" must be an address the app can show "
+                          "(\"/static/...\", \"/api/preview/asset/<id>\" or http(s)://), not a file path")
     if len([o for o in opts if o.get("recommended") is True]) != 1:
         faults.append(f"{name} must mark exactly one option \"recommended\": true")
+    pics = [o for o in opts if _s(o.get("image"))]
+    if pics and len(pics) != len(opts):
+        faults.append(f"{name}: give every option a picture (\"image\") or none, so the choices compare side by side")
     screen, budget = form_screen_words(q), form_screen_budget(len(opts))
     if screen > budget:
         faults.append(f"{name} fills its popup screen with {screen} words, over {budget} for {len(opts)} options "
@@ -1944,7 +1954,60 @@ def split_problems(card: dict) -> list[str]:
         faults += check(name, x)
     if faults:
         out.append(f"The {noun}s need fixing: " + "; ".join(faults[:8]) + ". " + complete)
-    return out + _split_on_face(card, field, items)
+    seen = form_visual_problem(card) if field == "form" else None
+    return out + _split_on_face(card, field, items) + ([seen] if seen else [])
+
+
+_ON_A_SCREEN = re.compile(r"\b(?:on|at|from|via)\s+(?:\w+\s+){0,2}screens?\b", re.I)
+
+
+def form_option_screen(o) -> str:
+    """A form option's picture ("image"), drawn atop its card in the popup."""
+    return _s(o.get("image")) if isinstance(o, dict) else ""
+
+
+def form_visual_problem(card: dict) -> Optional[str]:
+    """Why a form whose questions are about how something looks leaves its
+    options as words only, or None.
+
+    The form popup shows one question at a time with its options as cards; a
+    page in needs.look or a screenshot link stays on the card behind the
+    popup, so a user picking "outline or filled icons for the toolbar" reads
+    labels with nothing to see.  A question about looks gives every option an
+    "image" (a picture of that choice), drawn atop the option's card.  Which questions: those whose own question, context or
+    option labels name something visual; when only the card's title,
+    headline or ask does, all of them."""
+    needs = card.get("needs") if isinstance(card.get("needs"), dict) else {}
+    qs = split_items(needs, "form")
+    if not qs:
+        return None
+
+    def visual(q):
+        opts = [o for o in _items(q.get("options")) if isinstance(o, dict)]
+        text = " \n ".join([_s(q.get("question")), _s(q.get("context"))] + [_s(o.get("label")) for o in opts])
+        # "set it up on her screen" says where a job is done, not how a thing looks
+        return _VISUAL_CHOICE.search(_ON_A_SCREEN.sub(" ", _norm(text)))
+
+    hits = [(i, q, visual(q)) for i, q in enumerate(qs)]
+    looks = [(i, q, m) for i, q, m in hits if m]
+    if not looks:
+        m = _VISUAL_CHOICE.search(_norm(" \n ".join(
+            [_s(card.get("title")), _s(card.get("headline")), _s(needs.get("ask"))])))
+        if not m:
+            return None
+        looks = [(i, q, m) for i, q, _ in hits]
+    bare = [i + 1 for i, q, _ in looks
+            if not all(form_option_screen(o) for o in _items(q.get("options")) if isinstance(o, dict))]
+    if not bare:
+        return None
+    word = looks[0][2].group(0)
+    return (f"This form asks how something looks (\"{word}\"), but question "
+            + ", ".join(map(str, bare)) + " offers its options as words only. The popup shows one "
+            "question at a time; needs.look and screenshot links stay behind it, so the user picks "
+            "without seeing. Give EVERY option of those questions an \"image\": a picture of that "
+            "choice (\"/static/scratch/<name>.png\" or \"/api/preview/asset/<id>\"), cropped to the "
+            "thing being chosen. The popup draws it atop the option's card. For another project's app, "
+            "picture its real components, not a redrawing.")
 
 
 # Where a card's own words are drawn, outside the popup.
@@ -2813,7 +2876,10 @@ or is presented (a design, layout, style, slides, a deck) must SHOW every \
 option before you ask: a scratch page of clickable mockups in needs.look and \
 each reply's "screens" pointing at its own section of that page \
 ("<page>.html#<id>"), shown live like the Now tab, never a screenshot. A file \
-to read is not a preview; such a card is sent back. When the choice is about \
+to read is not a preview; such a card is sent back. Several such choices in \
+one needs.form: the popup hides needs.look, so every option of a question \
+about looks carries its own "image", a picture of that choice; a form that \
+leaves them as words is sent back. When the choice is about \
 another project's app, the variants are built in that app and shown from it, \
 never redrawn by hand on a scratch page. An approval of something \
 the user must see ("ship the new dashboard?") puts ONE page to review in needs.look[0] \
@@ -3002,6 +3068,10 @@ def _card_urls(card: dict):
                     yield f"needs.replies[{i}].screens[{j}]", _s(s.get("url"))
                     for k, pic in _screen_pictures(s.get("image")):
                         yield f"needs.replies[{i}].screens[{j}].image{k}", pic
+    for i, q in enumerate(split_items(needs, "form") if split_field(needs) == "form" else []):
+        for j, o in enumerate(_items(q.get("options"))):
+            if isinstance(o, dict) and form_option_screen(o):
+                yield f"needs.form[{i}].options[{j}].image", form_option_screen(o)
     for i, pr in enumerate(split_items(needs, "pairs") if split_field(needs) == "pairs" else []):
         for side in ("a", "b"):
             x = pr.get(side) if isinstance(pr.get(side), dict) else {}

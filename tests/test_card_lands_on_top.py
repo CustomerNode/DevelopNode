@@ -82,6 +82,42 @@ def test_opening_a_session_lands_on_the_top_of_its_tall_card(browser):
         app.close()
 
 
+@pytest.mark.slow
+def test_a_resize_right_after_the_render_keeps_the_card_top(browser):
+    """On a busy page the composer can redraw (holdBottom) after a full render
+    but before the observer reports where the view is (only on the next
+    rendering frame), so the "at the bottom" it holds is the empty log's. The
+    render left the view on the tall card's top, so holdBottom must not pull
+    it down to the card's last line. Render and holdBottom run in one task
+    here, with no frame in between: that race every time."""
+    from tests._fake_app import CWD, FakeApp, fake_sessions, init_script
+    s = fake_sessions(1)
+    sid = s[0]["id"]
+    app = FakeApp(browser, s, init=init_script("sessions", "grid"),
+                  viewport={"width": 390, "height": 760}, clock=True,
+                  extra_routes={"/api/session/": lambda r: (200, {"id": sid, "display_title": "T", "messages": []})})
+    try:
+        app.push("session_state", {"session_id": sid, "state": "idle", "cwd": CWD})
+        app.eval(f"() => openInGUI('{sid}')")
+        app.page.wait_for_function(f"typeof liveSessionId !== 'undefined' && liveSessionId === '{sid}'", timeout=10000)
+        app.advance(400)
+        # Caught up on the (still empty) thread, as a reader who just opened it.
+        app.eval("() => ThreadScroll.catchUp()")
+        app.advance(200)
+        assert app.eval("() => ThreadScroll.atBottom()") is True
+        log = {"session_id": sid, "total": 3, "offset": 0, "has_more": False, "entries": [
+            {"kind": "user", "text": "build all three fixes"},
+            {"kind": "asst", "text": "Earlier reply. " * 40},
+            {"kind": "asst", "text": _tall_card()}]}
+        top = app.eval("""(d) => { window.__push('session_log', d);
+          ThreadScroll.holdBottom();
+          return (""" + CARD_TOP + """)(); }""", log)
+        assert -2 <= top <= 40, f"card top sits {top}px from the top of the thread (expected near 0)"
+        assert not app.errors, app.errors
+    finally:
+        app.close()
+
+
 def _open_with_reply(browser):
     from tests._fake_app import CWD, FakeApp, fake_sessions, init_script
     s = fake_sessions(1)

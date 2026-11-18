@@ -1379,7 +1379,7 @@ document.getElementById('git-sync-overlay').addEventListener('click', function(e
   if (this.dataset.sticky === '1') return;  // results dialog: buttons only (see showGitSyncModal)
   // During in-progress (no action buttons), minimize instead of close
   const acts = document.getElementById('git-sync-actions');
-  if (acts && acts.children.length === 0) {
+  if (acts && (acts.children.length === 0 || acts.querySelector('[data-minimize]'))) {
     minimizeGitSyncModal();
   } else {
     closeGitSyncModal();

@@ -2402,12 +2402,15 @@
       parse: n => (Array.isArray(n.form) ? n.form : []).filter(q => q && typeof q === 'object').map((q, i) => ({
         id: _str(q.id) || 'q' + (i + 1), question: _str(q.question), context: _str(q.context),
         options: (Array.isArray(q.options) ? q.options : []).filter(o => o && typeof o === 'object').map((o, j) => ({
-          key: _str(o.key) || String.fromCharCode(65 + j), label: _str(o.label), gain: _str(o.gain), verdict: _str(o.verdict), recommended: o.recommended === true })),
+          key: _str(o.key) || String.fromCharCode(65 + j), label: _str(o.label), gain: _str(o.gain), verdict: _str(o.verdict), recommended: o.recommended === true,
+          // A picture of the choice (an address this app shows), drawn atop its card.
+          image: /^(?:\/(?!\/)|https?:\/\/\S)/i.test(_str(o.image)) ? _str(o.image) : '' })),
       })).filter(q => q.question && q.options.length >= 2),
       title: q => q.question,
       status: (q, st) => { const o = q.options.find(x => x.key === st.pick[q.id]); return o ? '<span class="rp ok">' + I.check + inl(o.label) + '</span>' : '<span class="rp">Not answered</span>'; },
       pane: (q, i, k) => (q.context ? '<p class="ctx">' + inl(q.context) + '</p>' : '') +
-        '<div class="lm-fm-cards">' + q.options.map(o => '<button type="button" class="lm-fm-cd" data-pick="' + esc(o.key) + '">' +
+        '<div class="lm-fm-cards">' + q.options.map(o => '<button type="button" class="lm-fm-cd' + (o.image ? ' pic' : '') + '" data-pick="' + esc(o.key) + '">' +
+          (o.image ? '<img class="oi" alt="" loading="lazy" src="' + esc(o.image) + '">' : '') +
           '<span class="ol">' + inl(o.label) + (o.recommended ? '<span class="rec">Recommended</span>' : '') + '</span>' +
           (o.gain ? '<span class="li"><b>Gets you</b> ' + inl(o.gain) + '</span>' : '') +
           (o.verdict ? '<span class="li"><b>' + (o.recommended ? 'Why it wins' : 'Why not') + '</b> ' + inl(o.verdict) + '</span>' : '') + '</button>').join('') + '</div>' +

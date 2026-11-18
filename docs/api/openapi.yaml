@@ -1701,6 +1701,45 @@ paths:
                   session_count: 3
                   active: false
 
+  /api/project-status:
+    get:
+      tags: [Projects]
+      summary: Needs you / Standby / Working counts per project
+      operationId: getProjectStatus
+      description: |
+        Status counts for the projects named in `projects`, used by the
+        project picker after it draws its rows. Done sessions and new
+        sessions with nothing sent yet are not counted. Unknown or invalid
+        project names are left out of the result; at most 200 are read.
+      parameters:
+        - name: projects
+          in: query
+          required: false
+          description: Comma-separated encoded project directory names
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Counts keyed by encoded project name
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    needs:
+                      type: integer
+                    standby:
+                      type: integer
+                    working:
+                      type: integer
+              example:
+                C-Users-dev-Documents-my-project:
+                  needs: 2
+                  standby: 1
+                  working: 0
+
   /api/set-project:
     post:
       tags: [Projects]

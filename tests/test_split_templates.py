@@ -113,3 +113,36 @@ def test_an_unknown_kind_names_the_templates_too():
     with pytest.raises(ValueError) as e:
         hc.skeleton("nope")
     assert all(k in str(e.value) for k in hr.SPLIT_TEMPLATES)
+
+
+# ── A form option may show a picture of itself ───────────────────────────
+
+def _form_card(opts):
+    q = {"id": "q", "question": "Which look for the toolbar icons?",
+         "context": "The icons at the top of every page, beside the words.", "options": opts}
+    return {"needs": {"kind": "decision", "form": [q, dict(q, id="q2")]}}
+
+
+def _opt(key, rec=False, image=None):
+    o = {"key": key, "label": f"Choice {key} spelled out", "gain": f"what choice {key} gets you here",
+         "verdict": f"why choice {key} is or is not best", "recommended": rec}
+    if image is not None:
+        o["image"] = image
+    return o
+
+
+def test_a_form_option_may_carry_a_picture_of_itself():
+    card = _form_card([_opt("A", True, "/static/scratch/a.png"), _opt("B", image="/static/scratch/b.png")])
+    assert not any("image" in p or "picture" in p for p in hr.split_problems(card))
+
+
+def test_a_picture_that_is_a_file_path_or_on_only_some_options_is_sent_back():
+    bad = hr.split_problems(_form_card([_opt("A", True, "C:/x.png"), _opt("B", image="/static/b.png")]))
+    assert any("\"image\" must be an address" in p for p in bad)
+    some = hr.split_problems(_form_card([_opt("A", True, "/static/a.png"), _opt("B")]))
+    assert any("every option a picture" in p for p in some)
+
+
+def test_the_popup_draws_an_options_picture_atop_its_card():
+    body = JS[JS.index("const _SPLIT = {"):JS.index("function _splitOf(")]
+    assert "image:" in body and 'class="oi"' in body

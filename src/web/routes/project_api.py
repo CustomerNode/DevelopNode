@@ -92,6 +92,36 @@ def api_projects():
     return jsonify(results)
 
 
+@bp.route("/api/project-status")
+def api_project_status():
+    """Needs you / Standby / Working counts for the projects named in
+    ``?projects=<encoded>,<encoded>`` (src/web/project_status.py).  The picker
+    asks for this after drawing its rows: the first call reads every
+    transcript of those projects once."""
+    from ..project_status import project_counts
+    from ..session_awareness import _get_all_states_cached
+    wanted = [p for p in (request.args.get("projects") or "").split(",") if p]
+    sm = getattr(current_app, "session_manager", None)
+    try:
+        states = (sm.get_all_states() if current_app.testing else _get_all_states_cached(sm)) if sm else []
+    except Exception:
+        states = []
+    states = [s for s in (states or []) if isinstance(s, dict)
+              and s.get("session_type") not in ("planner", "title")
+              and not str(s.get("session_id", "")).startswith("_")]
+    out = {}
+    for enc in wanted[:200]:
+        d = _CLAUDE_PROJECTS / enc
+        if "/" in enc or "\\" in enc or enc in (".", "..") or not d.is_dir():
+            continue
+        mine = [s for s in states if s.get("cwd") and _encode_cwd(s["cwd"]).lower() == enc.lower()]
+        try:
+            out[enc] = project_counts(enc, mine, d)
+        except Exception:
+            continue
+    return jsonify(out)
+
+
 @bp.route("/api/set-project", methods=["POST"])
 def api_set_project():
     encoded = (request.get_json() or {}).get("project", "").strip()

@@ -222,6 +222,8 @@ async function loadProjects() {
     return;
   }
   const saved = localStorage.getItem('activeProject');
+  // The picker's status columns are ready before it is first opened.
+  setTimeout(_refreshProjectStatus, 1500);
 
   // Update the button label
   const savedMatch = _allProjects.find(p => p.encoded === saved);
@@ -477,9 +479,95 @@ function _projectHue(name) {
   return h % 360;
 }
 
-function _renderProjectOverlay() {
+// The picker's status columns (Smart termination on): Needs you, Standby,
+// Working, in the sidebar's own icons and colours (session-verb.js).
+const _PS_GROUPS = ['needs', 'standby', 'working'];
+const _PS_LABEL = { needs: 'Needs you', standby: 'Standby', working: 'Working' };
+function _psIcon(g) {
+  if (g === 'working') return '<img class="ps-pick" src="/static/svg/pickaxe.svg" width="12" height="12" alt="">';
+  return (window.SessionVerbCore && SessionVerbCore.iconHtml) ? SessionVerbCore.iconHtml(g, 13) : '';
+}
+let _projectStatusReq = 0;
+// The last counts this device saw, so the picker opens on its columns at once
+// (drawing the totals until the fetch landed flashed the old picker).
+const _PS_SAVED = 'vnProjectStatus';
+try { window._projectStatusCounts = JSON.parse(localStorage.getItem(_PS_SAVED) || 'null') || undefined; } catch (_e) { /* unreadable: fetched below */ }
+/** The open project's counts, from the statuses the sidebar draws right now
+ *  (session-verb.js), so they never lag the sidebar.  In All projects every
+ *  project in the list is counted.  {} when the list is not loaded. */
+function _localProjectCounts() {
+  const core = window.SessionVerbCore;
+  if (!core || typeof SessionStore === 'undefined' || !SessionStore.all) return {};
+  const rows = SessionStore.all() || [];
+  if (!rows.length) return {};
+  const allMode = !!(window.VNAllProjects && VNAllProjects.on() && VNAllProjects.projectOf);
+  const here = localStorage.getItem('activeProject') || '';
+  const out = {};
+  for (const r of rows) {
+    if (!r || !r.id) continue;
+    const proj = allMode ? VNAllProjects.projectOf(r.id) : here;
+    if (!proj) continue;
+    const c = out[proj] || (out[proj] = { needs: 0, standby: 0, working: 0 });
+    const g = core.shown(core.display(r.id));
+    if (g in c) c[g]++;
+  }
+  return out;
+}
+
+/** Redraw the picker if it is open (from the counts already known). */
+function _redrawOpenPicker() {
+  const overlay = document.getElementById('project-overlay');
+  if (overlay && overlay.classList.contains('show')) _renderProjectOverlay(true);
+}
+
+// Keep every project's counts current while the page is open, so opening the
+// picker shows them at once: any status change anywhere (debounced), and every
+// 20 s while the tab is in view.  The open project follows the sidebar live.
+let _psDebounce = null;
+function _projectStatusChanged() {
+  if (!window.SessionVerb) return;
+  _redrawOpenPicker();
+  clearTimeout(_psDebounce);
+  _psDebounce = setTimeout(_refreshProjectStatus, 800);
+}
+setInterval(() => {
+  if (document.visibilityState === 'visible' && window.SessionVerb) _refreshProjectStatus();
+}, 20000);
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof socket === 'undefined' || !socket.on) return;
+  ['session_state', 'session_hold', 'state_snapshot'].forEach(ev => socket.on(ev, () => _projectStatusChanged()));
+});
+
+/** Fetch every listed project's counts and redraw the open picker. */
+function _refreshProjectStatus() {
+  if (!window.SessionVerb || !_allProjects || !_allProjects.length) return;
+  const seq = ++_projectStatusReq;
+  const q = _allProjects.map(p => encodeURIComponent(p.encoded)).join(',');
+  const redraw = () => {
+    const overlay = document.getElementById('project-overlay');
+    if (overlay && overlay.classList.contains('show')) _renderProjectOverlay(true);
+  };
+  fetch('/api/project-status?projects=' + q, { cache: 'no-store' })
+    .then(r => {
+      // A web server without the route: back to the session totals.
+      if (r.status === 404) { window._projectStatusFailed = true; redraw(); return null; }
+      return r.ok ? r.json() : null;
+    })
+    .then(data => {
+      if (!data || seq !== _projectStatusReq) return;
+      window._projectStatusFailed = false;
+      window._projectStatusCounts = data;
+      try { localStorage.setItem(_PS_SAVED, JSON.stringify(data)); } catch (_e) { /* full or private */ }
+      const overlay = document.getElementById('project-overlay');
+      if (overlay && overlay.classList.contains('show')) _renderProjectOverlay(true);
+    })
+    .catch(() => {});
+}
+
+function _renderProjectOverlay(fromStatus) {
   const list = document.getElementById('project-list');
   if (!list) return;
+  if (fromStatus !== true) _refreshProjectStatus();
   const saved = localStorage.getItem('activeProject');
 
   if (!_allProjects || _allProjects.length === 0) {
@@ -511,6 +599,22 @@ function _renderProjectOverlay() {
   const _total = _allProjects.reduce((n, p) => n + (p.session_count || 0), 0);
   const _check = '<svg class="project-item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="Open"><path d="M20 6 9 17l-5-5"/></svg>';
   const _sessions = n => `${n} ${n === 1 ? 'session' : 'sessions'}`;
+  // Smart termination on: three columns (Needs you · Standby · Working) in
+  // place of the session total; Done is left out (src/web/project_status.py).
+  // Drawn at once (empty cells until a first count exists); a web server
+  // without the route keeps the total.
+  const _cols = !_asking && !!window.SessionVerb && !window._projectStatusFailed;
+  list.classList.toggle('ps-cols-on', _cols);
+  const _pc = _cols ? Object.assign({}, window._projectStatusCounts || {}, _localProjectCounts()) : {};
+  const _colsHtml = c => '<span class="ps-cols">' + _PS_GROUPS.map(g => {
+    const n = c ? (c[g] || 0) : null;
+    return n ? `<span class="ps-n vs-${g}" title="${n} ${_PS_LABEL[g].toLowerCase()}">${n}</span>`
+             : `<span class="ps-n zero">${n === null ? '' : '·'}</span>`;
+  }).join('') + '</span>';
+  const _allCounts = {};
+  _allProjects.forEach(p => { const c = _pc[p.encoded]; if (c) _PS_GROUPS.forEach(g => { _allCounts[g] = (_allCounts[g] || 0) + (c[g] || 0); }); });
+  const _head = _cols ? '<div class="ps-head" aria-hidden="true"><span></span>' +
+    _PS_GROUPS.map(g => `<span title="${_PS_LABEL[g]}">${_psIcon(g)}</span>`).join('') + '</div>' : '';
   const _allRow = (window.VNAllProjects && !_asking) ? `
     <div class="project-item project-item-all${_inAll ? ' active' : ''}" data-encoded="${VNAllProjects.ALL}" title="Every project's sessions in one list">
       <span class="project-item-mark" aria-hidden="true">\u2217</span>
@@ -518,7 +622,7 @@ function _renderProjectOverlay() {
         <div class="project-item-name"><span>All projects</span>${_inAll ? _check : ''}</div>
         <div class="project-item-path">Every session in one list</div>
       </div>
-      <div class="project-item-right"><span class="project-item-count" title="${_sessions(_total)}">${_total}</span></div>
+      <div class="project-item-right">${_cols ? _colsHtml(_allCounts) : `<span class="project-item-count" title="${_sessions(_total)}">${_total}</span>`}</div>
     </div>
     <div class="project-sep" aria-hidden="true"></div>` : '';
   const _addRow = _asking ? '' : `
@@ -528,7 +632,7 @@ function _renderProjectOverlay() {
       <div class="project-item-info"><div class="project-item-name">Add project</div></div>
     </div>`;
   // All projects sits first, then the projects, then Add project.
-  list.innerHTML = _allRow + _allProjects.map(p => {
+  list.innerHTML = _head + _allRow + _allProjects.map(p => {
     const shortName = _projectShortName(p);
     const isActive = !_inAll && p.encoded === saved;
     return `
@@ -539,7 +643,7 @@ function _renderProjectOverlay() {
         <div class="project-item-path">${escHtml(_projectShortPath(p.display))}</div>
       </div>
       <div class="project-item-right">
-      <span class="project-item-count" title="${_sessions(p.session_count)}">${p.session_count}</span>
+      ${_cols ? _colsHtml(_pc[p.encoded]) : `<span class="project-item-count" title="${_sessions(p.session_count)}">${p.session_count}</span>`}
       <div class="project-item-actions">
         <button class="project-act-btn project-rename-btn" title="Rename">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -590,7 +694,9 @@ async function _refreshProjectsAndRerender() {
   // while the fetch was in flight).
   const overlay = document.getElementById('project-overlay');
   if (overlay && overlay.classList.contains('show')) {
-    _renderProjectOverlay();
+    // Opening the picker already asked for counts; a second request here
+    // used to cancel that one and double the wait.
+    _renderProjectOverlay(true);
   }
   // Also update the sidebar label if it was showing the placeholder — the
   // startup loadProjects() may have failed before it got a chance to set it.

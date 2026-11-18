@@ -678,10 +678,22 @@ function showGitSyncModal(title, body, btns, opts) {
     el.onclick = b.onclick;
     acts.appendChild(el);
   });
-  // The corner minus (run in the background) shows only while something runs,
-  // which is when there are no buttons.
+  // While something runs (no buttons of its own) the dialog's one action is
+  // Minimize: a full-width primary button at the bottom, not a corner mark.
+  const running = btns.length === 0;
+  acts.classList.toggle('gs-running', running);
+  if (running) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'pm-btn pm-btn-primary gs-min-cta';
+    el.dataset.minimize = '1';
+    el.textContent = 'Minimize';
+    el.title = 'Keep it running in the background';
+    el.onclick = minimizeGitSyncModal;
+    acts.appendChild(el);
+  }
   const minBtn = document.getElementById('git-sync-minimize-btn');
-  if (minBtn) minBtn.style.display = btns.length === 0 ? 'inline-flex' : 'none';
+  if (minBtn) minBtn.style.display = 'none';
   // A result the backdrop cannot close (sticky) gets the corner close mark,
   // so its own row keeps only the buttons that do something.
   const closeBtn = document.getElementById('git-sync-close-btn');
@@ -693,7 +705,7 @@ function showGitSyncModal(title, body, btns, opts) {
     const label = document.getElementById('git-sync-mini-label');
     if (label) label.textContent = title;
     // If this is a completion call (has buttons), notify mini
-    if (btns.length > 0) {
+    if (!running) {
       const isOk = opts.tone ? opts.tone === 'ok' : (title.includes('✓') || title.includes('All Clear'));
       _notifyMiniComplete(title, isOk);
     }

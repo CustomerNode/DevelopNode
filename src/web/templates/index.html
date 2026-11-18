@@ -39,6 +39,8 @@
 <link rel="stylesheet" href="/speechnode/speechnode.css">   <!-- SpeechNode package assets -->
 <link rel="stylesheet" href="{{ versioned_static('css/embed.css') }}">   <!-- embed mode: hides project/view chrome, only active with ?embed=1 -->
 <link href="/static/vendor/quill.snow.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ versioned_static('css/chrome-looks.css') }}">   <!-- sidebar and top bar looks, off unless chosen (chrome-look.js) -->
+<script src="{{ versioned_static('js/chrome-look.js') }}"></script>
 <!-- Embed mode. Must load before app.js, which reads localStorage.activeProject
      during boot — embed.js shims that read so an embedded panel can be pinned to
      one project without repointing the user's own window. No-op without ?embed=1. -->
@@ -109,6 +111,8 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
   var el = document.getElementById('vn-splash');
   if (!el) return;
   if (/[?&]embed=1(&|$)/.test(location.search)) { el.remove(); return; }
+  // Framed (a Decide screen, a preview): the frame shows the page, not a boot screen.
+  try { if (window.self !== window.top) { el.remove(); return; } } catch (e) { el.remove(); return; }
   var seen = false;
   try { seen = sessionStorage.getItem('vn_splash_seen') === '1'; } catch (e) {}
   var minMs = seen ? 700 : 1400, t0 = performance.now(), done = false, timer = null;
@@ -165,7 +169,8 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
       <div class="sys-separator"></div>
       <button onclick="openTrash();closeHdrSys()" title="View and restore recently deleted sessions">Recently Deleted</button>
       <button onclick="openRecoveryWatchdog();closeHdrSys()" title="The recovery and watchdog switches, read-only">Recovery &amp; Watchdog</button>
-      <button onclick="openDeveloperTools();closeHdrSys()" title="Tests, scans, and server controls">Developer Tools <span class="sys-item-value" id="sys-phantom-badge"></span></button>
+      <button onclick="openDiagnostics();closeHdrSys()" title="Tests, the security scan and clean-ups">Diagnostics <span class="sys-item-value" id="sys-phantom-badge"></span></button>
+      <button onclick="openServerTools();closeHdrSys()" title="Restart or turn off VibeNode">Server</button>
     </div>
   </div>
   <button id="btn-git-update" onclick="openGitUpdate()"><span class="git-btn-txt">Update App</span> <span id="git-badge-pull"></span></button>

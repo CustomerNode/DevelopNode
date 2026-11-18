@@ -13,7 +13,7 @@ the record is judged by its process start time against ``src/engine/*.py`` mtime
 
 ``arm_restart_when_idle()`` waits until no session
 is busy, then restarts the engine through the same ``/api/restart`` path as
-System > Developer Tools > Restart Server > Session Engine.  "Busy" means any
+System > Server > Session Engine.  "Busy" means any
 of:
 
 * a session that is starting, working, or waiting on a question/permission;
@@ -240,7 +240,7 @@ def busy_reasons(session_manager, now: float = None) -> list:
 
 
 def _request_engine_restart() -> None:
-    """Restart via the same endpoint the Developer Tools button uses."""
+    """Restart via the same endpoint the Server section's Session Engine button uses."""
     req = urllib.request.Request(
         "http://127.0.0.1:%d/api/restart" % _web_port(),
         data=json.dumps({"scope": "daemon"}).encode(),

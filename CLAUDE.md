@@ -15,7 +15,7 @@ VibeNode is an open-source **public repository**. Everything committed is publis
 ## Servers
 - Never restart a server unless the user explicitly asked in this session.
 - With permission, restart only the web server: `curl -s -X POST http://localhost:5050/api/restart -H "Content-Type: application/json" -d '{"scope":"web"}'`.
-- **Never restart, stop or kill the Session Engine (port 5051)** by any means: it runs every session. If asked, warn the user and point them to System → Developer Tools → Restart Server → Session Engine.
+- **Never restart, stop or kill the Session Engine (port 5051)** by any means: it runs every session. If asked, warn the user and point them to System → Server → Session Engine.
 - No direct process management (no kill, taskkill, spawning terminals).
 
 ## Files

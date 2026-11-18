@@ -1,6 +1,6 @@
 """A Session Engine restart never takes the web server down.
 
-The automatic restart-when-idle (and Developer Tools' Session Engine button)
+The automatic restart-when-idle (and the Server section's Session Engine button)
 calls /api/restart with scope "daemon".  It used to relaunch the whole app,
 a cold start whose run.py killed port 5050 as well, so every engine restart
 left every open tab on "VibeNode Server Unreachable" for about ten seconds.

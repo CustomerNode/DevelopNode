@@ -1961,16 +1961,21 @@
   // control bar and every other option are hidden.  Returns false when the
   // page marks no option for this key (the whole page then stays visible).
   // Hide everything on the page except `els` and their ancestors.
+  // Returns a function that undoes it, so a frame can show another option of
+  // the same page without loading it again (_switchInPlace).
   function _isolate(d, els, padTop) {
-    if (!els.length) return;
-    const anc = new Set([d.body]);
+    if (!els.length) return () => {};
+    const anc = new Set([d.body]), undo = [];
     els.forEach(o => { for (let p = o.parentElement; p && p !== d.documentElement; p = p.parentElement) anc.add(p); });
     anc.forEach(a => [...a.children].forEach(ch => {
       if (anc.has(ch) || els.includes(ch) || ch.matches('script, style, link') || els.some(o => ch.contains(o))) return;
+      undo.push([ch, 'display', ch.style.display]);
       ch.style.display = 'none';
     }));
-    els.forEach(o => { o.style.marginTop = '0'; });
+    els.forEach(o => { undo.push([o, 'marginTop', o.style.marginTop]); o.style.marginTop = '0'; });
+    undo.push([d.body, 'paddingTop', d.body.style.paddingTop]);
     d.body.style.paddingTop = padTop + 'px';
+    return () => undo.reverse().forEach(([e, k, v]) => { e.style[k] = v; });
   }
   function _solo(frame, keys, key) {
     let d;
@@ -2078,12 +2083,31 @@
   function _switchInPlace(stage, r, dev, shot) {
     const s = r.screens[Math.min(shot, r.screens.length - 1)];
     const next = _reviewSrc(s.url);
-    if (!/^https?:\/\//.test(next) || _isPic(s.url)) return false;
     const frames = [...stage.querySelectorAll('iframe')];
     const want = (dev || s.device) === 'both' ? 2 : 1;
-    if (frames.length !== want) return false;
+    if (_isPic(s.url) || frames.length !== want) return false;
+    // A page of this app (a mockup with one section per choice): the same
+    // page, another section.  Shown by re-isolating the loaded page, never by
+    // loading it again, so switching choices has no blank frame and no reload.
+    let abs = next;
+    if (next.charAt(0) === '/' && next.charAt(1) !== '/') {
+      const h = next.indexOf('#'), page = h === -1 ? next : next.slice(0, h);
+      // The same page of this app with another query (the app itself with
+      // another ?chrome= look): asked to change its own address below, like
+      // another app's live page.
+      if (!frames.every(f => f._vnPage === page && f._vnShow)) {
+        try { abs = new URL(next, location.href).href; } catch (_e) { return false; }
+      } else {
+        let frag = '';
+        try { frag = h === -1 ? '' : decodeURIComponent(next.slice(h + 1)); } catch (_e) { frag = next.slice(h + 1); }
+        frames.forEach(f => { f._vnPick = { frag, key: r.key }; if (f._vnLoaded) f._vnShow(); });
+        stage.querySelectorAll('.chrome span').forEach(sp => { sp.textContent = s.label || s.url; });
+        return true;
+      }
+    }
+    if (!/^https?:\/\//.test(abs)) return false;
     let to;
-    try { to = new URL(_themedSrc(next)); } catch (_e) { return false; }
+    try { to = new URL(_themedSrc(abs)); } catch (_e) { return false; }
     for (const f of frames) {
       let at;
       try { at = new URL(f._vnUrl || ''); } catch (_e) { return false; }
@@ -2233,17 +2257,23 @@
           if (p.scrollTop) p.scrollTop = 0;
         }
       };
-      f.addEventListener('load', () => {
+      // The option to show; _switchInPlace changes it and calls f._vnShow
+      // again, so another option of the same page needs no reload.
+      f._vnPick = { frag, key };
+      f._vnShow = () => {
         let d;
         try { d = f.contentDocument; } catch (_e) { return; }
         if (!d || !d.body) return;
-        const t = _screenOption(d, frag, key);
-        if (t) _isolate(d, [t], 16);
+        if (f._vnUndo) f._vnUndo();
+        const t = _screenOption(d, f._vnPick.frag, f._vnPick.key);
+        f._vnUndo = t ? _isolate(d, [t], 16) : null;
         // again once late content (fonts, frames inside the page) has laid out
         top(d);
         requestAnimationFrame(() => top(d));
         setTimeout(() => top(d), 400);
-      });
+      };
+      f.addEventListener('load', () => { f._vnUndo = null; f._vnLoaded = true; f._vnShow(); });
+      if (src.charAt(0) === '/' && src.charAt(1) !== '/') f._vnPage = h === -1 ? src : src.slice(0, h);
       f.src = _themedSrc(own ? src.slice(0, h) : src);
       f._vnUrl = f.src;
       f.removeAttribute('data-src');

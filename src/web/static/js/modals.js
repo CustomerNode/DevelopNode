@@ -20,7 +20,7 @@ function _hdrSysCloseSheet() {
   if (b) b.classList.remove('show');
 }
 // Scan the existing #hdr-sys-dropdown so dynamic value labels (Model, Thinking,
-// Persistent Storage, Mobile Command, Developer Tools badge) and any future
+// Persistent Storage, Mobile Command, Diagnostics badge) and any future
 // items flow through automatically — no second source of truth.
 function _hdrSysBuildGroups() {
   var dd = document.getElementById('hdr-sys-dropdown');
@@ -132,7 +132,8 @@ var _SX_ICONS = {
   'Playbooks': '<path d="M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 1-4-4z"/><path d="M10 9l4 2.5-4 2.5z"/>',
   'Recently Deleted': '<path d="M4 7h16M10 3h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
   'Recovery & Watchdog': '<path d="M3 12h4l2-5 4 10 2-5h6"/>',
-  'Developer Tools': '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'
+  'Server': '<rect x="3.5" y="4" width="17" height="6.5" rx="1.5"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.5"/><path d="M7 7.25h.01M7 16.75h.01"/>',
+  'Diagnostics': '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'
 };
 var _SX_GROUPS = ['Defaults', 'Access', 'Tools', 'Maintenance'];
 // Sections that are a list to pick from: choosing closes the dialog, and the
@@ -174,6 +175,7 @@ function _sxAttach() {
     if (it) _sxShow(it.getAttribute('data-key'));
   });
   overlay.insertBefore(nav, overlay.firstChild);
+  _sxFitHeight();
   var x = document.createElement('div');
   x.className = 'sx-x';
   x.innerHTML = '<button class="sx-close" title="Close" aria-label="Close settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
@@ -194,6 +196,31 @@ function _sxAttach() {
   var tc = overlay.querySelector('#trash-close');
   if (tc) tc.classList.add('sx-hidden');
 }
+// The window is tall enough to show the whole section list without scrolling,
+// when the screen has the room (16px kept above and below); never shorter
+// than its usual 680px, never taller than the screen.
+function _sxFitHeight() {
+  var overlay = document.getElementById('pm-overlay');
+  var nav = overlay && overlay.querySelector('.sx-nav');
+  if (!nav) return;
+  overlay.style.removeProperty('--sx-h');   // measure from the default size, so it can shrink back
+  var need = Math.ceil(nav.scrollHeight + (nav.offsetHeight - nav.clientHeight));
+  overlay.style.setProperty('--sx-h', 'min(' + Math.max(680, need) + 'px, calc(100vh - 32px))');
+}
+window.addEventListener('resize', function() { if (_sx.on) _sxFitHeight(); });
+// A link can open Settings on one section: /?settings=Server.  The parameter is
+// dropped from the address at once, so a reload or Back never opens it again.
+window.addEventListener('load', function() {
+  var q;
+  try { q = new URLSearchParams(location.search); } catch (e) { return; }
+  var want = q.get('settings');
+  if (want === null) return;
+  q.delete('settings');
+  var rest = q.toString();
+  try { history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash); } catch (e) {}
+  if (_hdrSysIsMobile()) return;
+  setTimeout(function() { openSettings(want || undefined); }, 600);
+});
 function _sxShow(key) {
   var src = _sxSource(key);
   if (!src) return;
@@ -833,19 +860,25 @@ function shutdownServer() {
   overlay.querySelector('#shutdown-cancel').onclick = () => overlay.remove();
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
-  overlay.querySelector('#shutdown-confirm').onclick = async () => {
+  overlay.querySelector('#shutdown-confirm').onclick = () => {
     overlay.remove();
-    if (typeof showToast === 'function') showToast('Shutting down server…');
-    try {
-      await fetch('/api/shutdown', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-    } catch (e) { /* expected — server going down */ }
-    // Replace page content with a shutdown notice
-    setTimeout(() => {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;flex-direction:column;gap:12px">'
-        + '<h2 style="margin:0;color:var(--text-heading)">Server has been turned off</h2>'
-        + '<p style="margin:0;color:var(--text-muted);font-size:14px">Restart VibeNode manually to continue.</p></div>';
-    }, 1500);
+    _doShutdown();
   };
+}
+
+// The shutdown itself, shared by the confirm above and the Server section's
+// own inline confirm (app.js openServerTools).
+async function _doShutdown() {
+  if (typeof showToast === 'function') showToast('Shutting down server…');
+  try {
+    await fetch('/api/shutdown', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+  } catch (e) { /* expected — server going down */ }
+  // Replace page content with a shutdown notice
+  setTimeout(() => {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;flex-direction:column;gap:12px">'
+      + '<h2 style="margin:0;color:var(--text-heading)">Server has been turned off</h2>'
+      + '<p style="margin:0;color:var(--text-muted);font-size:14px">Restart VibeNode manually to continue.</p></div>';
+  }, 1500);
 }
 
 // --- Scrub Phantom Names ---

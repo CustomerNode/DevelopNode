@@ -14,7 +14,10 @@ const _GIT_ICONS = {
 function _setGitBtn(btn, badgeId, kind, count, tip) {
   document.getElementById(badgeId).innerHTML = _GIT_ICONS[kind];
   if (count > 0) btn.dataset.count = String(count); else delete btn.dataset.count;
-  btn.title = tip;
+  // The button shows only its icon, so the tooltip and the accessible name carry the words.
+  const name = {pull: 'Update app', push: 'Publish app update', sync: 'Sync app'}[kind];
+  btn.title = name + ': ' + tip;
+  btn.setAttribute('aria-label', btn.title);
   btn.style.display = 'inline-flex';
 }
 

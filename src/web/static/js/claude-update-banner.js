@@ -56,7 +56,7 @@
       // it self-clears once the daemon restarts). Name the exact menu
       // path: "restart the daemon" alone does not say where to do it.
       msg = 'A Claude Code update is waiting for a Session Engine restart. Apply it '
-          + 'via System → Developer Tools → Restart Server → Session Engine (ends running '
+          + 'via System → Server → Session Engine (ends running '
           + 'sessions — they can be resumed after).';
     } else {
       // Straight-up stale. Frame it around the concrete failure mode so

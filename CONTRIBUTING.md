@@ -39,7 +39,7 @@ Opens automatically at http://localhost:5050. Two processes start: the web
 server (port 5050) and the Session Engine (port 5051), which owns the Claude
 CLI processes. Restarting the web server is cheap; restarting the Session
 Engine ends every running session, so the app only does that when you ask
-(System → Developer Tools → Restart Server → Session Engine). A change under
+(System → Server → Session Engine). A change under
 `src/engine/` is not live until the Session Engine restarts.
 
 ### Running Tests

@@ -764,6 +764,70 @@ def screens_like_now_problem(card: dict) -> Optional[str]:
             "at another size, zoom and theme than Now, so the choices can't be compared.")
 
 
+# A mockup page never frames the whole app.  Each frame of the app boots it:
+# a blank frame, the loading screen, first-run prompts and a live connection
+# per copy, a page inside a page, all again on every choice the Decide popup
+# shows.  A mockup copies the real markup and loads the real CSS instead.
+_APP_FRAME = re.compile(
+    r"""<iframe\b[^>]*\bsrc\s*=\s*["'](?:https?://(?:127\.0\.0\.1|localhost):5050)?/(?:\?[^"']*)?["']"""
+    r"""|\.src\s*=\s*["'](?:https?://(?:127\.0\.0\.1|localhost):5050)?/(?:\?[^"']*)?["']""", re.I)
+
+
+# An options page whose option styles name one theme only shows nothing in
+# the other: the popup opens the page in the app's theme, so a user in light
+# sees four copies of Now when every option's rules start html[data-theme="dark"].
+_THEME_SEL = re.compile(r"""data-theme\s*=\s*["']?(dark|light)["']?\s*\]""", re.I)
+
+
+def _one_theme_pages(urls) -> list:
+    out = []
+    for u in dict.fromkeys(re.sub(r"[?#].*$", "", u) for u in urls if _MOCKUP_PAGE.match(u)):
+        try:
+            f = (_SCRATCH_DIR / u.rsplit("/", 1)[-1]).resolve()
+            if f.parent != _SCRATCH_DIR.resolve() or not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        styles = " ".join(re.findall(r"<style\b[^>]*>(.*?)</style>", text, re.S | re.I))
+        if len(_OPTION_ATTR.findall(text)) < 3:
+            continue
+        seen = {m.lower() for m in _THEME_SEL.findall(styles)}
+        if len(seen) == 1:
+            out.append(u)
+    return out
+
+
+def framed_app_problem(card: dict) -> Optional[str]:
+    needs = card.get("needs") if isinstance(card.get("needs"), dict) else {}
+    urls = [_s(it.get("url")) for it in _items(needs.get("look")) + _items(card.get("links"))
+            if isinstance(it, dict)]
+    urls += [_s(s.get("url")) for r in _items(needs.get("replies")) if isinstance(r, dict)
+             for s in _items(r.get("screens")) if isinstance(s, dict)]
+    validate = card.get("validate") if isinstance(card.get("validate"), dict) else {}
+    urls.append(_s(validate.get("url")))
+    hits = []
+    for u in dict.fromkeys(re.sub(r"[?#].*$", "", u) for u in urls if _MOCKUP_PAGE.match(u)):
+        try:
+            f = (_SCRATCH_DIR / u.rsplit("/", 1)[-1]).resolve()
+            if f.parent == _SCRATCH_DIR.resolve() and f.is_file() and \
+                    _APP_FRAME.search(f.read_text(encoding="utf-8", errors="replace")):
+                hits.append(u)
+        except OSError:
+            continue
+    themed = _one_theme_pages(urls)
+    if themed and not hits:
+        return ("The page " + ", ".join(themed[:3]) + " styles its options for one theme only (" +
+                "html[data-theme=\"...\"] on one side). The user may be in the other theme, where every option "
+                "then looks exactly like Now. Style each option for both dark and light.")
+    if not hits:
+        return None
+    return ("The page " + ", ".join(hits[:3]) + " frames the whole app. Each frame boots VibeNode: a blank "
+            "frame, the loading screen and first-run prompts, again on every choice. Build the mockup from "
+            "the real markup (copy the header, sidebar and rows) with the real CSS loaded, one section per "
+            "option, no frame of the app.")
+
+
 # Variants on screen always come with a way to pick one, even on a card that
 # answers a question.  A mockup page is the scratch page with two or more
 # data-option variants besides "now"; the page lives in this repo's
@@ -1419,6 +1483,9 @@ def format_problems(card: dict) -> list[str]:
     like_now = screens_like_now_problem(card)
     if like_now:
         out.append(like_now)
+    framed = framed_app_problem(card)
+    if framed:
+        out.append(framed)
     caption = variant_caption_problem(card)
     if caption:
         out.append(caption)

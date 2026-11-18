@@ -3002,62 +3002,188 @@ function openPreferences() {
   });
 }
 
-// Developer Tools popup — groups maintenance/diagnostic actions that used to clutter
-// the System dropdown (tests, scan, scrub phantom names) plus the server controls.
-// Each row calls the existing function unchanged; server-control actions open their
-// own confirm modals, so we close this popup first to avoid stacking overlays.
-function openDeveloperTools() {
+// Server and Diagnostics: the two sections that used to share one "Developer
+// Tools" popup.  Everything they ask or show is drawn INSIDE their own card
+// (the restart choices, the Turn Off and scrub confirms, a test or scan run),
+// so in the Settings window nothing opens a second window on top of it.
+function _devRowsHtml(items) {
+  return items.map(it => {
+    const badge = it.badge ? ` <span class="sys-item-value">${it.badge}</span>` : '';
+    return `<button class="dev-tool-row${it.danger ? ' danger' : ''}" data-action="${it.key}">
+        <span class="dev-tool-text">
+          <span class="dev-tool-label">${it.label}${badge}</span>
+          <span class="dev-tool-hint">${it.hint}</span>
+        </span>
+      </button>`;
+  }).join('');
+}
+function _devOpenCard(title, intro, inner) {
   const overlay = document.getElementById('pm-overlay');
-  const phantomBadge = document.getElementById('sys-phantom-badge');
-  const phantomCount = (phantomBadge && phantomBadge.textContent) || '';
+  if (!overlay) return null;
+  overlay.innerHTML = '<div class="pm-card pm-enter dev-card" style="width:420px;">'
+    + '<h2 class="pm-title">' + title + '</h2>'
+    + '<div class="pm-body"><p>' + intro + '</p></div>'
+    + '<div class="dev-pane">' + inner + '</div>'
+    + '<div class="pm-actions"><button class="pm-btn pm-btn-secondary dev-close">Close</button></div></div>';
+  overlay.classList.add('show');
+  const card = overlay.querySelector('.pm-card');
+  requestAnimationFrame(() => card.classList.remove('pm-enter'));
+  card.querySelector('.dev-close').onclick = () => _closePm();
+  overlay.onclick = e => { if (e.target === overlay) _closePm(); };
+  return card;
+}
+// An inline question in place of the rows: Cancel brings the rows back.
+function _devAsk(card, opts) {
+  const pane = card.querySelector('.dev-pane');
+  pane.innerHTML = '<div class="dev-ask' + (opts.danger ? ' danger' : '') + '">'
+    + '<div class="dev-ask-title">' + opts.title + '</div>'
+    + '<div class="dev-ask-text">' + opts.text + '</div>'
+    + '<div class="dev-ask-btns"><button class="pm-btn pm-btn-secondary dev-ask-no">Cancel</button>'
+    + '<button class="pm-btn ' + (opts.danger ? 'pm-btn-danger dev-ask-danger' : 'pm-btn-primary') + ' dev-ask-yes">' + opts.yes + '</button></div></div>';
+  pane.querySelector('.dev-ask-no').onclick = opts.back;
+  pane.querySelector('.dev-ask-yes').onclick = opts.go;
+}
 
-  const sections = [
-    {title: 'Server', items: [
-      {key: 'restart', label: 'Restart Server', hint: 'Choose what to restart.'},
+function openServerTools() {
+  const card = _devOpenCard('Server', 'Restart or stop VibeNode.', '');
+  if (!card) return;
+  const rows = () => {
+    const pane = card.querySelector('.dev-pane');
+    pane.innerHTML = '<div class="dev-tool-section-label">Restart</div>' + _devRowsHtml([
+      {key: 'web', label: 'Application', hint: 'Quick refresh. Your running sessions stay alive.'},
+      {key: 'daemon', label: 'Session Engine', hint: 'Restarts the Session Engine. All running sessions will stop.'},
+      {key: 'both', label: 'Everything', hint: 'Full restart. All running sessions will stop.'},
+    ]) + '<div class="dev-tool-section-label">Stop</div>' + _devRowsHtml([
       {key: 'shutdown', label: 'Turn Off Server', hint: 'Stop the server entirely.', danger: true},
-    ]},
-    {title: 'Diagnostics', items: [
+    ]);
+    pane.querySelectorAll('.dev-tool-row').forEach(btn => {
+      btn.onclick = () => {
+        const a = btn.dataset.action;
+        if (a !== 'shutdown') { _closePm(); if (typeof _doRestart === 'function') _doRestart(a); return; }
+        _devAsk(card, {
+          title: 'Turn off the server?', danger: true, yes: 'Turn Off', back: rows,
+          text: 'This stops both the web server (5050) and the Session Engine (5051). All running sessions and agents end, and VibeNode has to be started again by hand.',
+          go: () => { _closePm(); if (typeof _doShutdown === 'function') _doShutdown(); },
+        });
+      };
+    });
+  };
+  rows();
+}
+
+// A test or scan run is drawn in the Diagnostics card: the run's own dialog
+// (#git-sync-card, kept with its ids so test-runner.js and git-sync.js update
+// it unchanged) is moved into the card while it runs, and back when it ends.
+const _devDock = { card: null, host: null, obs: null };
+function _devUndock(reason) {
+  const gs = _devDock.card;
+  if (!gs) return;
+  const ov = document.getElementById('git-sync-overlay');
+  _devDock.card = null;
+  _devDock.host = null;
+  gs.classList.add('pm-card');
+  gs.classList.remove('dev-docked');
+  if (ov) { ov.appendChild(gs); ov.classList.remove('gs-docked'); }
+  if (reason === 'left' && ov && ov.classList.contains('show')) {
+    // The card was closed or replaced mid-run: keep the run going as the pill.
+    const acts = document.getElementById('git-sync-actions');
+    if (acts && (!acts.children.length || acts.querySelector('[data-minimize]'))) minimizeGitSyncModal();
+    else closeGitSyncModal();
+  }
+}
+function _devDockRun(card, back) {
+  const ov = document.getElementById('git-sync-overlay');
+  const gs = document.getElementById('git-sync-card');
+  if (!ov || !gs || !ov.classList.contains('show') || _devDock.card) return;
+  const pane = card.querySelector('.dev-pane');
+  pane.innerHTML = '<div class="dev-run"></div>';
+  gs.classList.remove('pm-card');
+  gs.classList.add('dev-docked');
+  ov.classList.add('gs-docked');
+  pane.firstChild.appendChild(gs);
+  _devDock.card = gs;
+  _devDock.host = card;
+  if (!_devDock.obs) {
+    _devDock.obs = new MutationObserver(() => {
+      if (!_devDock.card) return;
+      const ov2 = document.getElementById('git-sync-overlay');
+      if (!document.body.contains(_devDock.card)) { _devUndock('left'); return; }
+      if (ov2 && !ov2.classList.contains('show')) {
+        const host = _devDock.host, done = _devDock.back;
+        _devUndock('ended');
+        if (host && document.body.contains(host) && done) done();
+      }
+    });
+    _devDock.obs.observe(ov, { attributes: true, attributeFilter: ['class'] });
+    _devDock.obs.observe(document.getElementById('pm-overlay'), { childList: true, subtree: true });
+  }
+  _devDock.back = back;
+}
+
+function openDiagnostics() {
+  const card = _devOpenCard('Diagnostics', 'Tests, the security scan and clean-ups.', '');
+  if (!card) return;
+  const rows = () => {
+    const phantomBadge = document.getElementById('sys-phantom-badge');
+    const phantomCount = (phantomBadge && phantomBadge.textContent) || '';
+    const pane = card.querySelector('.dev-pane');
+    pane.innerHTML = _devRowsHtml([
       {key: 'test-fast', label: 'Run Tests (Fast)', hint: 'Quick test suite.'},
       {key: 'test-full', label: 'Run Tests (Full)', hint: 'Complete test suite.'},
-      {key: 'scan', label: 'Server Scan', hint: 'Scan the codebase for issues.'},
+      {key: 'scan', label: 'Security Scan', hint: 'Check the code for keys and personal details before publishing.'},
       {key: 'scrub', label: 'Scrub Phantom Names', hint: 'Remove name entries that point to deleted sessions.', badge: phantomCount},
-    ]},
-  ];
-
-  let html = '<div class="pm-card pm-enter" style="width:400px;"><h2 class="pm-title">Developer Tools</h2>';
-  for (const sec of sections) {
-    html += `<div class="dev-tool-section-label">${sec.title}</div>`;
-    for (const it of sec.items) {
-      const badge = it.badge ? ` <span class="sys-item-value">${it.badge}</span>` : '';
-      html += `<button class="dev-tool-row${it.danger ? ' danger' : ''}" data-action="${it.key}">
-          <span class="dev-tool-text">
-            <span class="dev-tool-label">${it.label}${badge}</span>
-            <span class="dev-tool-hint">${it.hint}</span>
-          </span>
-        </button>`;
-    }
+    ]);
+    pane.querySelectorAll('.dev-tool-row').forEach(btn => {
+      btn.onclick = () => {
+        switch (btn.dataset.action) {
+          case 'test-fast': if (typeof runTests === 'function') runTests('fast'); break;
+          case 'test-full': if (typeof runTests === 'function') runTests('full'); break;
+          case 'scan':      if (typeof runCodeScan === 'function') runCodeScan(); break;
+          case 'scrub':     _devScrub(card, rows); return;
+        }
+        _devDockRun(card, rows);
+      };
+    });
+  };
+  rows();
+  // A run still going (minimized earlier) comes back into the card.
+  const ov = document.getElementById('git-sync-overlay');
+  if (typeof _gitSyncMinimized !== 'undefined' && _gitSyncMinimized && typeof _testRunning !== 'undefined' && _testRunning
+      && typeof restoreGitSyncModal === 'function') {
+    restoreGitSyncModal();
+    if (ov && ov.classList.contains('show')) _devDockRun(card, rows);
   }
-  html += '<div class="pm-actions"><button class="pm-btn pm-btn-secondary" id="pm-dev-close">Close</button></div></div>';
+}
 
-  overlay.innerHTML = html;
-  overlay.classList.add('show');
-  requestAnimationFrame(() => overlay.querySelector('.pm-card').classList.remove('pm-enter'));
-  document.getElementById('pm-dev-close').onclick = () => _closePm();
-  overlay.onclick = e => { if (e.target === overlay) _closePm(); };
-
-  overlay.querySelectorAll('.dev-tool-row').forEach(btn => {
-    btn.onclick = () => {
-      // Every action closes the popup first; server-control actions then open their own modal.
-      _closePm();
-      switch (btn.dataset.action) {
-        case 'test-fast': if (typeof runTests === 'function') runTests('fast'); break;
-        case 'test-full': if (typeof runTests === 'function') runTests('full'); break;
-        case 'scan':      if (typeof runCodeScan === 'function') runCodeScan(); break;
-        case 'scrub':     if (typeof scrubPhantomNames === 'function') scrubPhantomNames(); break;
-        case 'restart':   if (typeof restartServer === 'function') restartServer(); break;
-        case 'shutdown':  if (typeof shutdownServer === 'function') shutdownServer(); break;
-      }
-    };
+async function _devScrub(card, back) {
+  const pane = card.querySelector('.dev-pane');
+  const note = (text) => {
+    pane.innerHTML = '<div class="dev-ask"><div class="dev-ask-text">' + text + '</div>'
+      + '<div class="dev-ask-btns"><button class="pm-btn pm-btn-secondary dev-ask-no">Back</button></div></div>';
+    pane.querySelector('.dev-ask-no').onclick = back;
+  };
+  pane.innerHTML = '<div class="dev-ask"><div class="dev-ask-text">Looking for phantom names…</div></div>';
+  const call = async (dry) => {
+    const r = await fetch('/api/admin/scrub-phantoms', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dry_run: dry}),
+    });
+    return r.json();
+  };
+  let dry;
+  try { dry = await call(true); } catch (e) { dry = null; }
+  if (!dry || dry.ok !== true) { note('Could not check for phantom names. Try again.'); return; }
+  const n = dry.total_removed || 0;
+  if (!n) { note('No phantom session names to remove.'); if (typeof _refreshPhantomBadge === 'function') _refreshPhantomBadge(); return; }
+  _devAsk(card, {
+    title: 'Remove ' + n + ' phantom name' + (n === 1 ? '' : 's') + '?', yes: 'Remove', back,
+    text: 'These name entries point to sessions that were deleted. No session is deleted, and each project’s name file is backed up before any change.',
+    go: async () => {
+      pane.innerHTML = '<div class="dev-ask"><div class="dev-ask-text">Removing…</div></div>';
+      let res;
+      try { res = await call(false); } catch (e) { res = null; }
+      if (typeof _refreshPhantomBadge === 'function') _refreshPhantomBadge();
+      note(res && res.ok === true ? 'Removed ' + res.total_removed + ' phantom session-name entries.' : 'The clean-up failed. Nothing was changed.');
+    },
   });
 }
 

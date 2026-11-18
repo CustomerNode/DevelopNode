@@ -180,14 +180,7 @@
   body.mob-drilled header { padding-left: 58px; }
   body.mob-drilled header h1,
   body.mob-drilled .app-logo { display: none !important; }
-  /* App-maintenance actions: keep visible on phone, but shorten labels to one
-     word each so the header still fits. (Desktop labels untouched.) */
-  #btn-git-update .git-btn-txt,
-  #btn-git-publish .git-btn-txt,
-  #btn-git-sync .git-btn-txt { display: none; }
-  #btn-git-update::before  { content: "Update"; }
-  #btn-git-publish::before { content: "Publish"; }
-  #btn-git-sync::before    { content: "Sync"; }
+  /* App-maintenance actions: icon only with a count bubble, as on desktop (style.css, Top nav buttons). */
   .hdr-sys-btn:not(.hdr-gear) { font-size: 13px; padding: 7px 11px; }
 
   /* Mission Control on a phone: desktop hides the app header in it, and its

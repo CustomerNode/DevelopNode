@@ -164,6 +164,28 @@ def test_publish_anyway_after_failures_marks_the_gate(page):
                             "seconds": 90, "anyway": True}
 
 
+def test_minimized_during_the_tests_stays_minimized_through_the_upload(page):
+    """A publish is one job: Minimize pressed while the tests run must hold
+    through the scan and upload, not pop the dialog back up for phase two."""
+    page.evaluate("""() => {
+      window.__finishTests = null;
+      _streamTestRun = (mode, h) => { window.__finishTests = () => h.onDone(
+        {mode, ok: true, passed: 12, failed: 0, errors: 0, skipped: 0, seconds: 5, exit_code: 0}, ['....']); };
+    }""")
+    page.evaluate("() => openGitPublish()")
+    page.wait_for_selector("#git-publish-summary")
+    _click(page, "Publish")
+    _until(page, "() => !!window.__finishTests")
+    assert [b.strip() for b in page.locator("#git-sync-actions button").all_text_contents()] == ["Minimize"]
+    _click(page, "Minimize")
+    page.evaluate("() => window.__finishTests()")
+    shown = "() => document.getElementById('git-sync-overlay').classList.contains('show')"
+    _until(page, "() => window.__posts.length === 1")   # phase two ran
+    assert not page.evaluate(shown), "the dialog popped back up for the upload"
+    _until(page, "() => /Published/.test(document.getElementById('git-sync-mini-label').textContent)")
+    assert not page.evaluate(shown)
+
+
 def test_a_pull_that_installed_dependencies_says_so(page):
     page.evaluate("() => { window.__syncResult = {ok: true, messages: ['Pulled latest VibeNode updates from remote.', 'Installed 2 new or updated dependencies.'], pip_ran: true, pip_ok: true, pip_installed: 2, git_status: {ahead: 0, behind: 0}}; }")
     page.evaluate("() => executeGitAction('pull', 'btn-git-update', 'Update App')")

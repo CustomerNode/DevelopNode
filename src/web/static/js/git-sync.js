@@ -567,7 +567,7 @@ function _testThenAction(mode, actionType, actionLabel, btnId) {
         showGitSyncModal(W.ing, _gsRing({pct: 100, tone: 'ok', big: (d.passed || 0).toLocaleString(),
           desc: 'tests passed, ' + verb + 'ing now', counts: reuseNote}), [], {center: true});
         setTimeout(() => {
-          executeGitAction('both', btnId, actionLabel);
+          executeGitAction('both', btnId, actionLabel, false, {continued: true});
         }, 1200);
       } else {
         const report = _testFailureReport(lines, d, mode);
@@ -843,12 +843,18 @@ function _showBranchWarning(action, btnId, btnLabel, info) {
   ], {tone: 'bad'});
 }
 
-async function executeGitAction(action, btnId, btnLabel, confirmBranch) {
-  closeGitSyncModal();
-  // Reset minimize state for new operation
-  _gitSyncMinimized = false;
-  _gitSyncFinished = false;
-  _dismissMiniIndicator();
+async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
+  // A publish is one job: tests, then the scan and upload.  When this call
+  // continues a run the person minimized, it stays minimized (the pill keeps
+  // following it) instead of popping the dialog back up for the second phase.
+  const carryOn = !!(opts && opts.continued) && _gitSyncMinimized;
+  if (!carryOn) {
+    closeGitSyncModal();
+    // Reset minimize state for new operation
+    _gitSyncMinimized = false;
+    _gitSyncFinished = false;
+    _dismissMiniIndicator();
+  }
   const btn = document.getElementById(btnId);
   btn.disabled = true;
 

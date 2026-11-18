@@ -690,6 +690,8 @@ function showGitSyncModal(title, body, btns, opts) {
     el.textContent = 'Minimize';
     el.title = 'Keep it running in the background';
     el.onclick = minimizeGitSyncModal;
+    el.style.flex = '1';      // full width, set here so an open tab gets it without a reload
+    el.style.width = '100%';
     acts.appendChild(el);
   }
   const minBtn = document.getElementById('git-sync-minimize-btn');

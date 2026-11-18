@@ -256,7 +256,11 @@ def test_publishing_shows_the_work_as_it_happens(page):
     assert abs((1 - off / full) - 0.8166) < 0.01
     assert page.evaluate("() => document.querySelectorAll('.gs-spin').length") == 0
     # Minimized, the pill shows the same progress: a filled ring and a percentage, no spinner.
-    page.evaluate("() => minimizeGitSyncModal()")
+    # While it runs, the dialog's one bottom action is a primary Minimize button.
+    labels = [b.strip() for b in page.locator("#git-sync-actions button").all_text_contents()]
+    assert labels == ["Minimize"]
+    assert page.locator("#git-sync-actions .pm-btn-primary").count() == 1
+    _click(page, "Minimize")
     page.clock.run_for(600)
     assert page.locator("#git-sync-mini-pct").text_content() == "81%"
     assert page.locator("#git-sync-mini-spinner.working").count() == 0

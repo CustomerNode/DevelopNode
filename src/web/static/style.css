@@ -2118,8 +2118,7 @@ pre.vn-code code { white-space: inherit; overflow-wrap: inherit; }
 #git-sync-overlay .gs-card .pm-title { padding-right: 32px; }
 #git-sync-overlay .gs-card.gs-center { text-align: center; }
 #git-sync-overlay .gs-card.gs-center .pm-title { padding-left: 32px; }
-#git-sync-overlay .gs-card.gs-center .pm-actions { justify-content: center; }
-#git-sync-overlay .pm-body:empty { display: none; }
+#git-sync-overlay .gs-card.gs-center .pm-actions { justify-content: center; }#git-sync-overlay .pm-body:empty { display: none; }
 /* Run in the background: the app's own close mark, as a minus. */
 .gs-min { display: none; top: 20px; right: 20px; align-items: center; justify-content: center; font-size: var(--fs-2xl); }
 .gs-card .pm-input { box-sizing: border-box; }

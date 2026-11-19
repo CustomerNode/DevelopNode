@@ -2243,57 +2243,24 @@ pre.vn-code code { white-space: inherit; overflow-wrap: inherit; }
   0%, 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 12px rgba(124,111,224,0.15); }
   50%      { box-shadow: 0 4px 28px rgba(0,0,0,0.5), 0 0 24px rgba(124,111,224,0.4); }
 }
-.git-sync-mini-spinner {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.git-sync-mini-spinner.working {
-  border: 2px solid rgba(124,111,224,0.3);
-  border-top-color: var(--accent, #7c6fe0);
-  animation: spin 0.7s linear infinite;
-}
-/* The pill's progress: a small ring that fills with the dialog's (git-sync.js
-   _gsMiniFollow), never a spinner. */
-.git-sync-mini-spinner.progress { width: 18px; height: 18px; border-radius: 0; }
-.git-sync-mini-spinner.progress svg { width: 18px; height: 18px; display: block; transform: rotate(-90deg); }
-.git-sync-mini-spinner.progress circle { fill: none; stroke-width: 3; }
-.git-sync-mini-spinner.progress .gsm-track { stroke: rgba(127,127,127,0.25); }
-.git-sync-mini-spinner.progress .gsm-fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .3s var(--ease-out); }
+/* The pill's look (picked from four): the dialog's cloud in its amber, and a
+   bar along the bottom edge that fills with the dialog's progress
+   (git-sync.js _gsMiniBar), ending in green with a check or red with a cross.
+   Colours are the dialog's own (--gs-amb / --gs-ok / --gs-bad, .gs-sheet). */
+.git-sync-mini { --gs-amb: 255, 149, 0; --gs-ok: 52, 199, 89; --gs-bad: 239, 68, 68; overflow: hidden; }
+[data-theme="light"] .git-sync-mini { --gs-amb: 210, 120, 0; --gs-ok: 30, 150, 70; --gs-bad: 210, 50, 50; }
+.git-sync-mini-spinner { width: 18px; height: 18px; flex-shrink: 0; display: inline-flex; }
+.git-sync-mini-spinner svg { width: 18px; height: 18px; display: block; }
+.git-sync-mini-spinner.kind { color: rgb(var(--gs-amb)); }
+.git-sync-mini-spinner.done { color: rgb(var(--gs-ok)); }
+.git-sync-mini-spinner.error { color: rgb(var(--gs-bad)); }
+.git-sync-mini-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(127,127,127,0.18); pointer-events: none; }
+.git-sync-mini-bar > i { display: block; height: 100%; width: 0; transition: width .3s var(--ease-out); }
+.git-sync-mini-bar.run > i { background: rgb(var(--gs-amb)); }
+.git-sync-mini-bar.ok > i { background: rgb(var(--gs-ok)); }
+.git-sync-mini-bar.bad > i { background: rgb(var(--gs-bad)); }
 .git-sync-mini-pct { font-size: var(--fs-md); color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .git-sync-mini-pct:empty { display: none; }
-.git-sync-mini-spinner.done {
-  width: 14px; height: 14px;
-  background: #22c55e;
-  position: relative;
-}
-.git-sync-mini-spinner.done::after {
-  content: '';
-  position: absolute;
-  left: 4px; top: 2px;
-  width: 4px; height: 7px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-.git-sync-mini-spinner.error {
-  width: 14px; height: 14px;
-  background: #ef4444;
-  position: relative;
-  border-radius: 50%;
-}
-.git-sync-mini-spinner.error::after {
-  content: '!';
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
 .git-sync-mini-label {
   font-size: var(--fs-md);
   font-weight: 500;

@@ -4,6 +4,9 @@ Git status and sync routes.
 
 import subprocess
 import sys
+import threading
+import time
+import uuid
 from pathlib import Path
 
 from ..platform_utils import NO_WINDOW as _NO_WINDOW
@@ -48,6 +51,38 @@ def api_git_sync():
     return jsonify(result)
 
 
+# The newest streamed sync, kept so a page that reloads mid-run (the minimized
+# Publish pill) can pick the run up again: /api/git-sync-job.
+_job_lock = threading.Lock()
+_job = None
+
+
+def _new_job(action, steps):
+    global _job
+    with _job_lock:
+        _job = {"id": uuid.uuid4().hex[:12], "action": action, "steps": steps,
+                "events": [], "result": None, "started_at": time.time()}
+        return _job
+
+
+@bp.route("/api/git-sync-job")
+def api_git_sync_job():
+    """The newest streamed sync: its steps, its events from ``since`` on, and
+    its result once it has one.  ``{"job": null}`` when none ran since the web
+    server started."""
+    try:
+        since = max(0, int(request.args.get("since") or 0))
+    except ValueError:
+        since = 0
+    with _job_lock:
+        job = _job
+        if job is None:
+            return jsonify({"job": None})
+        return jsonify({"job": job["id"], "action": job["action"], "steps": job["steps"],
+                        "events": job["events"][since:], "count": len(job["events"]),
+                        "done": job["result"] is not None, "result": job["result"]})
+
+
 @bp.route("/api/git-sync-stream", methods=["POST"])
 def api_git_sync_stream():
     """The same sync as /api/git-sync, reporting each step as it starts.
@@ -70,12 +105,19 @@ def api_git_sync_stream():
     summary = str(data.get("summary") or "")
     gate = data.get("gate") if isinstance(data.get("gate"), dict) else None
     events = queue.Queue()
+    steps = [{"key": k, "label": label} for k, label in sync_steps(action)]
+    job = _new_job(action, steps)
+
+    def put(ev):
+        with _job_lock:
+            job["events"].append(ev)
+        events.put(ev)
 
     def report(key, text=None, pct=None):
         if text is None:
-            events.put({"type": "step", "key": key})
+            put({"type": "step", "key": key})
         else:
-            events.put({"type": "detail", "key": key, "text": text, "pct": pct})
+            put({"type": "detail", "key": key, "text": text, "pct": pct})
 
     def run():
         try:
@@ -84,13 +126,14 @@ def api_git_sync_stream():
         except Exception as e:   # the dialog must always get an answer
             result = {"ok": False, "messages": ["Could not complete: " + str(e)]}
         result["git_status"] = get_git_cache()
-        events.put({"type": "done", "result": result})
+        with _job_lock:
+            job["result"] = result
+        put({"type": "done", "result": result})
 
     threading.Thread(target=run, name="git-sync-stream", daemon=True).start()
 
     def generate():
-        steps = [{"key": k, "label": label} for k, label in sync_steps(action)]
-        yield json.dumps({"type": "steps", "steps": steps}) + "\n"
+        yield json.dumps({"type": "steps", "steps": steps, "job": job["id"]}) + "\n"
         while True:
             ev = events.get()
             yield json.dumps(ev) + "\n"

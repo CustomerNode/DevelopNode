@@ -6936,6 +6936,52 @@ paths:
               schema:
                 type: string
 
+  /api/git-sync-job:
+    get:
+      tags: [Git]
+      summary: The newest streamed sync, for a page that reloads mid-run
+      description: >
+        The sync last started through /api/git-sync-stream since the web
+        server started: its steps, its events from ``since`` on, and its
+        result once it has one. Answers {"job": null} when none ran.
+      operationId: gitSyncJob
+      parameters:
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+          description: Index of the first event to return.
+      responses:
+        "200":
+          description: 'The newest sync job, or {"job": null}'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job:
+                    type: string
+                    nullable: true
+                  action:
+                    type: string
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                  events:
+                    type: array
+                    items:
+                      type: object
+                  count:
+                    type: integer
+                  done:
+                    type: boolean
+                  result:
+                    type: object
+                    nullable: true
+
   /api/git-scan:
     get:
       tags: [Git]

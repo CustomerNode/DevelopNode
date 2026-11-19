@@ -168,6 +168,9 @@ def test_filters_live_behind_the_funnel(browser):
         app.eval("() => { const g = document.getElementById('workforce-grid'); g.scrollTop = g.scrollHeight; }")
         app.advance(300)
         # 250 recent, minus 14 working/waiting (sessions 1..14; 0 is asleep now) = 236.
+        # The next 150 are mounted by an IntersectionObserver, which runs on real
+        # time, not the page clock: wait for it as the windowing test does.
+        app.page.wait_for_function(f"({CARDS})() === 236", timeout=5000)
         assert app.eval(CARDS) == 236
 
         # Persisted per project: a reload restores the chips.

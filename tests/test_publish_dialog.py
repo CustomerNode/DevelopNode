@@ -289,10 +289,13 @@ def test_publishing_shows_the_work_as_it_happens(page):
     page.clock.run_for(600)
     assert page.locator("#git-sync-mini-pct").text_content() == "81%"
     assert page.locator("#git-sync-mini-spinner.working").count() == 0
+    assert page.evaluate("() => document.getElementById('git-sync-mini-bar-fill').style.width").startswith("81")
+    assert page.locator(".git-sync-mini-bar.run").count() == 1
     page.evaluate("""() => { __push({type: 'done', result: {ok: true, messages: ['Pushed.'],
       git_status: {ahead: 0, behind: 0, uncommitted: false}}}); __end(); }""")
     _until(page, "() => /Published/.test(document.getElementById('git-sync-mini-label').textContent)")
     assert page.locator("#git-sync-mini-spinner.done").count() == 1
+    assert page.locator(".git-sync-mini-bar.ok").count() == 1
 
 
 def test_the_publish_dialog_code_refreshes_in_an_open_tab():
@@ -373,3 +376,87 @@ def test_other_users_of_the_dialog_keep_the_plain_card(sheet):
     sheet.evaluate("() => { openGitUpdate(); closeGitSyncModal(); showGitSyncModal('Security scan', '<p>x</p>', [{label: 'OK', onclick: closeGitSyncModal}]); }")
     assert sheet.locator("#git-sync-card.gs-sheet").count() == 0
 
+
+
+# ── A reload mid-run brings the pill back (the run lives on the server) ──
+
+_ORIGIN = "http://publish.test/"
+
+
+def _served_page(browser, html):
+    """The page from a real origin, so localStorage survives a reload."""
+    pg = browser.new_page(viewport={"width": 1100, "height": 700})
+    pg.route(_ORIGIN, lambda route: route.fulfill(status=200, content_type="text/html", body=html))
+    pg.clock.install()
+    pg.goto(_ORIGIN)
+    return pg
+
+
+def _job_html() -> str:
+    """The test page, with /api/git-sync-job answered from window.__jobReply
+    (kept in sessionStorage so a test can set it for the next load) and the
+    test stream recording the run id it reattaches to."""
+    html = _page_html()
+    html = html.replace("if (url === '/api/test-modes')",
+        "if (String(url).indexOf('/api/git-sync-job') === 0) { var j = sessionStorage.getItem('jobReply');"
+        " if (!j) return Promise.resolve({ok: false, json: () => Promise.resolve({})});"
+        " body = JSON.parse(j); }\n    else if (url === '/api/test-modes')")
+    return html.replace("function _streamTestRun(mode, h) {",
+        "function _streamTestRun(mode, h) { window.__reattached = h.runId || null; if (h.runId) return;")
+
+
+def test_a_minimized_upload_comes_back_as_the_pill_after_a_reload(browser):
+    pg = _served_page(browser, _job_html())
+    try:
+        pg.evaluate("""() => { localStorage.clear(); const enc = new TextEncoder();
+          window.__stream = new ReadableStream({start(c) { window.__push = l => c.enqueue(enc.encode(JSON.stringify(l) + String.fromCharCode(10))); }});
+          executeGitAction('push', 'btn-git-publish', 'Publish App Update'); }""")
+        _until(pg, "() => window.__push && window.__posts.length === 1")
+        pg.evaluate("""() => { __push({type: 'steps', job: 'job1', steps: [{key: 'scan', label: 'Checking'}, {key: 'up', label: 'Uploading'}]});
+          __push({type: 'step', key: 'up'}); }""")
+        _until(pg, "() => (JSON.parse(localStorage.getItem('vnGitSyncJob') || '{}')).jobId === 'job1'")
+        pg.evaluate("() => minimizeGitSyncModal()")
+        assert pg.evaluate("() => JSON.parse(localStorage.getItem('vnGitSyncJob')).phase") == "sync"
+        # The server is still uploading when the page comes back.
+        pg.evaluate("""() => sessionStorage.setItem('jobReply', JSON.stringify({job: 'job1', count: 2, done: false, result: null,
+          steps: [{key: 'scan', label: 'Checking'}, {key: 'up', label: 'Uploading'}],
+          events: [{type: 'step', key: 'up'}, {type: 'detail', key: 'up', text: 'Uploading', pct: 40}]}))""")
+        pg.reload()
+        _until(pg, "() => document.getElementById('git-sync-mini').classList.contains('show')")
+        assert pg.locator("#git-sync-overlay.show").count() == 0
+        _until(pg, "() => document.getElementById('git-sync-mini-label').textContent === 'Uploading'")
+        # It finishes: the pill says so, and a further reload still shows it until dismissed.
+        pg.evaluate("""() => sessionStorage.setItem('jobReply', JSON.stringify({job: 'job1', count: 3, done: true,
+          steps: [], events: [], result: {ok: true, messages: ['Pushed.'], git_status: {ahead: 0, behind: 0, uncommitted: false}}}))""")
+        _until(pg, "() => /Published/.test(document.getElementById('git-sync-mini-label').textContent)")
+        assert pg.locator("#git-sync-mini-spinner.done").count() == 1
+        pg.reload()
+        _until(pg, "() => /Published/.test(document.getElementById('git-sync-mini-label').textContent)")
+        pg.evaluate("() => dismissGitSyncMini()")
+        assert pg.evaluate("() => localStorage.getItem('vnGitSyncJob')") is None
+    finally:
+        pg.close()
+
+
+def test_a_reload_during_the_tests_reattaches_to_the_same_run(browser):
+    pg = _served_page(browser, _job_html())
+    try:
+        pg.evaluate("""() => { localStorage.clear(); localStorage.setItem('vnGitSyncJob', JSON.stringify({phase: 'tests', mode: 'fast',
+          actionType: 'publish', actionLabel: 'Publish App Update', btnId: 'btn-git-publish', runId: 'run42', at: Date.now()})); }""")
+        pg.reload()
+        _until(pg, "() => window.__reattached === 'run42'")
+        assert pg.evaluate("() => document.getElementById('git-sync-mini').classList.contains('show')")
+    finally:
+        pg.close()
+
+
+def test_an_old_finished_or_stale_run_is_not_brought_back(browser):
+    pg = _served_page(browser, _job_html())
+    try:
+        pg.evaluate("""() => localStorage.setItem('vnGitSyncJob', JSON.stringify({phase: 'sync', at: Date.now() - 4 * 3600 * 1000}))""")
+        pg.reload()
+        pg.clock.run_for(500)
+        assert not pg.evaluate("() => document.getElementById('git-sync-mini').classList.contains('show')")
+        assert pg.evaluate("() => localStorage.getItem('vnGitSyncJob')") is None
+    finally:
+        pg.close()

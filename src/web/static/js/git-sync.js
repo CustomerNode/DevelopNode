@@ -336,6 +336,21 @@ function _gsDetail(ev) {
   _gsDrawNow();
 }
 
+/** One event of a streamed sync drawn on the dialog; returns the result on 'done'. */
+function _gsSyncEvent(ev) {
+  if (ev.type === 'steps') {
+    _gsSteps = (ev.steps || []).map(s => ({key: s.key, label: s.label}));
+  } else if (ev.type === 'step') {
+    const i = (_gsSteps || []).findIndex(s => s.key === ev.key);
+    if (i >= 0) _gsStep(i, _gsSteps[i].label);
+  } else if (ev.type === 'detail') {
+    _gsDetail(ev);
+  } else if (ev.type === 'done') {
+    return ev.result;
+  }
+  return null;
+}
+
 /** Run the sync, showing the work as the server reports it.  Returns its result. */
 async function _gsRunSync(payload) {
   const req = {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)};
@@ -370,16 +385,9 @@ async function _gsRunSync(payload) {
       if (!line) continue;
       let ev;
       try { ev = JSON.parse(line); } catch (_) { continue; }
-      if (ev.type === 'steps') {
-        _gsSteps = (ev.steps || []).map(s => ({key: s.key, label: s.label}));
-      } else if (ev.type === 'step') {
-        const i = (_gsSteps || []).findIndex(s => s.key === ev.key);
-        if (i >= 0) _gsStep(i, _gsSteps[i].label);
-      } else if (ev.type === 'detail') {
-        _gsDetail(ev);
-      } else if (ev.type === 'done') {
-        result = ev.result;
-      }
+      if (ev.type === 'steps' && ev.job) _gsJobSave({jobId: ev.job});
+      const r = _gsSyncEvent(ev);
+      if (r) result = r;
     }
     if (done) break;
   }
@@ -763,7 +771,7 @@ function _legacyCopy(text) {
   } catch (e) { return false; }
 }
 
-function _testThenAction(mode, actionType, actionLabel, btnId) {
+function _testThenAction(mode, actionType, actionLabel, btnId, resume) {
   closeGitSyncModal();
   _gsKind = actionType === 'sync' ? 'sync' : 'publish';
   const W = _gsWords(actionLabel);
@@ -771,7 +779,7 @@ function _testThenAction(mode, actionType, actionLabel, btnId) {
   const Verb = verb.charAt(0).toUpperCase() + verb.slice(1);
   const desc = (mode === 'fast' ? 'Fast' : 'Full') + ' tests · ' + verb + (verb === 'publish' ? 'es' : 's') + ' when they pass';
 
-  if (typeof _testRunning !== 'undefined' && _testRunning) {
+  if (!resume && typeof _testRunning !== 'undefined' && _testRunning) {
     showGitSyncModal('Tests already running', '<p>Tests are already running in this tab. '
       + 'The earlier run carries on and reports when it finishes.</p>',
       [{label: 'Cancel tests', onclick: () => { if (typeof cancelTests === 'function') cancelTests(); }},
@@ -782,6 +790,8 @@ function _testThenAction(mode, actionType, actionLabel, btnId) {
   if (typeof _testRunning !== 'undefined') _testRunning = true;
 
   showGitSyncModal(W.ing, typeof _testRunnerHtml === 'function' ? _testRunnerHtml(desc) : '<p>' + desc + '</p>', [], {center: true});
+  _gsJobStart({phase: 'tests', mode, actionType, actionLabel, btnId, summary: _publishSummary,
+               runId: resume && resume.runId || null});
 
   const startedAt = Date.now();
   // The run lives on the server and survives a dropped connection; the
@@ -789,6 +799,8 @@ function _testThenAction(mode, actionType, actionLabel, btnId) {
   // phone locking its screen mid-run does not leave this dialog on "running".
 
   _streamTestRun(mode, {
+    runId: resume && resume.runId || null,
+    onRun: id => _gsJobSave({runId: id}),
     onLine: lines => { if (typeof _updateTestOutput === 'function') _updateTestOutput(lines); },
     onDone: (d, lines) => {
       if (typeof _testRunning !== 'undefined') _testRunning = false;
@@ -965,6 +977,12 @@ function showGitSyncModal(title, body, btns, opts) {
   // so its own row keeps only the buttons that do something.
   const closeBtn = document.getElementById('git-sync-close-btn');
   if (closeBtn) closeBtn.style.display = (opts.sticky && btns.length) ? 'inline-flex' : 'none';
+  // A result ends the run: kept while it sits unseen in the pill, so a reload
+  // still shows it, and dropped once it is on screen.
+  if (!running) {
+    if (_gitSyncMinimized) _gsJobSave({phase: 'done', title, ok: opts.tone ? opts.tone === 'ok' : /✓|All Clear/.test(title)});
+    else _gsJobClear();
+  }
   // Track label for mini indicator
   _gitSyncMiniLabel = title;
   // If minimized, update the mini indicator label instead of showing the overlay
@@ -997,22 +1015,34 @@ function minimizeGitSyncModal() {
   const spinner = document.getElementById('git-sync-mini-spinner');
   const closeBtn = document.getElementById('git-sync-mini-close');
   label.textContent = _gitSyncMiniLabel || document.getElementById('git-sync-title').textContent || 'Working...';
-  // A small copy of the dialog's ring, filled as far as the dialog's is: the
-  // pill shows how far along the run is, never a spinner.
-  spinner.className = 'git-sync-mini-spinner progress';
-  spinner.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle class="gsm-track" cx="10" cy="10" r="8"/>'
-    + '<circle class="gsm-fill" id="git-sync-mini-ring" cx="10" cy="10" r="8" stroke-dasharray="' + _GSM_RC.toFixed(2)
-    + '" stroke-dashoffset="' + _GSM_RC.toFixed(2) + '"/></svg>';
+  // The dialog's own cloud in its amber, and a bar along the pill's bottom
+  // edge filled as far as the dialog's is: never a spinner.
+  spinner.className = 'git-sync-mini-spinner kind';
+  spinner.innerHTML = _GIT_ICONS[_gsKind === 'update' ? 'pull' : _gsKind === 'sync' ? 'sync' : 'push'];
+  _gsMiniBar(0, 'run');
   closeBtn.style.display = 'none';
   mini.classList.add('show');
   _gsMiniFollow();
   if (typeof _updateFloatOffset === 'function') _updateFloatOffset();   // shared float stack (utils.js)
 }
 
-const _GSM_RC = 2 * Math.PI * 8;
 let _gsMiniTimer = null;
 
 /** How far the dialog's ring is filled (0..1): the git steps, the scan or the tests. */
+/** The bar along the pill's bottom edge: 'run' (amber), 'ok' or 'bad'. */
+function _gsMiniBar(fraction, state) {
+  const mini = document.getElementById('git-sync-mini');
+  if (!mini) return;
+  let bar = mini.querySelector('.git-sync-mini-bar');
+  if (!bar) {
+    bar = document.createElement('span');
+    bar.innerHTML = '<i id="git-sync-mini-bar-fill"></i>';
+    mini.appendChild(bar);
+  }
+  bar.className = 'git-sync-mini-bar ' + state;
+  bar.firstChild.style.width = (Math.max(0, Math.min(1, fraction)) * 100).toFixed(1) + '%';
+}
+
 function _gsDialogFraction() {
   const ring = document.getElementById('gs-ring') || document.getElementById('test-progress-ring');
   if (!ring) return null;
@@ -1028,8 +1058,7 @@ function _gsMiniFollow() {
   const tick = () => {
     if (!_gitSyncMinimized || _gitSyncFinished) { clearInterval(_gsMiniTimer); _gsMiniTimer = null; return; }
     const f = _gsDialogFraction();
-    const ring = document.getElementById('git-sync-mini-ring');
-    if (ring && f !== null) ring.setAttribute('stroke-dashoffset', (_GSM_RC * (1 - f)).toFixed(2));
+    if (f !== null) _gsMiniBar(f, 'run');
     let pct = document.getElementById('git-sync-mini-pct');
     const label = document.getElementById('git-sync-mini-label');
     if (!pct && label) {
@@ -1052,6 +1081,8 @@ function restoreGitSyncModal() {
 }
 
 function _dismissMiniIndicator() {
+  const job = _gsJobLoad();
+  if (job && job.phase === 'done') _gsJobClear();
   _gitSyncMinimized = false;
   _gitSyncFinished = false;
   document.getElementById('git-sync-mini').classList.remove('show');
@@ -1075,8 +1106,9 @@ function _notifyMiniComplete(title, isOk) {
   const spinner = document.getElementById('git-sync-mini-spinner');
   const closeBtn = document.getElementById('git-sync-mini-close');
   label.textContent = title;
-  spinner.innerHTML = '';
+  spinner.innerHTML = isOk ? _GIT_ICO('<path d="m5 12.5 4.5 4.5L19 7.5"/>') : _GIT_ICO('<path d="m7 7 10 10M17 7 7 17"/>');
   spinner.className = 'git-sync-mini-spinner ' + (isOk ? 'done' : 'error');
+  _gsMiniBar(1, isOk ? 'ok' : 'bad');
   const pct = document.getElementById('git-sync-mini-pct');
   if (pct) pct.textContent = '';
   closeBtn.style.display = 'inline-flex';
@@ -1085,6 +1117,114 @@ function _notifyMiniComplete(title, isOk) {
   const mini = document.getElementById('git-sync-mini');
   mini.classList.add('flash');
   setTimeout(() => mini.classList.remove('flash'), 1500);
+}
+
+// ── A run that outlives the page ──
+// Publish, Sync and Update run on the server; the page only watches.  The run
+// in progress is kept in localStorage, so a reload (or the tab reloading itself
+// onto new code, live-assets.js) picks it back up as the pill instead of
+// losing it: the tests by their run id, the upload through /api/git-sync-job.
+const _GS_JOB_KEY = 'vnGitSyncJob';
+const _GS_JOB_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+function _gsJobLoad() {
+  try { return JSON.parse(localStorage.getItem(_GS_JOB_KEY) || 'null'); } catch (_) { return null; }
+}
+function _gsJobStart(job) {
+  const prev = _gsJobLoad();
+  job.at = (prev && prev.phase !== 'done' && prev.at) || Date.now();
+  try { localStorage.setItem(_GS_JOB_KEY, JSON.stringify(job)); } catch (_) {}
+}
+/** Add to the run in progress (no-op when there is none). */
+function _gsJobSave(fields) {
+  const job = _gsJobLoad();
+  if (!job) return;
+  try { localStorage.setItem(_GS_JOB_KEY, JSON.stringify(Object.assign(job, fields))); } catch (_) {}
+}
+function _gsJobClear() {
+  try { localStorage.removeItem(_GS_JOB_KEY); } catch (_) {}
+}
+
+/** On page load: bring back the pill of a run that was going (or had finished
+ *  minimized, unseen) when the page went away. */
+function _gsResume() {
+  const job = _gsJobLoad();
+  if (!job) return;
+  if (!job.at || Date.now() - job.at > _GS_JOB_MAX_AGE_MS) { _gsJobClear(); return; }
+  _publishSummary = job.summary || '';
+  if (job.phase === 'done') {
+    _gsKind = _gsKindOf(job.btnLabel || job.actionLabel || '');
+    minimizeGitSyncModal();
+    showGitSyncModal(job.title || 'Finished', _gsRing({pct: 100, tone: job.ok ? 'ok' : 'bad',
+      mark: job.ok ? _GS_ICON.check : _GS_ICON.x}),
+      [{label: 'Done', primary: true, onclick: closeGitSyncModal}], {center: true, tone: job.ok ? 'ok' : 'bad'});
+    return;
+  }
+  if (job.phase === 'tests') {
+    _testThenAction(job.mode, job.actionType, job.actionLabel, job.btnId, {runId: job.runId});
+    minimizeGitSyncModal();
+    return;
+  }
+  _publishGate = job.gate || null;
+  if (job.phase === 'scan') {
+    // Nothing was sent yet: run the scan and the upload again.
+    executeGitAction(job.action, job.btnId, job.btnLabel, job.confirmBranch);
+    minimizeGitSyncModal();
+    return;
+  }
+  if (job.phase === 'sync') _gsFollowJob(job);
+}
+
+/** Follow an upload the server is already running, after a reload. */
+async function _gsFollowJob(job) {
+  const W = _gsWords(job.btnLabel || '');
+  _gsKind = _gsKindOf(job.btnLabel || '');
+  showGitSyncModal(W.ing, _syncStatusHtml('Picking the run back up…'), [], {center: true});
+  minimizeGitSyncModal();
+  _gsSteps = null;
+  _gsCur = -1;
+  _gsRunStart = job.at || Date.now();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let result = null, n = 0, followed = false;
+  for (let tries = 0; !result && tries < 3600; tries++) {
+    let d = null;
+    try {
+      const res = await fetch('/api/git-sync-job?since=' + n);
+      d = res.ok ? await res.json() : null;
+    } catch (_) { d = null; }
+    if (!d || !d.job || (job.jobId && d.job !== job.jobId)) break;   // not this run: watch the status
+    followed = true;
+    if (!_gsSteps && d.steps) _gsSyncEvent({type: 'steps', steps: d.steps});
+    (d.events || []).forEach(ev => { const r = _gsSyncEvent(ev); if (r) result = r; });
+    n = d.count || n;
+    if (d.done && d.result) result = d.result;
+    if (!result) await sleep(1000);
+  }
+  if (!result && !followed) result = await _gsWaitForStatus(job);
+  _gsStopCreep();
+  if (!result) {
+    showGitSyncModal('Lost track of it', '<p>The page reloaded and the run could not be followed. '
+      + 'Open the sync settings to see where it stands.</p>',
+      [{label: 'OK', primary: true, onclick: closeGitSyncModal}], {tone: 'bad'});
+    return;
+  }
+  await _gsShowSyncResult(result, job.action, job.btnId, job.btnLabel);
+}
+
+/** A server that cannot report the run (not restarted onto /api/git-sync-job,
+ *  or restarted since): done once git says nothing is left to send or bring in. */
+async function _gsWaitForStatus(job) {
+  const push = job.action === 'push' || job.action === 'both';
+  const pull = job.action === 'pull' || job.action === 'both';
+  for (let i = 0; i < 300; i++) {
+    let s = null;
+    try { s = await (await fetch('/api/git-status')).json(); } catch (_) { s = null; }
+    if (s && (!push || (s.ahead === 0 && !s.uncommitted)) && (!pull || s.behind === 0)) {
+      return {ok: true, messages: [_gsWords(job.btnLabel || '').ed + '.'], git_status: s};
+    }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  return null;
 }
 
 function _syncStatusHtml(stepLabel) {
@@ -1138,6 +1278,8 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
 
   const isPush = action === 'push' || action === 'both';
   const isPull = action === 'pull' || action === 'both';
+  _gsJobStart({phase: 'scan', action, btnId, btnLabel, confirmBranch: !!confirmBranch,
+               summary: _publishSummary, gate: _publishGate});
 
   const W = _gsWords(btnLabel);
   // Show the ring for all actions: the scan's progress first when pushing.
@@ -1170,14 +1312,30 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
       payload.summary = _publishSummary || '';
       payload.gate = _publishGate || {mode: 'skipped'};
     }
+    _gsJobSave({phase: 'sync', gate: payload.gate || null});
     const r = await _gsRunSync(payload);
+    await _gsShowSyncResult(r, action, btnId, btnLabel);
+  } catch(e) {
+    _gsStopCreep();
+    showGitSyncModal('Something went wrong', '<p>Could not complete. Try again.</p>',
+      [{label: 'OK', primary: true, onclick: closeGitSyncModal}], {tone: 'bad'});
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/** The finished sync on the dialog (or the pill, when minimized). */
+async function _gsShowSyncResult(r, action, btnId, btnLabel) {
+    const isPush = action === 'push' || action === 'both';
+    const isPull = action === 'pull' || action === 'both';
+    const W = _gsWords(btnLabel);
     if (isPush && !r.needs_branch_confirm) { _publishSummary = ''; _publishGate = null; }
 
     // Server-side branch guard (in case the polled status was stale).
     if (r.needs_branch_confirm) {
       if (r.git_status) _applyGitStatus(r.git_status);
       _showBranchWarning(action, btnId, btnLabel, r);
-      return;  // finally{} re-enables the button
+      return;
     }
 
     const scanBad = !!(r.scan && !r.scan.ok);
@@ -1221,13 +1379,6 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
     } else {
       await pollGitStatus();
     }
-  } catch(e) {
-    _gsStopCreep();
-    showGitSyncModal('Something went wrong', '<p>Could not complete. Try again.</p>',
-      [{label: 'OK', primary: true, onclick: closeGitSyncModal}], {tone: 'bad'});
-  } finally {
-    btn.disabled = false;
-  }
 }
 
 // ── Security scan rendering ──
@@ -1476,3 +1627,7 @@ async function _startFixSession(title, preview, prompt) {
   if (typeof setToolbarSession === 'function') setToolbarSession(newId, title, false, title);
   if (typeof updateLiveInputBar === 'function') updateLiveInputBar();
 }
+
+// Pick up a run that was going when the page went away.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(_gsResume, 0));
+else setTimeout(_gsResume, 0);

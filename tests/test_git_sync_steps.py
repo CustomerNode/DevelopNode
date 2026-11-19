@@ -138,7 +138,15 @@ def test_the_stream_names_the_steps_then_reports_them_then_the_result():
         r = app.test_client().post("/api/git-sync-stream", json={"action": "pull", "summary": "x"})
         lines = [json.loads(l) for l in r.get_data(as_text=True).splitlines() if l.strip()]
     assert r.status_code == 200 and "ndjson" in r.headers["Content-Type"]
-    assert lines[0] == {"type": "steps", "steps": [{"key": k, "label": l} for k, l in git_ops.sync_steps("pull")]}
+    assert lines[0] == {"type": "steps", "steps": [{"key": k, "label": l} for k, l in git_ops.sync_steps("pull")],
+                        "job": lines[0]["job"]}
+    # The same run, kept for a page that reloads mid-run: every event and the result.
+    job = app.test_client().get("/api/git-sync-job").get_json()
+    assert job["job"] == lines[0]["job"] and job["action"] == "pull" and job["done"] is True
+    assert job["events"] == lines[1:] and job["count"] == len(lines) - 1
+    assert job["result"] == lines[-1]["result"]
+    later = app.test_client().get("/api/git-sync-job?since=4").get_json()
+    assert later["events"] == lines[5:]
     assert [(e["type"], e["key"]) for e in lines[1:-1]] == [
         ("step", "pull"), ("detail", "pull"), ("step", "restore"), ("detail", "restore"),
         ("step", "finish"), ("detail", "finish")]

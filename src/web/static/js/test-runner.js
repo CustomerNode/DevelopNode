@@ -17,7 +17,9 @@ let _testRunning = false;
  */
 function _streamTestRun(mode, handlers) {
   const lines = [];
-  let runId = null;
+  // handlers.runId: reattach to a run already in progress (a page reloaded
+  // mid-Publish); handlers.onRun(id) learns the id of the run once known.
+  let runId = handlers.runId || null;
   let finished = false;
   let failures = 0;
   let retryTimer = null;
@@ -86,6 +88,7 @@ function _streamTestRun(mode, handlers) {
             try { d = JSON.parse(part.slice(6)); } catch (_) { continue; }
             if (d.type === 'run') {
               runId = d.run_id;
+              if (handlers.onRun) handlers.onRun(runId);
               failures = 0;            // reached the server: reset the backoff
             } else if (d.type === 'line') {
               lines.push(d.line);

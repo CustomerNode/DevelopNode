@@ -203,3 +203,37 @@ def test_new_installs_make_nothing_with_the_old_name():
         assert old not in readme, old
     assert "Name=VibeNode" not in (root / "vibenode.py").read_text(encoding="utf-8")
     assert "vibenode.ico" not in (root / "src/launcher/run.py").read_text(encoding="utf-8")
+
+
+def test_a_windows_rename_that_did_not_happen_is_never_reported_done(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(rebrand, "_run_ps", lambda script, env, timeout=15: calls.append(env))
+    old, new = tmp_path / "VibeNode.lnk", tmp_path / "DevelopNode.lnk"
+    item = {"path": str(old), "new_path": str(new)}
+
+    old.write_bytes(b"lnk")
+    rebrand._apply_windows(item)                      # the normal case
+    assert new.exists() and not old.exists()
+
+    old.write_bytes(b"lnk")                           # a DevelopNode shortcut is already there
+    with pytest.raises(RuntimeError, match="already there"):
+        rebrand._apply_windows(item)
+    assert old.exists()                               # nothing deleted
+
+    new.unlink()
+    monkeypatch.setattr(Path, "rename", lambda self, to: (_ for _ in ()).throw(PermissionError("held")))
+    with pytest.raises(RuntimeError, match="did not rename"):
+        rebrand._apply_windows(item)                  # held file, Windows' rename also failed
+    assert any(e.get("VN_NAME") == "DevelopNode.lnk" for e in calls)
+
+
+def test_apply_reports_a_failed_rename(tmp_path, monkeypatch):
+    item = {"kind": "windows_lnk", "path": str(tmp_path / "VibeNode.lnk"),
+            "new_path": str(tmp_path / "DevelopNode.lnk"), "label": "VibeNode on the desktop",
+            "becomes": "DevelopNode", "id": "windows_lnk:0"}
+    (tmp_path / "VibeNode.lnk").write_bytes(b"lnk")
+    (tmp_path / "DevelopNode.lnk").write_bytes(b"lnk")
+    monkeypatch.setattr(rebrand, "scan", lambda root=None, home=None: [item])
+    monkeypatch.setattr(rebrand, "_run_ps", lambda *a, **k: None)
+    out = rebrand.apply(tmp_path, tmp_path, tmp_path / "state.json")
+    assert out["ok"] is False and "already there" in out["results"][0]["error"]

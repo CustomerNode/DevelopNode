@@ -20,6 +20,10 @@
      phone (defaults to hostname; set in System → Mobile Command). iOS uses this for
      the Add-to-Home-Screen name. -->
 <meta name="apple-mobile-web-app-title" content="{{ a2hs_title|default('DevelopNode', true) }}">
+<!-- Which home-screen icon this install carries: one added before the rename
+     already has saved settings on its first load of this page; a new one is
+     empty.  Read by rebrand.js, so only an old install is shown how to swap. -->
+<script>try{if(!localStorage.getItem('vnIconGen'))localStorage.setItem('vnIconGen',localStorage.length?'old':'new');}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Inter is the body face. The CSS font stack asked for 'Inter' long before

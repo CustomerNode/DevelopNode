@@ -24,7 +24,7 @@
 /* The iPhone home-screen icon steps (phoneIcon in js/rebrand.js). */
 .vrb-phone .pm-card { width: min(360px, calc(100vw - 32px)); padding-top: 26px; }
 .vrb-phone .vrb-icon { width: 64px; height: 64px; border-radius: 15px; display: block; margin: 0 auto 12px; }
-.vrb-phone .vrb-h { font-size: 17px; font-weight: 600; color: var(--text-heading); margin-bottom: 16px; }
+.vrb-phone .vrb-h { font-size: 17px; font-weight: 600; line-height: 1.4; color: var(--text-heading); margin-bottom: 16px; }
 .vrb-phone .vrb-steps { text-align: left; margin: 0 0 18px; padding-left: 22px; display: grid; gap: 12px;
   font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
 .vrb-phone .vrb-steps b { color: var(--text-heading); font-weight: 600; }
@@ -32,3 +32,9 @@
 .vrb-phone .vrb-steps svg { width: 17px; height: 17px; vertical-align: -3px; fill: none; stroke: #0a84ff;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .vrb-phone > .pm-card > .btn { width: 100%; justify-content: center; }
+.vrb-phone .vrb-steps a.btn { display: flex; text-decoration: none; }
+.vrb-phone .vrb-link { display: block; margin: 8px auto 0; background: none; border: 0; padding: 4px;
+  color: var(--text-secondary); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+.vrb-safari .vrb-h { margin-bottom: 18px; line-height: 1.5; }
+.vrb-safari .vrb-h svg { width: 19px; height: 19px; vertical-align: -4px; fill: none; stroke: #0a84ff;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

@@ -293,11 +293,28 @@ def _windows_items(root: Path, home: Path) -> list:
     return items
 
 
+_PS_RENAME = "Rename-Item -LiteralPath $env:VN_LNK -NewName $env:VN_NAME -ErrorAction Stop"
+
+
 def _apply_windows(item: dict) -> None:
+    """Give the shortcut the new icon and name, and prove the name changed.
+
+    The name on the desktop IS the file name, so a rename that did not happen
+    must be reported as a failure, never passed off as done."""
     _run_ps(_PS_ICON, {"VN_LNK": item["path"], "VN_ICON": str(ICON_ICO)})
     src, dst = Path(item["path"]), Path(item["new_path"])
-    if dst != src and not dst.exists():
+    if dst == src:
+        return
+    if dst.exists():
+        raise RuntimeError(f"a shortcut called {dst.stem} is already there, so {src.stem} kept its name; "
+                           f"delete whichever of the two you do not want")
+    try:
         src.rename(dst)
+    except OSError:
+        # OneDrive or Explorer can hold the file; Windows' own rename waits that out.
+        _run_ps(_PS_RENAME, {"VN_LNK": str(src), "VN_NAME": dst.name})
+    if src.exists() or not dst.exists():
+        raise RuntimeError(f"Windows did not rename {src.name}; it still shows {src.stem}")
 
 
 # ── the project list ─────────────────────────────────────────────────────

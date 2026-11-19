@@ -103,15 +103,20 @@
 
   /* The phone's home-screen icon.  Android installs refresh their icon from
      the manifest by themselves.  An iPhone keeps the picture it took when the
-     icon was added and has no Share button inside a home-screen app, so the
-     steps are shown there, once, with the one thing it cannot do itself
-     (copy this address) as a button. */
+     icon was added, so an install from before the rename (vnIconGen 'old',
+     stamped in index.html's head) is shown the swap once.  "Open in Safari"
+     does it in one tap (Safari's x-safari- address, iOS 17 and later);
+     Copy is there for when Safari does not open.  Safari then points at its
+     own Share button.  A new install is never asked: it already has the icon. */
   var PHONE_KEY = 'vnPhoneIconShown';
+  var HINT = 'homescreen';
   var SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1"/></svg>';
-  function phoneIcon() {
+  function _get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function phoneIcon(force) {
     if (navigator.standalone !== true || document.getElementById('vn-rebrand')) return;
-    try { if (localStorage.getItem(PHONE_KEY)) return; } catch (e) { return; }
-    var url = location.origin + '/';
+    if (!force && (_get(PHONE_KEY) || _get('vnIconGen') !== 'old')) return;
+    var url = location.origin + '/?' + HINT + '=1';
+    var safari = /^https?:/.test(url) ? 'x-safari-' + url : '';
     var ov = document.createElement('div');
     ov.className = 'overlay vn-rebrand vrb-phone';
     ov.id = 'vn-rebrand';
@@ -120,8 +125,11 @@
       + '<img class="vrb-icon" src="/static/developnode.png" alt="">'
       + '<div class="vrb-h" id="vn-rebrand-name">New icon for your home screen</div>'
       + '<ol class="vrb-steps">'
-      + '<li><button class="btn primary" data-copy>Copy this app’s address</button></li>'
-      + '<li>Paste it into Safari, tap ' + SHARE + ' then <b>Add to Home Screen</b>.</li>'
+      + '<li>' + (safari ? '<a class="btn primary" data-safari href="' + esc(safari) + '">Open in Safari</a>'
+                          + '<button class="vrb-link" data-copy>or copy the address</button>'
+                         : '<button class="btn primary" data-copy>Copy this app’s address</button> and paste it into Safari')
+      + '</li>'
+      + '<li>In Safari, tap Share ' + SHARE + ' then <b>Add to Home Screen</b>.</li>'
       + '<li>Press and hold this old icon, then <b>Remove App</b>.</li>'
       + '</ol>'
       + '<button class="btn" data-ok>Got it</button>'
@@ -141,13 +149,33 @@
     };
   }
 
+  /* Safari, opened from the old icon: point at Share, and take the marker off
+     the address first so the new icon opens the plain app. */
+  function safariHint() {
+    if (navigator.standalone !== false || !/[?&]homescreen=1/.test(location.search)) return;
+    try { history.replaceState(history.state, '', location.pathname + location.hash); } catch (e) {}
+    if (document.getElementById('vn-rebrand')) return;
+    var ov = document.createElement('div');
+    ov.className = 'overlay vn-rebrand vrb-phone vrb-safari';
+    ov.id = 'vn-rebrand';
+    ov.innerHTML =
+      '<div class="pm-card" role="dialog" aria-labelledby="vn-rebrand-name">'
+      + '<img class="vrb-icon" src="/static/developnode.png" alt="">'
+      + '<div class="vrb-h" id="vn-rebrand-name">Tap Share ' + SHARE + ' (on newer iPhones it is under •••), then <b>Add to Home Screen</b></div>'
+      + '<button class="btn" data-ok>OK</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('show'); });
+    ov.querySelector('[data-ok]').onclick = function () { close(ov); };
+  }
+
   // A tab that got this file late (through last-card.js) has no stylesheet for it yet.
   if (!document.querySelector('link[href*="css/rebrand.css"]')) {
     var l = document.createElement('link');
     l.rel = 'stylesheet'; l.href = '/static/css/rebrand.css?v=' + Date.now();
     document.head.appendChild(l);
   }
-  window.VNRebrand = { check: check, show: show, phoneIcon: phoneIcon };
+  window.VNRebrand = { check: check, show: show, phoneIcon: phoneIcon, safariHint: safariHint };
   // Ask again when the tab comes back into view (at most once a minute), so a
   // tab left open sees the notice without a reload once it is due.
   var lastAsk = 0;
@@ -156,7 +184,7 @@
     lastAsk = Date.now(); check();
   });
   // After the app has drawn, so the notice never fights the loading screen.
-  function first() { check(); setTimeout(phoneIcon, 400); }
+  function first() { check(); setTimeout(function () { phoneIcon(); safariHint(); }, 400); }
   if (document.readyState === 'complete') setTimeout(first, 2500);
   else window.addEventListener('load', function () { setTimeout(first, 2500); });
 })();

@@ -276,10 +276,13 @@ html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project { height: 52px; align-i
 html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row { height: 60px; padding: 8px var(--mh-m) 16px !important; }
 html.vn-mhl.vn-mh-ios .vn-mh-tabs { margin-top: 0; }
 html.vn-mhl body .layout .sidebar #workforce-grid { gap: 12px !important; padding-top: 20px !important; }
-html.vn-mhl body .layout .sidebar .wf-card { flex-basis: calc(50% - 6px) !important; max-width: calc(50% - 6px) !important; min-height: 166px; padding: 20px 12px 18px !important; }
-html.vn-mhl body .layout .sidebar .wf-avatar { margin-bottom: 12px !important; }
-html.vn-mhl body .layout .sidebar .wf-status-label { margin-bottom: 6px !important; }
-html.vn-mhl body .layout .sidebar .wf-name { margin-bottom: 8px !important; }
+/* Three boxes across (two gaps of 8): more sessions on a screen; disc, status, name and time scaled to fit */
+html.vn-mhl body .layout .sidebar #workforce-grid { gap: 8px !important; }
+html.vn-mhl body .layout .sidebar .wf-card { flex-basis: calc((100% - 16px) / 3) !important; max-width: calc((100% - 16px) / 3) !important; min-width: 0 !important; height: auto !important; min-height: 124px; padding: 14px 6px 12px !important; }
+html.vn-mhl body .layout .sidebar .wf-avatar { margin-bottom: 8px !important; transform: scale(.85); }
+html.vn-mhl body .layout .sidebar .wf-status-label { margin-bottom: 4px !important; font-size: 9.5px !important; }
+html.vn-mhl body .layout .sidebar .wf-name { margin-bottom: 6px !important; font-size: 12.5px !important; line-height: 1.3 !important; }
+html.vn-mhl body .layout .sidebar .wf-card :is(.wf-time, .wf-meta, .wf-date) { font-size: 11px !important; }
 html.vn-mhl .vn-mh-tab { padding-top: 8px; gap: 4px; }
 /* New is the bar's main action: a 36px disc, its label still under it */
 /* No bottom tab bar on the phone: one ••• menu (js/mobile-hairline.js). Kept hidden if an older script draws it. */

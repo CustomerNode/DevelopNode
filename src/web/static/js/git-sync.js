@@ -299,6 +299,7 @@ function _gsStep(i, label) {
   _gsStepStart = now;
   _gsStepPct = null;
   if (!_gsRunStart) _gsRunStart = now;
+  if (_gsSteps && _gsSteps[i]) _gsTlEnter('g:' + _gsSteps[i].key);
   const el = document.getElementById('sync-step-label');
   const text = document.getElementById('scan-progress-text');
   const fname = document.getElementById('scan-file-name');
@@ -340,6 +341,7 @@ function _gsDetail(ev) {
 function _gsSyncEvent(ev) {
   if (ev.type === 'steps') {
     _gsSteps = (ev.steps || []).map(s => ({key: s.key, label: s.label}));
+    _gsTlGitSteps(_gsSteps);
   } else if (ev.type === 'step') {
     const i = (_gsSteps || []).findIndex(s => s.key === ev.key);
     if (i >= 0) _gsStep(i, _gsSteps[i].label);
@@ -365,6 +367,7 @@ async function _gsRunSync(payload) {
     // A web server that has not restarted onto the stream: one step with a
     // clock, the same request.
     _gsSteps = [{key: 'all', label: payload.action === 'pull' ? 'Pulling in updates' : 'Saving and uploading'}];
+    _gsTlGitSteps(_gsSteps);
     _gsStep(0, _gsSteps[0].label);
     const text = document.getElementById('scan-progress-text');
     if (text) text.textContent = 'Working on the server';
@@ -455,6 +458,14 @@ function _gsSide(s) {
   const side = document.getElementById('git-sync-side');
   if (!side) return;
   side.className = 'gs-side' + (s.mark === 'ok' ? ' ok' : s.mark === 'bad' ? ' bad' : '');
+  const card = document.getElementById('git-sync-card');
+  if (card) card.classList.toggle('gs-tl-on', !!s.timeline);
+  if (s.timeline) {
+    side.classList.add('gs-side-tl');
+    side.innerHTML = '<div class="gs-side-ico">' + (_GS_SIDE_ICON[s.mark] || '') + '</div>';
+    _gsTlDraw();
+    return;
+  }
   const rows = (s.nums || [[s.big, s.label]]).filter(n => n[0] !== undefined && n[0] !== '');
   side.innerHTML = '<div class="gs-side-ico">' + (_GS_SIDE_ICON[s.mark] || '') + '</div>'
     + rows.map((n, i) => '<div class="gs-side-num"' + (i === 0 && s.live ? ' id="gs-side-big"' : '') + '>' + escHtml(String(n[0])) + '</div>'
@@ -476,6 +487,7 @@ function _gsSideFollow(on) {
   if (_gsSideTimer) { clearInterval(_gsSideTimer); _gsSideTimer = null; }
   if (!on) return;
   const tick = () => {
+    if (_gsTl && document.querySelector('#git-sync-side .gs-tl-box')) _gsTlDraw();
     const f = _gsDialogFraction();
     if (f === null) return;
     const big = document.getElementById('gs-side-big');
@@ -491,6 +503,10 @@ function _gsSideFollow(on) {
 function _gsSideFor(running, opts) {
   const w = _GS_KIND_WORDS[_gsKind];
   if (opts.side) return opts.side;
+  if (_gsTl && (running || opts.tone === 'ok' || opts.tone === 'bad')) {
+    if (!running) _gsTlFinish(opts.tone === 'ok');
+    return {mark: running ? _gsKind : opts.tone, timeline: true};
+  }
   if (running) return {mark: _gsKind, big: '0%', label: w.ing, live: true};
   if (opts.tone === 'ok') return {mark: 'ok', nums: _gsCountNums(), label: w.ed};
   if (opts.tone === 'bad') return {mark: 'bad', label: w.not};
@@ -505,6 +521,104 @@ function _gsCountNums() {
   if (_gsKind === 'update') return [[s.behind || 0, (s.behind === 1 ? 'update' : 'updates')]];
   if (_gsKind === 'publish') return [[out === null ? '' : out, out === 1 ? 'file' : 'files']];
   return [[s.behind || 0, 'coming in'], [out === null ? '' : out, 'going out']];
+}
+
+// ── The run's timeline in the side panel ──
+// One run goes through several stages (the tests, the security check, then the
+// server's git steps), and each stage's ring counts from 0 to 100 again.  So the
+// side panel shows the stages as a timeline instead of one number: a dot per
+// stage, how long each finished one took, and the running one's clock, share
+// and a small bar.  The git steps replace their placeholder row when the server
+// names them.  Rows: {key, name, start, end}; _gsTl.cur is the running row,
+// rows.length once everything finished; _gsTl.bad marks the row that stopped it.
+let _gsTl = null;
+
+function _gsTlBegin(withTests, withScan, gitLabel) {
+  const rows = [];
+  if (withTests) rows.push({key: 'tests', name: 'Tests'});
+  if (withScan) rows.push({key: 'scan', name: 'Security check'});
+  rows.push({key: 'git', name: gitLabel || 'Uploading'});
+  _gsTl = {rows, cur: -1, bad: false};
+}
+
+/** The stage `key` has started; every row before it is finished. */
+function _gsTlEnter(key) {
+  if (!_gsTl) return;
+  const i = _gsTl.rows.findIndex(r => r.key === key);
+  if (i < 0 || i === _gsTl.cur) return;
+  const now = Date.now();
+  _gsTl.rows.forEach((r, j) => {
+    if (j < i) { if (!r.start) r.start = now; if (!r.end) r.end = now; }
+  });
+  _gsTl.cur = i;
+  _gsTl.rows[i].start = now;
+  _gsTl.bad = false;
+}
+
+/** The server named its git steps: they take the placeholder's place. */
+function _gsTlGitSteps(steps) {
+  if (!_gsTl || !steps || !steps.length) return;
+  const at = _gsTl.rows.findIndex(r => r.key === 'git' || r.key.startsWith('g:'));
+  const head = at < 0 ? _gsTl.rows : _gsTl.rows.slice(0, at);
+  const running = _gsTl.cur >= head.length;
+  _gsTl.rows = head.concat(steps.map(s => ({key: 'g:' + s.key, name: s.label})));
+  if (running) {   // the placeholder was running: its first step is now
+    _gsTl.cur = head.length;
+    _gsTl.rows[head.length].start = Date.now();
+  }
+}
+
+/** The run ended: every row done, or the running one marked as where it stopped. */
+function _gsTlFinish(ok) {
+  if (!_gsTl) return;
+  const now = Date.now();
+  const cur = _gsTl.rows[_gsTl.cur];
+  if (cur && !cur.end) cur.end = now;
+  if (ok) {
+    _gsTl.rows.forEach(r => { if (!r.start) r.start = now; if (!r.end) r.end = now; });
+    _gsTl.cur = _gsTl.rows.length;
+  } else {
+    _gsTl.bad = _gsTl.cur >= 0;
+  }
+}
+
+/** The running row's own share, 0..1: a git step's reported count, else the screen's ring. */
+function _gsTlShare() {
+  const row = _gsTl && _gsTl.rows[_gsTl.cur];
+  if (!row) return null;
+  if (row.key.startsWith('g:') && _gsSteps && _gsCur >= 0) {
+    return _gsStepPct !== null ? _gsStepPct / 100
+      : 0.9 * (1 - Math.exp(-(Date.now() - _gsStepStart) / 5000));
+  }
+  return _gsDialogFraction();
+}
+
+function _gsTlHtml() {
+  const t = _gsTl, now = Date.now(), share = _gsTlShare();
+  return '<ol class="gs-tl">' + t.rows.map((r, i) => {
+    const state = i < t.cur ? 'done' : i === t.cur ? (t.bad ? 'bad' : 'cur') : 'todo';
+    let tm = '';
+    if (state === 'done' && r.start) tm = _gsClock(r.end - r.start);
+    else if (state === 'cur') tm = _gsClock(now - r.start) + (share === null ? '' : ' · ' + Math.floor(share * 100 + 1e-6) + '%');
+    else if (state === 'bad' && r.start) tm = _gsClock((r.end || now) - r.start);
+    const bar = state === 'cur' && share !== null
+      ? '<span class="gs-tl-bar"><b style="width:' + (share * 100).toFixed(1) + '%"></b></span>' : '';
+    return '<li class="gs-tl-row ' + state + '"><span class="gs-tl-dot"></span><span class="gs-tl-name">' + escHtml(r.name) + '</span>'
+      + (tm ? '<span class="gs-tl-tm">' + tm + '</span>' : '') + bar + '</li>';
+  }).join('') + '</ol>';
+}
+
+/** The side panel's timeline: drawn once, then its times and bar kept current. */
+function _gsTlDraw() {
+  const side = document.getElementById('git-sync-side');
+  if (!side || !_gsTl) return;
+  let box = side.querySelector('.gs-tl-box');
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'gs-tl-box';
+    side.appendChild(box);
+  }
+  box.innerHTML = _gsTlHtml();
 }
 
 /** One section of the notes: what an update brings or what a publish sends. */
@@ -789,6 +903,8 @@ function _testThenAction(mode, actionType, actionLabel, btnId, resume) {
 
   if (typeof _testRunning !== 'undefined') _testRunning = true;
 
+  _gsTlBegin(true, true, W.ing);
+  _gsTlEnter('tests');
   showGitSyncModal(W.ing, typeof _testRunnerHtml === 'function' ? _testRunnerHtml(desc) : '<p>' + desc + '</p>', [], {center: true});
   _gsJobStart({phase: 'tests', mode, actionType, actionLabel, btnId, summary: _publishSummary,
                runId: resume && resume.runId || null});
@@ -1002,6 +1118,7 @@ function showGitSyncModal(title, body, btns, opts) {
 function closeGitSyncModal() {
   document.getElementById('git-sync-overlay').classList.remove('show');
   _gsKind = null;
+  _gsTl = null;
   _gsSideFollow(false);
   _dismissMiniIndicator();
 }
@@ -1179,6 +1296,8 @@ function _gsResume() {
 async function _gsFollowJob(job) {
   const W = _gsWords(job.btnLabel || '');
   _gsKind = _gsKindOf(job.btnLabel || '');
+  _gsTlBegin(false, false, W.ing);
+  _gsTlEnter('git');
   showGitSyncModal(W.ing, _syncStatusHtml('Picking the run back up…'), [], {center: true});
   minimizeGitSyncModal();
   _gsSteps = null;
@@ -1255,6 +1374,7 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
   // continues a run the person minimized, it stays minimized (the pill keeps
   // following it) instead of popping the dialog back up for the second phase.
   const carryOn = !!(opts && opts.continued) && _gitSyncMinimized;
+  const tl = opts && opts.continued ? _gsTl : null;   // the tests' timeline carries on
   if (!carryOn) {
     closeGitSyncModal();
     // Reset minimize state for new operation
@@ -1278,6 +1398,9 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
 
   const isPush = action === 'push' || action === 'both';
   const isPull = action === 'pull' || action === 'both';
+  _gsTl = tl;
+  if (!_gsTl) _gsTlBegin(false, isPush, _gsWords(btnLabel).ing);
+  _gsTlEnter(isPush ? 'scan' : 'git');
   _gsJobStart({phase: 'scan', action, btnId, btnLabel, confirmBranch: !!confirmBranch,
                summary: _publishSummary, gate: _publishGate});
 
@@ -1313,6 +1436,7 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
       payload.gate = _publishGate || {mode: 'skipped'};
     }
     _gsJobSave({phase: 'sync', gate: payload.gate || null});
+    _gsTlEnter('git');
     const r = await _gsRunSync(payload);
     await _gsShowSyncResult(r, action, btnId, btnLabel);
   } catch(e) {

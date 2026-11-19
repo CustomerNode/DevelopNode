@@ -359,7 +359,13 @@ def test_the_sheets_number_and_bar_follow_the_run(sheet):
     _until(sheet, "() => window.__push && window.__posts.length === 1")
     sheet.evaluate("""() => { __push({type: 'steps', steps: [{key: 'scan', label: 'Checking'}, {key: 'up', label: 'Uploading'}]});
       __push({type: 'step', key: 'up'}); __push({type: 'detail', key: 'up', text: 'Uploading', pct: 50}); }""")
-    _until(sheet, "() => document.getElementById('gs-side-big') && document.getElementById('gs-side-big').textContent === '75%'")
+    # Each stage counts from 0 again, so the side shows the run as a timeline: the security
+    # check done, the server's two steps in place of their placeholder, the running one at 50%.
+    rows = "() => [...document.querySelectorAll('#git-sync-side .gs-tl-row')].map(r => r.className.split(' ')[1] + ':' + r.querySelector('.gs-tl-name').textContent)"
+    _until(sheet, "() => /50%/.test((document.querySelector('#git-sync-side .gs-tl-row.cur .gs-tl-tm') || {}).textContent || '')")
+    assert sheet.evaluate(rows) == ["done:Security check", "done:Checking", "cur:Uploading"]
+    assert sheet.evaluate("() => document.querySelector('#git-sync-side .gs-tl-row.cur .gs-tl-bar b').style.width") == "50%"
+    assert sheet.locator("#git-sync-card.gs-tl-on").count() == 1     # the right side's step list is not repeated
     assert sheet.get_attribute("#git-sync-bar", "class") == "gs-bar run"
     width = sheet.evaluate("() => document.querySelector('#git-sync-bar > i').style.width")
     assert width == "75%"
@@ -368,8 +374,29 @@ def test_the_sheets_number_and_bar_follow_the_run(sheet):
     sheet.evaluate("""() => { __push({type: 'done', result: {ok: true, messages: ['Pushed.'],
       git_status: {ahead: 0, behind: 0, uncommitted: false}}}); __end(); }""")
     _until(sheet, "() => document.getElementById('git-sync-title').textContent === 'Published'")
-    assert sheet.get_attribute("#git-sync-side", "class") == "gs-side ok"
+    assert sheet.get_attribute("#git-sync-side", "class") == "gs-side ok gs-side-tl"
+    assert sheet.evaluate(rows) == ["done:Security check", "done:Checking", "done:Uploading"]
     assert sheet.get_attribute("#git-sync-bar", "class") == "gs-bar ok"
+
+
+def test_the_timeline_marks_the_stage_that_stopped_the_run(sheet):
+    sheet.evaluate("""() => { _gsKind = 'publish'; _gsTlBegin(true, true, 'Publishing'); _gsTlEnter('tests');
+      showGitSyncModal('Publishing', '<p>x</p>', [], {center: true});
+      showGitSyncModal('Not published', '<p>2 failed</p>', [{label: 'Close', onclick: closeGitSyncModal}], {center: true, tone: 'bad'}); }""")
+    states = sheet.evaluate("() => [...document.querySelectorAll('#git-sync-side .gs-tl-row')].map(r => r.className.split(' ')[1])")
+    assert states == ["bad", "todo", "todo"]
+    sheet.evaluate("() => closeGitSyncModal()")
+    assert sheet.evaluate("() => _gsTl") is None
+
+
+def test_the_sheets_main_button_is_ink_not_amber(sheet):
+    sheet.add_style_tag(path=str(ROOT / "src" / "web" / "static" / "style.css"))
+    sheet.add_style_tag(content="* { transition: none !important; }")   # read the colour, not a frame of its fade
+    sheet.evaluate("() => openGitPublish()")
+    _until(sheet, "() => document.querySelector('#git-sync-actions .pm-btn-primary')")
+    for theme, bg in (("dark", "rgb(255, 255, 255)"), ("light", "rgb(17, 17, 17)")):
+        sheet.evaluate(f"() => document.documentElement.setAttribute('data-theme', '{theme}')")
+        assert sheet.evaluate("() => getComputedStyle(document.querySelector('#git-sync-actions .pm-btn-primary')).backgroundColor") == bg
 
 
 def test_other_users_of_the_dialog_keep_the_plain_card(sheet):

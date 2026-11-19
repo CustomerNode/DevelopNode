@@ -15022,8 +15022,11 @@ details.rw-internal > summary { cursor: pointer; }
 .gs-sheet #gs-gate-hint { display: none; }
 .gs-sheet .gs-safe { font-size: 11.5px !important; color: var(--text-muted); margin: 14px 0 0 !important; line-height: 1.45; }
 .gs-seg:not(.gs-seg-desc) button small { display: none; }
-#git-sync-overlay .gs-sheet .pm-btn-primary { background: rgb(var(--gs-amb)); border-color: transparent; color: #1a1206; }
-#git-sync-overlay .gs-sheet .pm-btn-primary:hover { filter: brightness(1.08); }
+/* The sheet's main button is the app's ink button (hairline.css): white on dark, black on light; amber stays for status */
+#git-sync-overlay .gs-sheet .pm-btn-primary { background: #fff; border-color: transparent; color: #111; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+#git-sync-overlay .gs-sheet .pm-btn-primary:hover { background: #e6e6e6; color: #111; filter: none; }
+[data-theme="light"] #git-sync-overlay .gs-sheet .pm-btn-primary { background: #111; color: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+[data-theme="light"] #git-sync-overlay .gs-sheet .pm-btn-primary:hover { background: #2a2a2a; color: #fff; }
 #git-sync-overlay .gs-sheet .gs-min-quiet { border-color: transparent; background: transparent; color: var(--text-muted); }
 /* The screen's own ring: read by the side and the bar, not drawn; its live line and steps sit on the left */
 .gs-sheet .trun { align-items: flex-start; padding: 0; text-align: left; }
@@ -15050,11 +15053,44 @@ details.rw-internal > summary { cursor: pointer; }
 }
 .gs-sheet .gs-st.cur .gs-st-mark i { background: rgb(var(--gs-amb)); }
 #git-sync-overlay .gs-sheet .pm-btn-secondary { background: transparent; border-color: var(--border); color: var(--text); }
-[data-theme="light"] #git-sync-overlay .gs-sheet .pm-btn-primary { color: #fff; }
 @media (max-width: 640px) {
   #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-title, #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-actions { grid-column: 1; }
   #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-title { padding: 18px 48px 0 20px; }
   #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-actions { padding: 14px 20px 18px; }
+}
+
+/* The run's timeline in the sheet's side panel (git-sync.js _gsTlHtml): a dot per stage, its time, the running
+   stage's share and a small bar.  The right side's own step list would repeat it, so it is hidden there. */
+.gs-sheet > .gs-side.gs-side-tl { align-items: stretch; padding: 26px 14px 20px 16px; }
+.gs-side-tl .gs-side-ico { width: 40px; height: 40px; align-self: center; margin-bottom: 14px; }
+.gs-tl { list-style: none; margin: 0; padding: 0; text-align: left; }
+.gs-tl-row { position: relative; padding: 0 0 14px 18px; font-size: 12.5px; line-height: 1.3; color: var(--text-muted); }
+.gs-tl-row::before { content: ''; position: absolute; left: 4px; top: 13px; bottom: -1px; width: 2px; background: rgba(128, 128, 140, .25); }
+.gs-tl-row:last-child { padding-bottom: 0; }
+.gs-tl-row:last-child::before { display: none; }
+.gs-tl-row.done::before { background: rgb(var(--gs-ok)); }
+.gs-tl-dot { position: absolute; left: 0; top: 3px; width: 10px; height: 10px; border-radius: 50%; background: rgba(128, 128, 140, .45); }
+.gs-tl-row.done .gs-tl-dot { background: rgb(var(--gs-ok)); }
+.gs-tl-row.cur .gs-tl-dot { background: rgb(var(--gs-amb)); box-shadow: 0 0 0 4px rgba(var(--gs-amb), .2); }
+.gs-tl-row.bad .gs-tl-dot { background: rgb(var(--gs-bad)); }
+.gs-tl-row.done { color: var(--text); }
+.gs-tl-row.cur, .gs-tl-row.bad { color: var(--text-heading); font-weight: 600; }
+.gs-tl-name { display: block; overflow-wrap: anywhere; }
+.gs-tl-tm { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.gs-tl-bar { display: block; height: 3px; margin-top: 5px; border-radius: 2px; background: rgba(128, 128, 140, .2); overflow: hidden; }
+.gs-tl-bar b { display: block; height: 100%; background: rgb(var(--gs-amb)); transition: width .3s; }
+.gs-sheet.gs-tl-on .gs-steps { display: none; }
+@media (max-width: 640px) {
+  /* The side is a strip across the top: the dots in a row, only the running (or stopped) stage named */
+  .gs-sheet > .gs-side.gs-side-tl { flex-direction: row; align-items: center; padding: 14px 20px; }
+  .gs-side-tl .gs-side-ico { width: 30px; height: 30px; margin: 0 6px 0 0; }
+  .gs-side-tl .gs-tl-box { flex: 1; min-width: 0; }
+  .gs-tl { display: flex; align-items: flex-start; gap: 8px; }
+  .gs-tl-row { padding: 0; flex: none; width: 8px; height: 16px; }
+  .gs-tl-row::before { display: none; }
+  .gs-tl-dot { top: 4px; width: 8px; height: 8px; }
+  .gs-tl-row:not(.cur):not(.bad) .gs-tl-name, .gs-tl-row:not(.cur):not(.bad) .gs-tl-tm { display: none; }
+  .gs-tl-row.cur, .gs-tl-row.bad { flex: 1 1 auto; width: auto; height: auto; min-width: 0; padding-left: 14px; }
 }
 
 /* Settings > Sync rows: icon, what is waiting, the button that does it (git-sync.js openSyncSettings). */

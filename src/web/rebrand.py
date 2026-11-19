@@ -295,6 +295,28 @@ def _windows_items(root: Path, home: Path) -> list:
 
 _PS_RENAME = "Rename-Item -LiteralPath $env:VN_LNK -NewName $env:VN_NAME -ErrorAction Stop"
 
+# SHChangeNotify events (shlobj.h).  Explorer redraws the desktop from its own
+# cache; without this a renamed shortcut keeps its old label and icon on
+# screen until the person refreshes the desktop.
+_SHCNE_RENAMEITEM, _SHCNE_UPDATEITEM, _SHCNE_ASSOCCHANGED = 0x1, 0x2000, 0x08000000
+_SHCNF_IDLIST, _SHCNF_PATHW, _SHCNF_FLUSH = 0x0, 0x5, 0x1000
+
+
+def _tell_explorer(old: Path, new: Path) -> None:
+    """Make Explorer show the new name and icon now.  Best effort."""
+    try:
+        import ctypes
+        notify = ctypes.windll.shell32.SHChangeNotify
+    except Exception:
+        return
+    try:
+        if old != new:
+            notify(_SHCNE_RENAMEITEM, _SHCNF_PATHW | _SHCNF_FLUSH, ctypes.c_wchar_p(str(old)), ctypes.c_wchar_p(str(new)))
+        notify(_SHCNE_UPDATEITEM, _SHCNF_PATHW | _SHCNF_FLUSH, ctypes.c_wchar_p(str(new)), None)
+        notify(_SHCNE_ASSOCCHANGED, _SHCNF_IDLIST | _SHCNF_FLUSH, None, None)   # icons
+    except Exception:
+        pass
+
 
 def _apply_windows(item: dict) -> None:
     """Give the shortcut the new icon and name, and prove the name changed.
@@ -304,6 +326,7 @@ def _apply_windows(item: dict) -> None:
     _run_ps(_PS_ICON, {"VN_LNK": item["path"], "VN_ICON": str(ICON_ICO)})
     src, dst = Path(item["path"]), Path(item["new_path"])
     if dst == src:
+        _tell_explorer(src, src)
         return
     if dst.exists():
         raise RuntimeError(f"a shortcut called {dst.stem} is already there, so {src.stem} kept its name; "
@@ -315,6 +338,7 @@ def _apply_windows(item: dict) -> None:
         _run_ps(_PS_RENAME, {"VN_LNK": str(src), "VN_NAME": dst.name})
     if src.exists() or not dst.exists():
         raise RuntimeError(f"Windows did not rename {src.name}; it still shows {src.stem}")
+    _tell_explorer(src, dst)
 
 
 # ── the project list ─────────────────────────────────────────────────────

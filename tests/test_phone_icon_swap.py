@@ -83,3 +83,42 @@ def test_plain_safari_shows_nothing(browser):
         assert page.locator("#vn-rebrand").count() == 0
     finally:
         page.close()
+
+
+def test_got_it_on_the_first_version_does_not_hide_the_one_tap_version(browser):
+    page = _open(browser, standalone=True, saved={"theme": "dark", "vnPhoneIconShown": "1"})
+    try:
+        assert page.locator("#vn-rebrand [data-safari]").count() == 1
+    finally:
+        page.close()
+
+
+def test_got_it_hides_it_for_good(browser):
+    page = _open(browser, standalone=True, saved={"theme": "dark"})
+    try:
+        page.locator("#vn-rebrand [data-ok]").click()
+        page.wait_for_timeout(300)
+        page.evaluate("window.VNRebrand.phoneIcon()")
+        assert page.locator("#vn-rebrand").count() == 0
+    finally:
+        page.close()
+
+
+def test_the_phone_session_list_stays_a_drawer_beside_the_new_top_bar(browser):
+    """The top bar made the session list position: relative on phones too, so the
+    hidden list kept its full width in the row and pushed the open session off
+    screen: a blank page after tapping a session."""
+    css = "".join((ROOT / "src/web/static/css" / n).read_text(encoding="utf-8")
+                  for n in ("mobile.css", "topbar.css"))
+    html = ("<!doctype html><html class='vn-has-topbar vn-tb-phone'><head><style>%s"
+            "body{margin:0;display:flex;height:100vh}.layout{display:flex;flex:1}.main{flex:1}</style></head>"
+            "<body><div class='layout'><div class='sidebar collapsed'></div><div class='main' id='m'></div></div>"
+            "</body></html>") % css
+    page = browser.new_page(viewport={"width": 390, "height": 844})
+    try:
+        page.set_content(html)
+        box = page.evaluate("(() => { const r = document.getElementById('m').getBoundingClientRect();"
+                            " return [r.x, r.width]; })()")
+        assert box == [0, 390]
+    finally:
+        page.close()

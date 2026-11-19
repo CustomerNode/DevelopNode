@@ -108,12 +108,19 @@
      does it in one tap (Safari's x-safari- address, iOS 17 and later);
      Copy is there for when Safari does not open.  Safari then points at its
      own Share button.  A new install is never asked: it already has the icon. */
-  var PHONE_KEY = 'vnPhoneIconShown';
+  // A new key: Got it on the first version (copy and paste) hid this screen before the
+  // one-tap version existed, and an old install still in use has not swapped yet.
+  var PHONE_KEY = 'vnPhoneIconSwapShown';
   var HINT = 'homescreen';
   var SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1"/></svg>';
   function _get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function homeScreenIphone() {
+    if (navigator.standalone === true) return true;
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent || '');
+    try { return ios && matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; }
+  }
   function phoneIcon(force) {
-    if (navigator.standalone !== true || document.getElementById('vn-rebrand')) return;
+    if (!homeScreenIphone() || document.getElementById('vn-rebrand')) return;
     if (!force && (_get(PHONE_KEY) || _get('vnIconGen') !== 'old')) return;
     var url = location.origin + '/?' + HINT + '=1';
     var safari = /^https?:/.test(url) ? 'x-safari-' + url : '';
@@ -181,7 +188,7 @@
   var lastAsk = 0;
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible' || Date.now() - lastAsk < 60000) return;
-    lastAsk = Date.now(); check();
+    lastAsk = Date.now(); check(); setTimeout(phoneIcon, 400);
   });
   // After the app has drawn, so the notice never fights the loading screen.
   function first() { check(); setTimeout(function () { phoneIcon(); safariHint(); }, 400); }

@@ -237,3 +237,18 @@ def test_apply_reports_a_failed_rename(tmp_path, monkeypatch):
     monkeypatch.setattr(rebrand, "_run_ps", lambda *a, **k: None)
     out = rebrand.apply(tmp_path, tmp_path, tmp_path / "state.json")
     assert out["ok"] is False and "already there" in out["results"][0]["error"]
+
+
+def test_explorer_is_told_so_the_desktop_shows_the_new_name(tmp_path, monkeypatch):
+    """Explorer keeps the old label on screen until told; the rename tells it."""
+    told = []
+    monkeypatch.setattr(rebrand, "_run_ps", lambda *a, **k: None)
+    monkeypatch.setattr(rebrand, "_tell_explorer", lambda old, new: told.append((old.name, new.name)))
+    old, new = tmp_path / "VibeNode.lnk", tmp_path / "DevelopNode.lnk"
+    old.write_bytes(b"lnk")
+    rebrand._apply_windows({"path": str(old), "new_path": str(new)})
+    assert told == [("VibeNode.lnk", "DevelopNode.lnk")]
+
+
+def test_telling_explorer_never_fails_off_windows(tmp_path):
+    rebrand._tell_explorer(tmp_path / "a.lnk", tmp_path / "b.lnk")   # no windll here: nothing happens

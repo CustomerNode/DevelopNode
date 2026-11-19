@@ -49,7 +49,10 @@ html.vn-has-topbar[data-finish] .vn-topbar .main-toolbar .toolbar-close {
 /* ── Project masthead ── */
 /* the sidebar header is empty once its controls are moved; it stays only for "Back to Sessions" */
 html.vn-has-topbar .sidebar-header:not(:has(#sidebar-nav:not([hidden]))) { display: none !important; }
-html.vn-has-topbar .sidebar { padding-top: 0 !important; position: relative; }
+html.vn-has-topbar .sidebar { padding-top: 0 !important; }
+/* on a computer only: on a phone the list is a fixed drawer (mobile.css); made relative it keeps its width
+   beside the chat and pushes the open session off screen */
+html.vn-has-topbar:not(.vn-tb-phone) .sidebar { position: relative; }
 html.vn-has-topbar .sidebar #workforce-grid.visible { padding-top: 0 !important; }
 
 /* Rhythm: the project line is 40px centred on 29.5 (9.5 to 49.5); the name's text ends at 40, and New Session

@@ -56,7 +56,7 @@ def _open(browser, tmp_path, body, live="s1"):
     html = f"""<!doctype html><html><head><meta charset="utf-8"></head><body>{body}
 <script>var liveSessionId={json.dumps(live)}, sessionKinds={{s1:'idle', s2:'idle', s1b:'idle'}};
 window.__sent=[]; window.__toasts=[];
-window._liveSubmitDirect=(sid,text)=>{{ window.__sent.push([sid,text]); }};
+window._liveSubmitDirect=(sid,text)=>{{ window.__sent.push([sid,String(text).replace(/^⟦VN-NOTE⟧[\\s\\S]*?⟦\\/VN-NOTE⟧\\s*/, '')]); }};
 window.showToast=(t)=>{{ window.__toasts.push(t); }};
 window.fetch=()=>Promise.reject(new Error('offline'));</script>
 <script src="{LAST_CARD.as_uri()}"></script>

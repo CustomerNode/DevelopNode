@@ -5,9 +5,9 @@ let _gitStatus = {};
 // Drawn icons for the three states (were the text characters ↓ ↑ ↓↑ in a badge).
 const _GIT_ICO = (d) => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
 const _GIT_ICONS = {
-  pull: _GIT_ICO('<path d="M12 4v11"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20h14"/>'),      // down to a line: there is something to bring in
-  push: _GIT_ICO('<path d="M12 20V9"/><path d="m7 13.5 5-5 5 5"/><path d="M5 4h14"/>'),         // up to a line: there is something to send out
-  sync: _GIT_ICO('<path d="M7 4v15"/><path d="m3.5 15.5 3.5 3.5 3.5-3.5"/><path d="M17 20V5"/><path d="m13.5 8.5 3.5-3.5 3.5 3.5"/>'),
+  pull: _GIT_ICO('<path d="M7 17.5A4.5 4.5 0 0 1 6.6 8.6 6 6 0 0 1 18 9.5a3.8 3.8 0 0 1-.3 7.6"/><path d="M12 12v9"/><path d="m8.5 17.5 3.5 3.5 3.5-3.5"/>'),   // down out of the cloud: there is something to bring in
+  push: _GIT_ICO('<path d="M7 17.5A4.5 4.5 0 0 1 6.6 8.6 6 6 0 0 1 18 9.5a3.8 3.8 0 0 1-.3 7.6"/><path d="M12 21v-9"/><path d="m8.5 15.5 3.5-3.5 3.5 3.5"/>'),   // up into the cloud: there is something to send out
+  sync: _GIT_ICO('<path d="M7 17.5A4.5 4.5 0 0 1 6.6 8.6 6 6 0 0 1 18 9.5a3.8 3.8 0 0 1-.3 7.6"/><path d="M10 13v8"/><path d="m8 19 2 2 2-2"/><path d="M14.5 21v-8"/><path d="m12.5 15 2-2 2 2"/>'),   // both ways
 };
 
 /** One state button: icon, a count where there is one, and a tooltip that says exactly what is waiting. */
@@ -45,7 +45,98 @@ function _applyGitStatus(s) {
     if (hasPush) _setGitBtn(btnPublish, 'git-badge-push', 'push', s.ahead, pushTip);
     else btnPublish.style.display = 'none';
   }
+  _gitNudgeStep(hasPull || hasPush);
+  _gitSyncLabel();
 }
+
+// ── The sonar nudge under the rail's buttons grows in steps the longer they have been showing ──
+// The clock starts when a button first appears and is kept in localStorage, so a reload does not
+// reset it; it clears when nothing is waiting.  Steps: 0 under 10 min, 1 under 1 h, 2 under 4 h,
+// 3 after; hairline.css draws them from header[data-git-nudge].
+const _GIT_NUDGE_KEY = 'vnGitWaitingSince';
+const _GIT_NUDGE_AT = [10, 60, 240];   // minutes where the next step starts
+function _gitNudgeStep(waiting) {
+  const header = document.querySelector('header');
+  if (!header) return;
+  let since = 0;
+  try {
+    if (!waiting) { localStorage.removeItem(_GIT_NUDGE_KEY); header.removeAttribute('data-git-nudge'); return; }
+    since = +localStorage.getItem(_GIT_NUDGE_KEY) || 0;
+    if (!since) { since = Date.now(); localStorage.setItem(_GIT_NUDGE_KEY, String(since)); }
+  } catch (e) { since = since || Date.now(); }
+  const mins = (Date.now() - since) / 60000;
+  const step = _GIT_NUDGE_AT.filter(m => mins >= m).length;
+  if (header.getAttribute('data-git-nudge') !== String(step)) header.setAttribute('data-git-nudge', String(step));
+}
+
+// ── Settings > Sync: the same Update / Publish / Sync nudges as the top bar, inside the Settings window ──
+// The section's nav row carries the waiting count (#sys-sync-label, read by modals.js like the other values),
+// and the section shows what is waiting with the button that does it.  The buttons open the same dialogs as
+// the top bar's, after the Settings window closes.
+function _gitSyncWaiting() {
+  const g = _gitStatus || {};
+  return {pull: g.behind > 0 ? g.behind : 0, push: g.ahead > 0 ? g.ahead : 0, edits: !!g.uncommitted};
+}
+function _gitSyncLabel() {
+  const el = document.getElementById('sys-sync-label');
+  if (!el) return;
+  const w = _gitSyncWaiting();
+  const n = w.pull + w.push + (w.edits && !w.push ? 1 : 0);
+  el.textContent = n ? n + ' waiting' : '';
+  const sec = document.querySelector('.sx-item[data-key="Sync"]');
+  if (sec) {
+    sec.classList.toggle('sx-nudge', !!n);
+    let v = sec.querySelector('.sx-item-value');
+    if (n && !v) { v = document.createElement('span'); v.className = 'sx-item-value'; sec.appendChild(v); }
+    if (v) { if (n) v.textContent = el.textContent; else v.remove(); }
+  }
+  const card = document.querySelector('#pm-overlay .gsx-card');
+  if (card) card.querySelector('.gsx-rows').innerHTML = _gitSyncRowsHtml();
+}
+function _gitSyncRowsHtml() {
+  const w = _gitSyncWaiting();
+  const plural = (k, one, many) => k + ' ' + (k === 1 ? one : many);
+  const row = (kind, title, hint, btn, act) => '<div class="pref-row gsx-row">'
+    + '<span class="gsx-ico">' + _GIT_ICONS[kind] + '</span>'
+    + '<div class="pref-row-text"><div class="pref-row-label">' + title + '</div><div class="pref-row-hint">' + hint + '</div></div>'
+    + '<button type="button" class="pm-btn pm-btn-primary gsx-go" data-gsx="' + act + '">' + btn + '</button></div>';
+  const rows = [];
+  if (w.pull && (w.push || w.edits)) {
+    rows.push(row('sync', 'Updates to bring in and changes to publish',
+      plural(w.pull, 'update', 'updates') + ' available, ' + (w.push ? plural(w.push, 'change', 'changes') + ' to publish' : 'unsaved edits to publish') + '.',
+      'Sync App', 'sync'));
+  } else {
+    if (w.pull) rows.push(row('pull', plural(w.pull, 'update', 'updates') + ' available', 'Bring in the newest VibeNode.', 'Update App', 'pull'));
+    if (w.push || w.edits) rows.push(row('push', w.push ? plural(w.push, 'change', 'changes') + ' to publish' : 'Unsaved edits to publish',
+      w.push && w.edits ? 'Plus unsaved edits.' : 'Send your changes out.', 'Publish App Update', 'push'));
+  }
+  if (!rows.length) rows.push('<div class="pref-row gsx-row"><div class="pref-row-text"><div class="pref-row-label">Up to date</div>'
+    + '<div class="pref-row-hint">Nothing to bring in and nothing to publish.</div></div>'
+    + '<button type="button" class="pm-btn pm-btn-secondary gsx-go" data-gsx="check">Check now</button></div>');
+  return rows.join('');
+}
+function openSyncSettings() {
+  const overlay = document.getElementById('pm-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = '<div class="pm-card pm-enter gsx-card" style="width:440px;">'
+    + '<h2 class="pm-title">Sync</h2>'
+    + '<div class="pref-list gsx-rows">' + _gitSyncRowsHtml() + '</div>'
+    + '<div class="pm-actions"><button class="pm-btn pm-btn-secondary" onclick="_closePm()">Close</button></div></div>';
+  overlay.classList.add('show');
+  requestAnimationFrame(() => { const c = overlay.querySelector('.pm-card'); if (c) c.classList.remove('pm-enter'); });
+  overlay.onclick = e => { if (e.target === overlay) _closePm(); };
+  overlay.querySelector('.gsx-rows').addEventListener('click', e => {
+    const b = e.target.closest('.gsx-go');
+    if (!b) return;
+    const act = b.dataset.gsx;
+    if (act === 'check') { b.disabled = true; pollGitStatus().finally(() => { b.disabled = false; }); return; }
+    if (typeof closeSettings === 'function') closeSettings(); else _closePm();
+    setTimeout(() => { if (act === 'pull') openGitUpdate(); else if (act === 'push') openGitPublish(); else openGitSyncBoth(); }, 120);
+  });
+  pollGitStatus();
+}
+// Step up between git polls too, without a request
+setInterval(() => { const g = _gitStatus || {}; _gitNudgeStep(g.behind > 0 || g.ahead > 0 || !!g.uncommitted); }, 60000);
 
 async function pollGitStatus() {
   try {
@@ -304,25 +395,174 @@ function _gsWords(label) {
   return {ing: 'Publishing', ed: 'Published', not: 'Not published', verb: 'publish', Verb: 'Publish'};
 }
 
+// ── The release notes sheet ──
+// Update, Publish and Sync draw as one sheet: a side panel with the cloud, a
+// big number and what it counts; the title, a progress bar, the screen's own
+// body and its buttons on the right.  Every screen of those flows (the
+// question, the security check, tests, the steps, the result) keeps its own
+// markup and ids; the sheet only frames it.  Other users of this dialog (the
+// test runner, the security scan) set no kind and draw as before.
+let _gsKind = null;        // 'update' | 'publish' | 'sync' while one of those flows is open
+let _gsChanges = null;     // /api/git-changes for the open flow
+let _gsSideTimer = null;
+const _GS_KIND_WORDS = {
+  update: {ing: 'updating', ed: 'updated', not: 'not updated'},
+  publish: {ing: 'publishing', ed: 'published', not: 'not published'},
+  sync: {ing: 'syncing', ed: 'synced', not: 'not synced'},
+};
+const _GS_BIG = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+const _GS_SIDE_ICON = {
+  update: _GS_BIG(_GIT_ICONS.pull.replace(/^<svg[^>]*>|<\/svg>$/g, '')),
+  publish: _GS_BIG(_GIT_ICONS.push.replace(/^<svg[^>]*>|<\/svg>$/g, '')),
+  sync: _GS_BIG(_GIT_ICONS.sync.replace(/^<svg[^>]*>|<\/svg>$/g, '')),
+  ok: _GS_BIG('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+  bad: _GS_BIG('<path d="m7 7 10 10M17 7 7 17"/>'),
+};
+
+function _gsKindOf(label) {
+  return /^Sync/.test(label) ? 'sync' : /^Update/.test(label) ? 'update' : 'publish';
+}
+
+/** Turn the card into the sheet (or back), adding the side panel and the bar once. */
+function _gsSheetFrame(on) {
+  const card = document.getElementById('git-sync-card');
+  if (!card) return false;
+  card.classList.toggle('gs-sheet', on);
+  if (on && !document.getElementById('git-sync-side')) {
+    const side = document.createElement('div');
+    side.id = 'git-sync-side';
+    side.className = 'gs-side';
+    card.prepend(side);
+    const bar = document.createElement('div');
+    bar.id = 'git-sync-bar';
+    bar.className = 'gs-bar';
+    bar.innerHTML = '<i></i>';
+    document.getElementById('git-sync-title').after(bar);
+  }
+  return on;
+}
+
+/** The side panel: the cloud (or a check or a cross), a big number and what it counts. */
+function _gsSide(s) {
+  const side = document.getElementById('git-sync-side');
+  if (!side) return;
+  side.className = 'gs-side' + (s.mark === 'ok' ? ' ok' : s.mark === 'bad' ? ' bad' : '');
+  const rows = (s.nums || [[s.big, s.label]]).filter(n => n[0] !== undefined && n[0] !== '');
+  side.innerHTML = '<div class="gs-side-ico">' + (_GS_SIDE_ICON[s.mark] || '') + '</div>'
+    + rows.map((n, i) => '<div class="gs-side-num"' + (i === 0 && s.live ? ' id="gs-side-big"' : '') + '>' + escHtml(String(n[0])) + '</div>'
+      + '<div class="gs-side-lbl">' + escHtml(n[1] || '') + '</div>').join('');
+  if (!rows.length && s.label) side.innerHTML += '<div class="gs-side-lbl">' + escHtml(s.label) + '</div>';
+}
+
+/** The bar under the title: hidden on a question, live while running, full when finished. */
+function _gsBar(state) {
+  const bar = document.getElementById('git-sync-bar');
+  if (!bar) return;
+  bar.className = 'gs-bar' + (state ? ' ' + state : '');
+  if (state === 'ok' || state === 'bad') bar.firstChild.style.width = '100%';
+  if (!state) bar.firstChild.style.width = '0%';
+}
+
+/** While running: the side's number and the bar follow the screen's own ring. */
+function _gsSideFollow(on) {
+  if (_gsSideTimer) { clearInterval(_gsSideTimer); _gsSideTimer = null; }
+  if (!on) return;
+  const tick = () => {
+    const f = _gsDialogFraction();
+    if (f === null) return;
+    const big = document.getElementById('gs-side-big');
+    if (big) big.textContent = Math.floor(f * 100 + 1e-6) + '%';
+    const bar = document.querySelector('#git-sync-bar > i');
+    if (bar) bar.style.width = (f * 100).toFixed(1) + '%';
+  };
+  tick();
+  _gsSideTimer = setInterval(tick, 200);
+}
+
+/** The side panel for this screen, unless the caller gave one. */
+function _gsSideFor(running, opts) {
+  const w = _GS_KIND_WORDS[_gsKind];
+  if (opts.side) return opts.side;
+  if (running) return {mark: _gsKind, big: '0%', label: w.ing, live: true};
+  if (opts.tone === 'ok') return {mark: 'ok', nums: _gsCountNums(), label: w.ed};
+  if (opts.tone === 'bad') return {mark: 'bad', label: w.not};
+  return {mark: _gsKind, nums: _gsCountNums()};
+}
+
+/** The big numbers: what this flow moves, from the status and /api/git-changes. */
+function _gsCountNums() {
+  const s = _gitStatus || {};
+  const c = _gsChanges;
+  const out = c ? c.outgoing.files : null;
+  if (_gsKind === 'update') return [[s.behind || 0, (s.behind === 1 ? 'update' : 'updates')]];
+  if (_gsKind === 'publish') return [[out === null ? '' : out, out === 1 ? 'file' : 'files']];
+  return [[s.behind || 0, 'coming in'], [out === null ? '' : out, 'going out']];
+}
+
+/** One section of the notes: what an update brings or what a publish sends. */
+function _gsNotesHtml(title, part, done, max) {
+  max = max || 4;
+  if (!part || !part.files) return '';
+  const mark = done ? '<span class="gs-nm ok">' + _GS_ICON.check + '</span>' : '<span class="gs-nm"><i></i></span>';
+  const rows = [];
+  (part.notes || []).slice(0, 3).forEach(n => rows.push('<li>' + mark + '<span>' + escHtml(n) + '</span></li>'));
+  const areas = part.areas || [];
+  const room = Math.max(1, (areas.length > max - rows.length ? max - 1 : max) - rows.length);
+  areas.slice(0, room).forEach(a => rows.push('<li>' + mark + '<span>' + escHtml(a.name)
+    + '<small>' + escHtml(a.what) + ' · ' + a.files + ' file' + (a.files === 1 ? '' : 's') + '</small></span></li>'));
+  if (areas.length > room) {
+    const names = areas.slice(room).map(a => a.name.toLowerCase());
+    const rest = names.slice(0, 3).join(', ') + (names.length > 3 ? ' and ' + (names.length - 3) + ' others' : '');
+    rows.push('<li class="gs-more">' + mark + '<span>' + (areas.length - room) + ' more areas<small>' + escHtml(rest) + '</small></span></li>');
+  }
+  return '<div class="gs-sect">' + title + '</div><ul class="gs-notes">' + rows.join('') + '</ul>';
+}
+
+/** Fill the question's notes once /api/git-changes answers. */
+async function _gsLoadNotes() {
+  try {
+    const r = await fetch('/api/git-changes');
+    if (!r.ok) throw new Error('no route');
+    _gsChanges = await r.json();
+  } catch (_) { _gsChanges = null; }
+  const box = document.getElementById('gs-notes-box');
+  if (!box) return;
+  if (!_gsChanges) { box.innerHTML = ''; return; }
+  box.innerHTML = _gsKind === 'update' ? _gsNotesHtml('What’s new', _gsChanges.incoming)
+    : _gsKind === 'publish' ? _gsNotesHtml('What goes out', _gsChanges.outgoing)
+    : _gsNotesHtml('Coming in', _gsChanges.incoming, false, 2) + _gsNotesHtml('Going out', _gsChanges.outgoing, false, 2);
+  if (_gsKind && document.getElementById('git-sync-card')?.classList.contains('gs-sheet')) _gsSide(_gsSideFor(false, {}));
+}
+
+/** The notes on a finished flow, each checked. */
+function _gsDoneNotes(action) {
+  const c = _gsChanges;
+  if (!c) return '';
+  if (action === 'pull') return _gsNotesHtml('What’s new', c.incoming, true);
+  if (action === 'push') return _gsNotesHtml('What went out', c.outgoing, true);
+  return _gsNotesHtml('Came in', c.incoming, true, 2) + _gsNotesHtml('Went out', c.outgoing, true, 2);
+}
+
 /** How many things the scan stopped on, for the big line. */
 function _gsFound(scan) {
   const n = ((scan && scan.findings) || []).length + ((scan && scan.blocked_files) || []).length;
   return (n || 1) + ' found';
 }
 
-/** What changed, and which tests run first: Fast, Full or Skip. */
+/** What changed, and which tests run first: Fast, Full or Skip, each with what it runs. */
 function _gateChoiceHtml(modes, verb) {
   const hint = {fast: modes.fast.label, full: modes.full.label, skip: 'Skip: no tests run; the commit message says so.'};
+  // The button says what the mode runs in a few words: the label without its name and its aside.
+  const short = k => k === 'skip' ? 'no tests; the record says so'
+    : String(hint[k]).replace(/^\w+:\s*/, '').replace(/\s*\(.*\)\s*$/, '');
   return '<input id="git-publish-summary" class="pm-input" type="text" maxlength="120" autocomplete="off" '
-    + 'aria-label="What changed? (one line, optional)" placeholder="What changed? Optional, written for you if empty">'
-    + '<div class="gs-label">Tests before ' + verb + '</div>'
-    // A segmented switch: the picked one is raised in grey, so it never looks
-    // like the purple Publish button below it.
-    + '<div class="gs-seg" id="gs-gate" role="radiogroup" aria-label="Tests before ' + verb + '">'
+    + 'aria-label="What changed? (one line, optional)" placeholder="Describe it in one line (optional)">'
+    + '<div class="gs-label gs-sect">Tests before ' + verb + '</div>'
+    + '<div class="gs-seg gs-seg-desc" id="gs-gate" role="radiogroup" aria-label="Tests before ' + verb + '">'
     + [['fast', 'Fast'], ['full', 'Full'], ['skip', 'Skip']].map(([k, l], i) =>
         '<button type="button" role="radio" aria-checked="' + (i === 0) + '" data-gate="' + k + '"'
-        + ' data-hint="' + escHtml(hint[k]) + '" class="' + (i === 0 ? 'on' : '') + '"'
-        + ' onclick="_gsPickGate(this)">' + l + '</button>').join('')
+        + ' data-hint="' + escHtml(hint[k]) + '" title="' + escHtml(hint[k]) + '" class="' + (i === 0 ? 'on' : '') + '"'
+        + ' onclick="_gsPickGate(this)"><b>' + l + '</b><small>' + escHtml(short(k)) + '</small></button>').join('')
     + '</div><div class="gs-hint" id="gs-gate-hint">' + escHtml(hint.fast) + '</div>';
 }
 
@@ -373,18 +613,21 @@ async function openGitPublish() {
     _showBranchWarning('both', 'btn-git-publish', 'Publish App Update', s);
     return;
   }
-  const what = s.ahead > 0
-    ? '<strong>' + s.ahead + ' change' + (s.ahead === 1 ? '' : 's') + '</strong>' + (s.uncommitted ? ' plus unsaved edits' : '')
-    : 'Your unsaved edits';
-  let body = '<p>' + what + ' will be saved, checked for keys and personal details, then uploaded.'
-    + (s.behind > 0 ? ' ' + s.behind + ' remote update' + (s.behind === 1 ? ' is' : 's are') + ' pulled in first.' : '')
-    + '</p>';
+  const saved = s.ahead > 0 ? s.ahead + ' saved change' + (s.ahead === 1 ? '' : 's') : '';
+  const what = [saved, s.uncommitted ? 'unsaved edits' : ''].filter(Boolean).join(' and ');
+  let body = '<p class="gs-sub">' + escHtml(what.charAt(0).toUpperCase() + what.slice(1))
+    + (s.behind > 0 ? ' · ' + s.behind + ' update' + (s.behind === 1 ? '' : 's') + ' pulled in first' : '') + '</p>'
+    + '<div id="gs-notes-box"></div>';
   body += _gateChoiceHtml(await _testModes(), 'publishing');
+  body += '<p class="gs-safe">Checked for keys and personal details before anything leaves this computer.</p>';
   _publishGate = null;
+  _gsKind = 'publish';
+  _gsChanges = null;
   showGitSyncModal('Publish your changes', body, [
-    {label: 'Cancel', onclick: closeGitSyncModal},
+    {label: 'Later', onclick: closeGitSyncModal},
     {label: 'Publish', primary: true, onclick: () => _gsGo('publish', 'Publish App Update', 'btn-git-publish')},
   ]);
+  _gsLoadNotes();
 }
 
 function _testThenPublish(mode) {
@@ -399,16 +642,18 @@ async function openGitSyncBoth() {
     _showBranchWarning('both', 'btn-git-sync', 'Sync App', s);
     return;
   }
-  const out = s.ahead + (s.uncommitted ? 1 : 0);
-  const body = '<p><strong>' + s.behind + ' update' + (s.behind === 1 ? '' : 's') + '</strong> to pull in and '
-    + '<strong>' + out + ' change' + (out === 1 ? '' : 's') + '</strong> to publish. Updates come in first; '
-    + 'if a line changed on both sides, it stops and asks.</p>'
-    + _gateChoiceHtml(await _testModes(), 'syncing');
+  const body = '<p class="gs-sub">Updates come in first. If a line changed on both sides, it stops and asks.</p>'
+    + '<div id="gs-notes-box"></div>'
+    + _gateChoiceHtml(await _testModes(), 'syncing')
+    + '<p class="gs-safe">Checked for keys and personal details before anything leaves this computer.</p>';
   _publishGate = null;
-  showGitSyncModal('Sync VibeNode', body, [
-    {label: 'Cancel', onclick: closeGitSyncModal},
+  _gsKind = 'sync';
+  _gsChanges = null;
+  showGitSyncModal('Sync DevelopNode', body, [
+    {label: 'Later', onclick: closeGitSyncModal},
     {label: 'Sync', primary: true, onclick: () => _gsGo('sync', 'Sync App', 'btn-git-sync')},
   ]);
+  _gsLoadNotes();
 }
 
 function _testThenSync(mode) {
@@ -460,7 +705,7 @@ function _testFailureReport(lines, d, mode) {
     + ' -n 8 --dist loadfile tests/';
 
   let prompt = 'TEST FAILURES ARE BLOCKING PUBLISH\n\n';
-  prompt += 'The VibeNode pre-publish test run (' + mode + ' mode) failed. Fix the failures so the developer can publish.\n\n';
+  prompt += 'The DevelopNode pre-publish test run (' + mode + ' mode) failed. Fix the failures so the developer can publish.\n\n';
   prompt += '## Result\n';
   prompt += 'passed ' + (d.passed || 0) + ', failed ' + (d.failed || 0) + ', errors ' + (d.errors || 0)
     + ', skipped ' + (d.skipped || 0) + ', exit code ' + d.exit_code + '\n';
@@ -520,6 +765,7 @@ function _legacyCopy(text) {
 
 function _testThenAction(mode, actionType, actionLabel, btnId) {
   closeGitSyncModal();
+  _gsKind = actionType === 'sync' ? 'sync' : 'publish';
   const W = _gsWords(actionLabel);
   const verb = actionType === 'publish' ? 'publish' : 'sync';
   const Verb = verb.charAt(0).toUpperCase() + verb.slice(1);
@@ -647,11 +893,15 @@ function openGitUpdate() {
     _showBranchWarning('pull', 'btn-git-update', 'Update App', s);
     return;
   }
-  showGitSyncModal('Update VibeNode', '<p><strong>' + s.behind + ' update' + (s.behind === 1 ? ' is' : 's are') + '</strong> ready. '
-    + 'Your own changes stay as they are; if a line changed on both sides, it stops and asks.</p>', [
-    {label: 'Not now', onclick: closeGitSyncModal},
-    {label: 'Update', primary: true, onclick: () => executeGitAction('pull', 'btn-git-update', 'Update App')}
+  _gsKind = 'update';
+  _gsChanges = null;
+  showGitSyncModal('Update DevelopNode', '<p class="gs-sub">' + s.behind + ' update' + (s.behind === 1 ? ' is' : 's are') + ' ready.</p>'
+    + '<div id="gs-notes-box"></div>'
+    + '<p class="gs-safe">Your own edits stay as they are. If a line changed on both sides, it stops and asks.</p>', [
+    {label: 'Later', onclick: closeGitSyncModal},
+    {label: 'Update now', primary: true, onclick: () => executeGitAction('pull', 'btn-git-update', 'Update App')}
   ]);
+  _gsLoadNotes();
 }
 
 // ── Minimize / restore state ──
@@ -683,19 +933,31 @@ function showGitSyncModal(title, body, btns, opts) {
   });
   // While something runs (no buttons of its own) the dialog's one action is
   // Minimize: a full-width primary button at the bottom, not a corner mark.
+  // In the release notes sheet it is a quiet button: the work is the screen.
   const running = btns.length === 0;
+  const sheet = !!_gsKind && _gsSheetFrame(true);
+  if (!_gsKind) _gsSheetFrame(false);
   acts.classList.toggle('gs-running', running);
   if (running) {
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'pm-btn pm-btn-primary gs-min-cta';
+    el.className = 'pm-btn ' + (sheet ? 'pm-btn-secondary gs-min-quiet' : 'pm-btn-primary') + ' gs-min-cta';
     el.dataset.minimize = '1';
-    el.textContent = 'Minimize';
+    el.textContent = sheet ? 'Keep working, I’ll tell you' : 'Minimize';
     el.title = 'Keep it running in the background';
     el.onclick = minimizeGitSyncModal;
-    el.style.flex = '1';      // full width, set here so an open tab gets it without a reload
-    el.style.width = '100%';
+    if (!sheet) {
+      el.style.flex = '1';      // full width, set here so an open tab gets it without a reload
+      el.style.width = '100%';
+    }
     acts.appendChild(el);
+  }
+  if (sheet) {
+    _gsSide(_gsSideFor(running, opts));
+    _gsBar(running ? 'run' : opts.tone === 'ok' ? 'ok' : opts.tone === 'bad' ? 'bad' : '');
+    _gsSideFollow(running);
+  } else {
+    _gsSideFollow(false);
   }
   const minBtn = document.getElementById('git-sync-minimize-btn');
   if (minBtn) minBtn.style.display = 'none';
@@ -721,6 +983,8 @@ function showGitSyncModal(title, body, btns, opts) {
 
 function closeGitSyncModal() {
   document.getElementById('git-sync-overlay').classList.remove('show');
+  _gsKind = null;
+  _gsSideFollow(false);
   _dismissMiniIndicator();
 }
 
@@ -858,6 +1122,8 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
     _gitSyncFinished = false;
     _dismissMiniIndicator();
   }
+  // After closeGitSyncModal, which clears the kind.
+  _gsKind = _gsKindOf(btnLabel);
   const btn = document.getElementById(btnId);
   btn.disabled = true;
 
@@ -922,6 +1188,8 @@ async function executeGitAction(action, btnId, btnLabel, confirmBranch, opts) {
 
     if (scanBad) {
       body += _renderScanFindings(r.scan);
+    } else if (r.ok) {
+      body += _gsDoneNotes(isPush && isPull ? (btnLabel.startsWith('Sync') ? 'both' : 'push') : isPull ? 'pull' : 'push');
     }
 
     // The pull changed requirements.txt and pip ran (src/web/git_ops.py).
@@ -1047,7 +1315,7 @@ function _launchRemediationSession(scan) {
 
   // Build a detailed prompt for the AI
   let prompt = 'SECURITY SCAN VIOLATION — REMEDIATION REQUIRED\n\n';
-  prompt += 'The VibeNode pre-push security scanner has detected issues that are blocking publish.\n';
+  prompt += 'The DevelopNode pre-push security scanner has detected issues that are blocking publish.\n';
   prompt += 'You must remediate these issues so the developer can safely publish the app.\n\n';
   prompt += '## Scan Summary\n';
   prompt += scan.summary + ' (' + scan.files_scanned + ' files scanned)\n\n';
@@ -1087,7 +1355,7 @@ function _launchRemediationSession(scan) {
 // so there are no markers on disk yet; the session redoes the pull by hand.
 function _launchClashSession(files, pulled) {
   let prompt = 'UPDATE STOPPED: CHANGES CLASH\n\n';
-  prompt += 'Publishing VibeNode stopped because the pulled code clashed with local changes in:\n';
+  prompt += 'Publishing DevelopNode stopped because the pulled code clashed with local changes in:\n';
   files.forEach(f => { prompt += '- `' + f + '`\n'; });
   prompt += '\n## Instructions\n';
   if (pulled) {
@@ -1137,7 +1405,7 @@ async function _startFixSession(title, preview, prompt) {
       if (known && typeof setProject === 'function') {
         await setProject(repo.project, true);
       } else if (typeof showToast === 'function') {
-        showToast('Fix session created in the VibeNode project');
+        showToast('Fix session created in the DevelopNode project');
       }
     }
   }

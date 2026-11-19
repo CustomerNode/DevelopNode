@@ -224,7 +224,7 @@ def _device_name() -> str:
         host = (socket.gethostname() or "").split(".")[0].strip()
     except Exception:
         host = ""
-    return host or "VibeNode"
+    return host or "DevelopNode"
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +354,7 @@ def _launch_vibenode() -> None:
     else:
         env.pop("VIBENODE_PRESERVE_DAEMON", None)  # ensure a true cold start
 
-    _log("launching VibeNode via %s %s" % (py, entry))
+    _log("launching DevelopNode via %s %s" % (py, entry))
     try:
         kwargs = {"cwd": str(_HERE), "env": env}
         if sys.platform == "win32":
@@ -631,8 +631,8 @@ def _systemd_unit_text() -> str:
     # standby and take over in-process instead (see _standby_acquire_control).
     return (
         "[Unit]\n"
-        "Description=VibeNode mobile Start-page reviver "
-        "(keeps VibeNode restartable from your phone)\n"
+        "Description=DevelopNode mobile Start-page reviver "
+        "(keeps DevelopNode restartable from your phone)\n"
         "After=default.target\n\n"
         "[Service]\n"
         "Type=simple\n"
@@ -792,7 +792,7 @@ class Reviver:
             # The phone pressed Start: yield + launch off the serve thread.
             if self._start_requested.is_set():
                 self._start_requested.clear()
-                _log("Start pressed on phone — launching VibeNode")
+                _log("Start pressed on phone — launching DevelopNode")
                 self.yield_now(launch=True)
 
             with self._lock:
@@ -805,7 +805,7 @@ class Reviver:
                     # Real server came up — step aside.
                     with self._lock:
                         self._state = "dormant"
-                    _log("real VibeNode is up — going dormant")
+                    _log("real DevelopNode is up — going dormant")
                 elif time.monotonic() > deadline:
                     # Start never completed — show the Start page again.
                     _log("start grace expired — re-showing Start page")
@@ -824,7 +824,7 @@ class Reviver:
                             and time.time() - float(at or 0) >= _comeback_seconds()):
                         self._planned_launched_at = at
                         _log("planned %s restart did not come back — starting "
-                             "VibeNode" % planned.get("scope", "?"))
+                             "DevelopNode" % planned.get("scope", "?"))
                         self.yield_now(launch=True)
             else:
                 # dormant / idle: is the real web server present?
@@ -856,12 +856,29 @@ class Reviver:
 # HTTP: the phone-facing Start page (served on 5050 only while VibeNode is down)
 # ---------------------------------------------------------------------------
 
+# The DevelopNode lockup, the same piece as the app's top bar (header
+# h1.dn-lockup in src/web/static/style.css): the mark drawn to the capital
+# height and stem of the name, standing on its baseline.  Inline, because
+# these pages must render with the app down.
+BRAND = "DevelopNode"
+_LOCKUP_CSS = (
+    ".lk{font:600 22px/1 'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+    "letter-spacing:.1em;white-space:nowrap;color:#e7e9ee;margin:0 0 26px}"
+    ".lk svg{height:.71em;width:.905em;vertical-align:baseline;margin-right:.5em;fill:currentColor}"
+    ".lk svg circle{fill:#8B8FF7}"
+    ".lk .tm{font-size:.42em;font-weight:500;letter-spacing:0;vertical-align:top;margin-left:.1em}"
+)
+_LOCKUP = ('<div class="lk"><svg viewBox="0 0 181 142" aria-hidden="true">'
+           '<path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/>'
+           '</svg>' + BRAND + '<span class="tm">&trade;</span></div>')
+
+
 def _start_page(device: str) -> bytes:
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{device} — VibeNode is stopped</title>
+<title>{device} — DevelopNode is stopped</title>
 <!-- {_SENTINEL} -->
 <style>
   :root {{ color-scheme: dark; }}
@@ -894,18 +911,21 @@ def _start_page(device: str) -> bytes:
     border: 3px solid #2a2f3a; border-top-color: #4f8cff;
     animation: r 0.9s linear infinite; margin: 0 auto 20px; }}
   @keyframes r {{ to {{ transform: rotate(360deg); }} }}
+  {_LOCKUP_CSS}
 </style></head>
 <body>
   <div class="card" id="card">
+    {_LOCKUP}
     <div class="status"><span class="dot"></span>Stopped</div>
     <h1>{device}</h1>
-    <p class="sub">VibeNode isn't running on this computer.</p>
-    <button id="go" onclick="start()">Start VibeNode</button>
+    <p class="sub">DevelopNode isn't running on this computer.</p>
+    <button id="go" onclick="start()">Start DevelopNode</button>
     <div class="hint">Brings the server back up over your Tailscale link.</div>
   </div>
   <div class="card" id="booting" style="display:none">
+    {_LOCKUP}
     <div class="spin"></div>
-    <h1>Starting VibeNode…</h1>
+    <h1>Starting DevelopNode…</h1>
     <p class="sub" id="booting-sub">Booting up — this takes a few seconds.</p>
     <div class="hint" id="booting-elapsed">0s</div>
   </div>
@@ -978,11 +998,13 @@ def _starting_page(device: str) -> bytes:
   @keyframes r {{ to {{ transform: rotate(360deg); }} }}
   h1 {{ font-size: 20px; margin: 0 0 6px; }}
   p {{ color: #9aa0ad; margin: 0; }}
+  {_LOCKUP_CSS}
 </style></head>
 <body>
   <div>
+    {_LOCKUP}
     <div class="spin"></div>
-    <h1>Starting VibeNode…</h1>
+    <h1>Starting DevelopNode…</h1>
     <p>This can take a few seconds. You'll be taken in automatically.</p>
   </div>
 <script>
@@ -1013,13 +1035,18 @@ def _restarting_page(device: str) -> bytes:
     """
     page = _starting_page(device).decode("utf-8")
     page = page.replace("<title>Starting %s…</title>" % device,
-                        "<title>%s: VibeNode is restarting</title>" % device)
+                        "<title>%s: DevelopNode is restarting</title>" % device)
     page = page.replace(
-        "<h1>Starting VibeNode…</h1>\n    <p>This can take a few seconds. "
+        "<h1>Starting DevelopNode…</h1>\n    <p>This can take a few seconds. "
         "You'll be taken in automatically.</p>",
-        "<h1>VibeNode is restarting</h1>\n    <p>A planned restart, nothing is "
+        "<h1>DevelopNode is restarting</h1>\n    <p>A planned restart, nothing is "
         "wrong. Your sessions keep running and this page returns by itself.</p>")
     return page.encode("utf-8")
+
+
+# Who may read the ping and press Start from a web page: the DevelopNode site.
+# Same list as shared.site_origins.SITE_ORIGINS (tests/test_site_launch.py).
+_SITE_ORIGINS = frozenset({"https://developnode.com", "https://www.developnode.com"})
 
 
 class _ServeHandler(BaseHTTPRequestHandler):
@@ -1033,6 +1060,7 @@ class _ServeHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self._site_cors()
         self.end_headers()
         try:
             self.wfile.write(body)
@@ -1059,6 +1087,20 @@ class _ServeHandler(BaseHTTPRequestHandler):
             self._send(_restarting_page(device))
         else:
             self._send(_start_page(device))
+
+    def _site_cors(self):
+        # developnode.com/app reads our 503 ping (VibeNode installed, not
+        # running) and may POST /start. Only that site is named; the list
+        # is shared.site_origins.SITE_ORIGINS, copied (stdlib only here).
+        origin = self.headers.get("Origin")
+        if origin in _SITE_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST")
+
+    def do_OPTIONS(self):
+        self._send(b"", status=204, ctype="text/plain; charset=utf-8")
 
     def do_POST(self):
         if self.path.rstrip("/") == "/start":

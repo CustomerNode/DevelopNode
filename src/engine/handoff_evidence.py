@@ -295,7 +295,8 @@ _PICK_TAIL = re.compile(r"[.!,]?(?:\s+(?:please|thanks))?[.!]?$")
 # the end or a joining word ("do f and update X" picks F).
 # "lets do a quick fix" is not a pick: "a" runs on into more words.
 _KEY_IN_SENTENCE = re.compile(
-    r"\b(?:do|go with|with|pick|choose|use|take|build|ship|prefer|want|like|love|option|variant)\s+"
+    # The key may also open the message ("a but change the hover", "b, and …").
+    r"(?:^|\b(?:do|go with|with|pick|choose|use|take|build|ship|prefer|want|like|love|option|variant)\s+)"
     # like / love name a pick too ("i like d, but …").
     # what may follow the key ("do option b however instead of…")
     r"([a-z0-9])(?=\s*(?:$|[.!,;:]|\s(?:and|but|then|please|thanks|is|looks|it|for|now|"
@@ -313,6 +314,9 @@ _RELEASES = re.compile(
     # "not the one i liked": the user wants what was shown before, not these choices
     r"|\bno[t]?\s+the\s+one\s+i\s+(?:f\w*ing\s+)?(?:liked|wanted|picked|chose)\b"
     r"|\bleft\s+waiting\b"
+    # told the work itself is the wrong thing ("you are building the wrong thing", "go back to what i asked")
+    r"|\b(?:doing|building|making|working\s+on)\s+the\s+wrong\s+(?:\w+\s+){0,2}(?:thing|stuff|work|sh[i]t|crap)\b"
+    r"|\bget\s+back\s+to\s+what\s+i\s+(?:actually\s+|really\s+)?(?:said|asked|meant)\b"
     # taken off the work, or told to drop its reminder ("you're fired", "don't touch it",
     # "drop the back to it")
     r"|\b(?:you'?re|you\s+are)\s+fired\b|\b(?:do\s+not|don'?t)\s+(?:\w+\s+){0,2}touch\s+(?:it|this|that)\b"
@@ -1091,7 +1095,7 @@ def standalone_problems(card: dict) -> list:
     return ["The headline and the ask are shown on their own (the sidebar, the Needs you list, "
             "notifications), to someone working across many sessions. These lean on this session's "
             "history: " + ", ".join(dict.fromkeys(hits)) + ". Name the project and the exact thing, "
-            "e.g. \"Pick a design for the buttons on VibeNode's end-of-turn summary card\", "
+            "e.g. \"Pick a design for the buttons on DevelopNode's end-of-turn summary card\", "
             "not \"Pick a button design for the card\"."]
 
 
@@ -1931,6 +1935,125 @@ def real_product_problems(card: dict, facts: TurnFacts) -> list:
             "realistic data to the dev copy first."]
 
 
+# Variants of a screen he showed.  When the user's request in this task came
+# with a screenshot, he pointed at a real screen: the variants are that
+# screen, changed.  A scratch page that redraws an imitation of it (a fake
+# phone, a stand-in header, the parts it remembered) shows something he never
+# looked at, so the pick is about a copy, not his screen.  This holds for
+# VibeNode's own screens too (real_product_problems covers only other
+# projects): frame the real page (an iframe of the app with the variant
+# applied) or build the variant on a screenshot of it.  A screenshot of
+# something that is not a screen (a logo, a photo) is the honest exception:
+# "Drawn by hand because …" in Full says so.
+_SCREENSHOT_SENT = re.compile(r"(?m)^\s*Image:\s*\S+\.(?:png|jpe?g|gif|webp|heic)\s*$", re.I)
+# A page whose sections are built by script shows the real thing when it
+# frames a page or shows a picture anywhere, in markup or from its script.
+_PAGE_SHOWS_PRODUCT = re.compile(r"<(?:iframe|img|video|object|embed)\b|createElement\(\s*['\"](?:iframe|img|video)['\"]", re.I)
+_STYLE_SCRIPT = re.compile(r"<(style|script)\b.*?</\1\s*>", re.I | re.S)
+_DRAWN_BECAUSE = re.compile(r"\bdrawn\s+by\s+hand\s+because\b", re.I)
+
+
+def _mockup_pages(needs: dict) -> list:
+    from engine import handoff_rules
+    pages = []
+    urls = [sc.get("url") for r in needs.get("replies") or [] if isinstance(r, dict)
+            for sc in (r.get("screens") or []) if isinstance(sc, dict)]
+    urls += [it.get("url") for it in needs.get("look") or [] if isinstance(it, dict)]
+    for u in urls:
+        if isinstance(u, str) and handoff_rules._MOCKUP_PAGE.match(u):
+            page = re.sub(r"[?#].*$", "", u)
+            if page not in pages:
+                pages.append(page)
+    return pages
+
+
+def screenshot_variants_problems(card: dict, facts: TurnFacts) -> list:
+    needs = card.get("needs") if isinstance(card.get("needs"), dict) else {}
+    if needs.get("kind") != "decision":
+        return []
+    if not any(_SCREENSHOT_SENT.search(r or "") for r in getattr(facts, "requests", None) or ()):
+        return []
+    if _DRAWN_BECAUSE.search(card.get("full_answer") if isinstance(card.get("full_answer"), str) else ""):
+        return []
+    from engine import handoff_rules
+    for page in _mockup_pages(needs):
+        try:
+            f = (handoff_rules._SCRATCH_DIR / page.rsplit("/", 1)[-1]).resolve()
+            if f.parent != handoff_rules._SCRATCH_DIR.resolve() or not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")[:600_000]
+        except OSError:
+            continue
+        keys = [k for k in dict.fromkeys(m.strip() for m in handoff_rules._OPTION_ATTR.findall(text))
+                if k.lower() != "now"]
+        if len(keys) < 2:
+            continue
+        # Sections are read from the markup only: a style rule or a script
+        # naming a key is not a section of the page.
+        markup = _STYLE_SCRIPT.sub("", text)
+        if any(handoff_rules._section_html(markup, k) for k in keys):
+            bad = _hand_drawn_variants(markup, keys)
+        else:   # the sections are built by the page's script: judge the page whole
+            bad = [] if _PAGE_SHOWS_PRODUCT.search(text) else keys
+        if len(bad) * 2 >= len(keys):
+            return [f"The user sent a screenshot of the screen they mean, but these variants are redrawn by hand "
+                    f"({page.rsplit('/', 1)[-1]}: {', '.join(bad[:4])} show no part of the real screen): the user would be "
+                    "picking between imitations of a screen, not that screen. Show each variant ON that real screen: "
+                    "frame the real page in each section (an iframe of the app's own page with the variant applied, "
+                    "by a query or an injected style or script), or build it over a screenshot of that screen. Keep "
+                    "everything the screenshot shows. If the picture is not of a screen, say \"Drawn by hand "
+                    "because …\" in Full."]
+    return []
+
+
+# An answer card after work.  An "explain" card draws no Validate row and no
+# page to try: it is for answering a question.  When the user's latest
+# message gave an order (a redirect, "do that", a complaint to act on) and
+# the turn then changed files, the user has work to look at, and an answer
+# card hides it.  Changing files is read from the turn's own tool calls:
+# Edit / Write tools, or a shell command that writes into a file outside the
+# temp folder (sed -i, a Python write, a redirect, a copy, a restore).
+_EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
+_SHELL_WRITE = re.compile(
+    r"\bsed\s+-i\b|\bopen\([^)]*,\s*['\"][wa]b?['\"]|\.write_text\(|\.write\("
+    r"|(?<![<>&\d=-])>{1,2}\s*(?!/dev/null|/tmp/|&)['\"]?[\w~./-]+\.\w+"
+    r"|\bcp\s+[^\n;&|]*\s(?!/tmp/)[\w~./-]+\.(?!(?:png|jpe?g|gif|webp|svg)\b)\w+\s*(?:$|[;&|])"
+    r"|\bgit\s+(?:checkout\s+--(?=\s)|restore\b)|\bpatch\b\s+-p", re.M)
+_TEMP_ONLY = re.compile(r"^\s*cd\s+/tmp\b[^\n;&]*(?:&&|;)", re.I)
+# A lead-in statement followed by "but how does X ...": still a question.
+_ASKS_MIDWAY = re.compile(r"\b(?:but|so|and|ok(?:ay)?)\s+(?:why|how|what|where|when|which|who)\s+(?:is|are|was|were|do|does|did|am|can|would|should|has|have)\b", re.I)
+_REDO_PREFIX = re.compile(r"^\W*(?:Wrong kind of card|Flagged summary)\s*:", re.I)
+_DRAFT_FILE = re.compile(r"handoff-card\.json|vibenode-smart-termination", re.I)
+
+
+def _changed_files(a) -> bool:
+    detail = getattr(a, "detail", "") or ""
+    if _DRAFT_FILE.search(detail):
+        return False
+    if a.tool in _EDIT_TOOLS:
+        return not re.search(r"(?:file_path|notebook_path):\s*/tmp/", detail)
+    if a.tool == "Bash":
+        if _TEMP_ONLY.match(detail) and "cd /home" not in detail and "cd ~" not in detail:
+            return False
+        return bool(_SHELL_WRITE.search(detail))
+    return False
+
+
+def answer_after_work_problems(card: dict, facts: TurnFacts) -> list:
+    if card.get("type") != "explain" or facts.turn_actions is None:
+        return []
+    last = facts.last_user or ""
+    if not last.strip() or is_question(last) or _ASKS_MIDWAY.search(last) or _REDO_PREFIX.match(last):
+        return []
+    if not any(_changed_files(a) for a in facts.turn_actions if a.returned and a.ok):
+        return []
+    return [f"The user's last message (\"{_short(last, 100)}\") gave an order, not a question, and this turn "
+            "changed things, but you ended on an answer card, which has no Validate row and nothing to try. "
+            "End on the card that work calls for: \"done\" with \"validate\" (how the user sees it work, and the "
+            "page to try it on) and links to the work, or \"needs_you\" if a choice blocks it. Answers to an "
+            "earlier question go in \"answer\" on that card."]
+
+
 def problems(card: dict, facts: Optional[TurnFacts]) -> list:
     if not isinstance(card, dict):
         return []
@@ -1943,4 +2066,6 @@ def problems(card: dict, facts: Optional[TurnFacts]) -> list:
             + working_problems(card, facts) + redo_kind_problems(card, facts) + open_choice_problems(card, facts)
             + ship_ask_problems(card, facts)
             + one_version_problems(card, facts) + refine_variants_problems(card, facts)
-            + direction_variants_problems(card, facts) + real_product_problems(card, facts))
+            + direction_variants_problems(card, facts)
+            + (real_product_problems(card, facts) or screenshot_variants_problems(card, facts))
+            + answer_after_work_problems(card, facts))

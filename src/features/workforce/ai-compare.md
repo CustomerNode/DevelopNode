@@ -3,7 +3,7 @@ id: ai-compare
 name: AI Compare
 department: compose
 source: vibenode
-version: 2.2.1
+version: 2.2.2
 depends_on: []
 type: prompt-template
 playbook: true
@@ -37,7 +37,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 Run this directly in the session the user typed it in. It needs no subagent: the work is one script and a comparison.
 
-1. Run the AI Compare script from the VibeNode repository folder in the foreground, with a shell timeout longer than its own `--timeout`:
+1. Run the AI Compare script from the DevelopNode repository folder in the foreground, with a shell timeout longer than its own `--timeout`:
    - one prompt, N read-only runs: `python scripts/ai_compare.py --prompt "<prompt>" --count <N>`
    - one prompt under names the user gave: `python scripts/ai_compare.py --prompt "<prompt>" --names "<name 1>" "<name 2>"`
    - a different prompt per variant: `python scripts/ai_compare.py --each "<prompt A>" "<prompt B>"`
@@ -45,7 +45,7 @@ Run this directly in the session the user typed it in. It needs no subagent: the
    - models: add `--models <model> …` (one for all, or one per variant in order: "opus", "sonnet", "haiku", "sonnet 5" or an exact id). One prompt plus `--models opus sonnet haiku` gives one read-only variant per model.
    - add `--timeout <seconds>` when the user gave a timeout.
    The prompts are the user's words, passed through byte for byte, spaces and blank lines included. The script records each prompt it sent and the prompt each session's transcript shows it received, and the report warns when they differ. Split prompts into variants only where the user did.
-   Every session it starts is read-only: VibeNode's plan mode lets it read and answer but refuses file edits and commands. When the web server does not confirm read-only, the script stops that session through VibeNode at once, confirms the stop and reports the variant as not compared; the report also flags any variant whose transcript shows a change that went through.
+   Every session it starts is read-only: DevelopNode's plan mode lets it read and answer but refuses file edits and commands. When the web server does not confirm read-only, the script stops that session through DevelopNode at once, confirms the stop and reports the variant as not compared; the report also flags any variant whose transcript shows a change that went through.
 2. The script prints `report.md` and its path under `data/ai_compare/<run id>/`. That folder is unique to the run: `run.json` plus one numbered folder per variant with its prompt, full reply, transcript copy and record. Read the full replies there; the printed table shows only short answers.
 3. Compare the variants on what the user asked for: conclusions and recommendations, reasoning quality, completeness, important omissions, contradictions, clarity. Use the measured columns (status, time, model calls, tokens, cost) as measurements and say so; say plainly that the quality comparison is your judgment from the replies. Give a recommendation only when the replies support one.
 
@@ -56,7 +56,7 @@ Do not edit any code, do not answer a variant yourself, and do not remove the se
 - Every variant is a fresh read-only session started by the script, never an answer written by this session.
 - The prompt a session received equals the user's prompt, checked against its transcript; nothing operational is appended to it.
 - Each result comes from that session's own reply, with its status, time, model, tokens and cost; a cost the CLI did not report is "not reported", never estimated.
-- A variant that failed, timed out or was cancelled is reported as such with any partial text marked partial, never dropped or counted as an answer; one that timed out or was cancelled is stopped through VibeNode and the report says whether the stop was confirmed.
+- A variant that failed, timed out or was cancelled is reported as such with any partial text marked partial, never dropped or counted as an answer; one that timed out or was cancelled is stopped through DevelopNode and the report says whether the stop was confirmed.
 - No quality score is invented; measured data and AI judgment are labelled apart.
 - Each comparison and each of its variants has its own folder; no output lands on top of another comparison or variant.
 

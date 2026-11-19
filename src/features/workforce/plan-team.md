@@ -3,7 +3,7 @@ id: plan-team
 name: Plan Team
 department: compose
 source: vibenode
-version: 1.1.1
+version: 1.1.2
 depends_on: []
 type: prompt-template
 ---
@@ -27,7 +27,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 ## The Prompt
 
-Run the Plan Team: Spec Analyst, Product Strategist, Architect, Implementation Auditor, Integration Reviewer, Expert User. All have full knowledge of the VibeNode codebase and architecture.
+Run the Plan Team: Spec Analyst, Product Strategist, Architect, Implementation Auditor, Integration Reviewer, Expert User. All have full knowledge of the DevelopNode codebase and architecture.
 
 Review the plan/spec we've been working on. Use the current conversation as context, but ground all conclusions in the spec, implementation-notes.md, and the relevant codebase. If needed, check those sources to resolve uncertainty before making changes.
 
@@ -37,7 +37,7 @@ Run as a coordinated team in sequence:
 - Architect defines the technical approach and flags proposals that are structurally unsound, over-complex, or inconsistent with the system design.
 - Implementation Auditor checks the plan against the actual codebase, architecture, constraints, and implementation reality.
 - Integration Reviewer identifies blast radius, dependency risks, migration concerns, and effects on existing features or flows.
-- Expert User evaluates the plan from the perspective of a daily VibeNode power user — flags anything that would break existing workflows, feel inconsistent with the rest of the app, confuse users, or be undiscoverable.
+- Expert User evaluates the plan from the perspective of a daily DevelopNode power user — flags anything that would break existing workflows, feel inconsistent with the rest of the app, confuse users, or be undiscoverable.
 
 Each agent's findings must feed into the next. This is one shared analysis, not six separate reports.
 
@@ -46,7 +46,7 @@ Each agent's findings must feed into the next. This is one shared analysis, not 
 In addition to each agent's lane-specific analysis, the team always evaluates the plan against the following:
 
 ### Time Estimates
-- Time estimates must reflect VibeNode's actual execution velocity, not traditional development timelines. A phase that would take a human team 6-8 hours typically completes in 30-60 minutes. Estimate in minutes, not hours.
+- Time estimates must reflect DevelopNode's actual execution velocity, not traditional development timelines. A phase that would take a human team 6-8 hours typically completes in 30-60 minutes. Estimate in minutes, not hours.
 
 ### CLAUDE.md Constraint Awareness
 - Verify the plan does not propose anything that violates CLAUDE.md rules — server restart restrictions, file organization, slash command handling, performance-critical patterns, or any other project constraint.

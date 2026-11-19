@@ -3,16 +3,16 @@ id: playbook-builder
 name: Playbook Builder
 department: compose
 source: vibenode
-version: 2.1.2
+version: 2.1.3
 depends_on: []
 type: prompt-template
 playbook: true
 playbook_risk: medium
 playbook_capabilities: [read, write, run_commands]
 playbook_line: Builds and fixes playbooks to the standard
-playbook_what: Drafts a new playbook or a change, checks it against VibeNode's Playbook Standard, and registers it only when it passes.
+playbook_what: Drafts a new playbook or a change, checks it against DevelopNode's Playbook Standard, and registers it only when it passes.
 playbook_say: playbook builder make a playbook that drafts release notes | playbook builder fix the AI Compare playbook
-playbook_how: Reads the Playbook Standard and any playbook it is changing. | Lists the playbook's capabilities and sets its risk from them. | Writes a draft outside the library. | Runs VibeNode's check on the draft and fixes every failure. | Registers it through VibeNode, which checks it again. | Reports the playbook, its risk and the check's output.
+playbook_how: Reads the Playbook Standard and any playbook it is changing. | Lists the playbook's capabilities and sets its risk from them. | Writes a draft outside the library. | Runs DevelopNode's check on the draft and fixes every failure. | Registers it through DevelopNode, which checks it again. | Reports the playbook, its risk and the check's output.
 playbook_use: Use playbook builder
 ---
 
@@ -20,9 +20,9 @@ playbook_use: Use playbook builder
 
 Reusable prompt template. Invoke by typing: **playbook builder** (also "build a playbook", "fix the … playbook")
 
-**Unique value**: Creates and changes VibeNode playbooks so they pass the Playbook Standard before they reach the library, with the check's own output as proof. No other playbook writes playbooks.
+**Unique value**: Creates and changes DevelopNode playbooks so they pass the Playbook Standard before they reach the library, with the check's own output as proof. No other playbook writes playbooks.
 
-The standard lives in VibeNode, not here: `src/shared/playbook_standard.py`. This playbook holds no rules of its own; it runs that program. VibeNode refuses to register a playbook that fails it, serves a failing one to no session, and fails its test suite on one, whether or not this playbook wrote it. This playbook is the easy way to pass; it is not the gate.
+The standard lives in DevelopNode, not here: `src/shared/playbook_standard.py`. This playbook holds no rules of its own; it runs that program. DevelopNode refuses to register a playbook that fails it, serves a failing one to no session, and fails its test suite on one, whether or not this playbook wrote it. This playbook is the easy way to pass; it is not the gate.
 
 A playbook may be instructions only (a way to think about a task) or it may coordinate scripts and tools. Both are built the same way; the risk level decides how much the standard asks for, so a simple talk-only playbook stays short.
 
@@ -38,7 +38,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 ## The Prompt
 
-Run this in the session the user typed it in, from the VibeNode repository folder.
+Run this in the session the user typed it in, from the DevelopNode repository folder.
 
 1. Print the standard: `python -m shared.playbook_standard --explain`. It lists the seven parts, the capabilities and the lowest risk each allows. Read `src/features/workforce/AGENT_BEST_PRACTICES.md` too. For a change, read the playbook in full first.
 2. Work out the playbook's parts with the user's request in front of you: its identity (id, name, the words that start it), its purpose (the one thing no other playbook does), the inputs a caller must give, the steps it follows, what it hands back, how it checks its own result, and when it stops and asks.
@@ -62,7 +62,7 @@ Do not edit any file except the draft and, through `--register`, the playbook it
 ## Escalate when
 
 - the playbook would duplicate one that exists: ask whether to extend that one instead;
-- the user asks for a rule the standard does not hold (a new required part or capability): the standard is VibeNode's code and changes go through a code change, not through this playbook;
+- the user asks for a rule the standard does not hold (a new required part or capability): the standard is DevelopNode's code and changes go through a code change, not through this playbook;
 - the check fails in a way no true edit to the playbook can fix: report its output verbatim.
 
 ## Output Format

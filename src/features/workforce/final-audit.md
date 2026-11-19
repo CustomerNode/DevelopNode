@@ -3,7 +3,7 @@ id: final-audit
 name: Final Audit
 department: compose
 source: vibenode
-version: 1.6.0
+version: 1.6.1
 depends_on: []
 type: prompt-template
 ---
@@ -94,8 +94,8 @@ Return the audit report in this numbered structure:
 8. **Obstacles encountered** — Setup issues, workarounds discovered, commands that needed special flags or configuration, dependencies or imports that caused problems, env quirks. Report anything that should be carried forward.
 9. **Confidence level** — HIGH, MEDIUM, or LOW:
    - **HIGH**: The solution is sound. It does what was intended, holds together end to end, and introduced no meaningful risk. Ship it. Do not assign HIGH unless there is no meaningful unresolved risk AND all of these are on record (name where each is recorded):
-     1. The project's own full test command (the one its publish, CI or release step runs; for VibeNode `python -m pytest --tb=short -q --no-header --timeout=120 -n 8 --dist loadfile tests/`) ran with zero failures AFTER the last code change; its final summary line is quoted verbatim. A run made before a later fix does not count.
-     2. If anything the user sees or touches changed, the changed behavior was driven through the project's real interface (for VibeNode: headless Chromium against the real page via `tests/_fake_app.py` or a dedicated browser test; these need no server or restart, so "cannot restart" does not excuse skipping them).
+     1. The project's own full test command (the one its publish, CI or release step runs; for DevelopNode `python -m pytest --tb=short -q --no-header --timeout=120 -n 8 --dist loadfile tests/`) ran with zero failures AFTER the last code change; its final summary line is quoted verbatim. A run made before a later fix does not count.
+     2. If anything the user sees or touches changed, the changed behavior was driven through the project's real interface (for DevelopNode: headless Chromium against the real page via `tests/_fake_app.py` or a dedicated browser test; these need no server or restart, so "cannot restart" does not excuse skipping them).
      3. Every acceptance criterion has evidence: a named test or a recorded check with its result. Passing tests that do not cover the criteria do not count.
      4. This audit, and the Review and Test stages, ran as fresh subagents, not inside the conversation that built the code, and each judged the final code.
      5. No material finding from any stage is left unresolved.

@@ -1,8 +1,8 @@
-# VibeNode
+# DevelopNode
 
-**Agents made writing code cheap. Checking it is the new bottleneck. VibeNode is built for both halves.**
+**Agents made writing code cheap. Checking it is the new bottleneck. DevelopNode is built for both halves.**
 
-VibeNode is a development platform for agentic programming. A persistent Session Engine and a web control plane run a fleet of parallel coding agents: sessions that are aware of each other and avoid conflicts automatically, a hierarchical task board where your roadmap ends in working agent sessions, and one library for skills and agents. On top of that, **Smart termination** makes every session end its turn the same way: a short card that says what happened, how it was checked and exactly what it needs from you. A session that can't say that clearly is sent back until it can. Private mobile access and local voice input come with it. The orchestration layer is backend-agnostic by design; [Claude Code](https://claude.ai/download) is the currently supported backend (see [Supported backends](#supported-backends)). Built by [CustomerNode](https://customernode.com).
+DevelopNode is a development platform for agentic programming. A persistent Session Engine and a web control plane run a fleet of parallel coding agents: sessions that are aware of each other and avoid conflicts automatically, a hierarchical task board where your roadmap ends in working agent sessions, and one library for skills and agents. On top of that, **Smart termination** makes every session end its turn the same way: a short card that says what happened, how it was checked and exactly what it needs from you. A session that can't say that clearly is sent back until it can. Private mobile access and local voice input come with it. The orchestration layer is backend-agnostic by design; [Claude Code](https://claude.ai/download) is the currently supported backend (see [Supported backends](#supported-backends)). Built by [CustomerNode](https://customernode.com).
 
 ![VibeNode homepage: sessions counted by what they need from you (Needs you, Working, Standby, Done), next to Workflow, Workforce and Subsessions](docs/screenshots/homepage.png)
 
@@ -16,23 +16,23 @@ What doesn't scale is the person on the other end. Every one of those streams en
 - **They're written from the implementer's seat.** "Idle". "Want me to wire it in?" "Go with option C?" File names, function names, labels from an hour ago. The agent talks as if you'd been coding next to it all along, not switching in from five other sessions.
 - **They hand unfinished work back.** "Mostly working, I haven't run the full suite yet" ends the turn, and the job lands on you.
 
-So the more you generate, the more of your day goes to sifting. **Validation leverage** is the other half: multiplying how much one person can check, decide and accept in a minute. VibeNode does both.
+So the more you generate, the more of your day goes to sifting. **Validation leverage** is the other half: multiplying how much one person can check, decide and accept in a minute. DevelopNode does both.
 
 It solves four problems that anyone running coding agents at scale runs into:
 
-1. **Validation is the bottleneck.** Generation scales with compute. Your attention doesn't. VibeNode's **Smart termination** turns every session's last message into the same short, checkable card, written from your side, and sends back any session that ends in a wall of text, an unexplained "option C" or work it could have finished itself. The sidebar stops describing the agent ("Idle") and starts describing you: **Needs you**, **Working**, **Standby**, **Done**.
+1. **Validation is the bottleneck.** Generation scales with compute. Your attention doesn't. DevelopNode's **Smart termination** turns every session's last message into the same short, checkable card, written from your side, and sends back any session that ends in a wall of text, an unexplained "option C" or work it could have finished itself. The sidebar stops describing the agent ("Idle") and starts describing you: **Needs you**, **Working**, **Standby**, **Done**.
 
-2. **Session sprawl.** Running 8+ coding-agent sessions across terminal windows gets unwieldy fast, permission prompts especially. Even a three-monitor setup runs out of space. VibeNode runs a *fleet* of agents graphically, not as a wall of terminals.
+2. **Session sprawl.** Running 8+ coding-agent sessions across terminal windows gets unwieldy fast, permission prompts especially. Even a three-monitor setup runs out of space. DevelopNode runs a *fleet* of agents graphically, not as a wall of terminals.
 
-3. **Velocity without direction.** Coding agents are powerful, but raw throughput doesn't move a roadmap. Sessions drift, work gets duplicated, and nothing connects what an agent is doing with what you need delivered. VibeNode couples every session to a task plan so every agent is working toward a specific deliverable.
+3. **Velocity without direction.** Coding agents are powerful, but raw throughput doesn't move a roadmap. Sessions drift, work gets duplicated, and nothing connects what an agent is doing with what you need delivered. DevelopNode couples every session to a task plan so every agent is working toward a specific deliverable.
 
-4. **Scattered, invisible knowledge assets.** Agentic coding tools have landed on two nearly identical concepts, skills and agents, that are really the same thing: a markdown file with instructions, differing only in how it's invoked. The files scatter across hidden config directories with no way to browse them. VibeNode gives you a visual library that treats them as one thing, organizes them into departments, and lets you build, browse, import and invoke them without caring whether they run inline or as a subprocess.
+4. **Scattered, invisible knowledge assets.** Agentic coding tools have landed on two nearly identical concepts, skills and agents, that are really the same thing: a markdown file with instructions, differing only in how it's invoked. The files scatter across hidden config directories with no way to browse them. DevelopNode gives you a visual library that treats them as one thing, organizes them into departments, and lets you build, browse, import and invoke them without caring whether they run inline or as a subprocess.
 
-The result is a development platform where the human owns planning, oversight and validation while coding agents handle execution, scoped to tasks instead of left to wander. And VibeNode now does the heavy lifting on the human side as well: what used to be reading becomes glancing, and what used to be judging becomes one tap. Because the execution layer is pluggable, none of this depends on a single agent staying the best one.
+The result is a development platform where the human owns planning, oversight and validation while coding agents handle execution, scoped to tasks instead of left to wander. And DevelopNode now does the heavy lifting on the human side as well: what used to be reading becomes glancing, and what used to be judging becomes one tap. Because the execution layer is pluggable, none of this depends on a single agent staying the best one.
 
 ## What it does
 
-VibeNode is built around three pillars, **Sessions**, **Workflow** and **Workforce**, plus **Subsessions** for peeling side work off a running session. **Smart termination** runs through all of them: it decides how every session ends its turn and how that ending reaches you. The homepage is the command center for all of it.
+DevelopNode is built around three pillars, **Sessions**, **Workflow** and **Workforce**, plus **Subsessions** for peeling side work off a running session. **Smart termination** runs through all of them: it decides how every session ends its turn and how that ending reaches you. The homepage is the command center for all of it.
 
 The vocabulary, used the same way in the app, the settings and this document: a **session** is one Claude Code conversation; a session's status says what it needs from **you** (**Needs you**, **Working**, **Standby** or **Done**); the **handoff card** is how a session ends its turn; the **Workflow** is the task board; the **Workforce** is the library of agents and skills, organized into **departments**; **Subsessions** is the view for sessions spawned from other sessions, where a **composition** is a structured group of **sections**, each section being one child session; the **Session Engine** is the background process that owns every running session.
 
@@ -139,15 +139,15 @@ Open a session from the board and the full breadcrumb path stays visible, keepin
 
 Agentic coding tools have two similar concepts — skills and agents — that are really the same thing: a markdown file with instructions. The only difference is how they're invoked: skills inject into your current session, agents spawn a subprocess. Multiple voices in the community have been [arguing for convergence](https://vivekhaldar.com/articles/claude-code-subagents-commands-skills-converging/) — and [Vercel's research](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals) showed that both are ultimately context delivery mechanisms that differ only in push vs. pull.
 
-**We're opinionated about this.** VibeNode doesn't ask you to think in terms of skills vs. agents. We call them **departments** — named collections of knowledge assets organized by function. Drop any `.md` file into a department — a one-line persona, a Claude Code agent definition, a gstack review pipeline — and VibeNode handles both invocation paths transparently. You click a department to browse it, click an asset to invoke it, and never choose between "run as skill" or "spawn as agent." We're not claiming this is the objectively correct abstraction. It's how we think about it, and it works.
+**We're opinionated about this.** DevelopNode doesn't ask you to think in terms of skills vs. agents. We call them **departments** — named collections of knowledge assets organized by function. Drop any `.md` file into a department — a one-line persona, a Claude Code agent definition, a gstack review pipeline — and DevelopNode handles both invocation paths transparently. You click a department to browse it, click an asset to invoke it, and never choose between "run as skill" or "spawn as agent." We're not claiming this is the objectively correct abstraction. It's how we think about it, and it works.
 
 ![Workforce organized by department](docs/screenshots/workforce.png)
 
-- **Departments, not file types** — The organizing unit is the department (Engineering, QA, Security, gstack, etc.), not whether something is a "skill" or an "agent." Import a skill file, an agent file, or a full pipeline into any department. VibeNode treats them all the same.
-- **Dual invocation** — Every asset can be used two ways from the same definition. As an **agent**: the full catalog is injected into every session's system prompt so the agent can spawn specialists autonomously. As a **skill**: you invoke on demand via the UI or slash commands, and the asset's instructions are injected into your current session. You don't pick — VibeNode decides based on context.
+- **Departments, not file types** — The organizing unit is the department (Engineering, QA, Security, gstack, etc.), not whether something is a "skill" or an "agent." Import a skill file, an agent file, or a full pipeline into any department. DevelopNode treats them all the same.
+- **Dual invocation** — Every asset can be used two ways from the same definition. As an **agent**: the full catalog is injected into every session's system prompt so the agent can spawn specialists autonomously. As a **skill**: you invoke on demand via the UI or slash commands, and the asset's instructions are injected into your current session. You don't pick — DevelopNode decides based on context.
 - **Import anything** — Drop in Claude Code agent files (from `.claude/agents/`), skill packs (from `.claude/skills/`), or full execution pipelines like [gstack](https://github.com/garrytan/gstack). They all land in departments. gstack's 23+ skills become a "gstack" department with sub-departments for review, QA, security, shipping, and more.
 - **Invoke Workforce** — A button in the chat input bar opens a modal where you pick any workforce asset and attach it to your next message. The selected asset's instructions are injected into the session's system prompt, so the agent executes with that context without you copy-pasting anything. Works from any session state — idle, working, or waiting for input.
-- **Auto-discovery** — VibeNode scans your `.claude/agents/`, `.claude/skills/` (including installed skill packs), and its own workforce directories on startup. It also scans the active project's tree for any `skills/` or `agents/` folders, so project-scoped assets show up automatically alongside global ones. Everything appears in one unified view with source badges and tier indicators. Install a skill pack or drop a `.md` file into your project's `skills/` folder and it shows up in your departments automatically.
+- **Auto-discovery** — DevelopNode scans your `.claude/agents/`, `.claude/skills/` (including installed skill packs), and its own workforce directories on startup. It also scans the active project's tree for any `skills/` or `agents/` folders, so project-scoped assets show up automatically alongside global ones. Everything appears in one unified view with source badges and tier indicators. Install a skill pack or drop a `.md` file into your project's `skills/` folder and it shows up in your departments automatically.
 - **Three complexity tiers** — Simple role prompts (one paragraph persona), structured skills (step-by-step workflows with tool permissions), and full pipelines (multi-phase execution with shell blocks, specialist dispatch, and external dependencies). All three tiers live in the same department tree and use the same invocation paths.
 - **Portable .md format** — Every asset is a markdown file with optional YAML frontmatter. Download them, share them, upload them, edit them in any text editor. The file format is a superset that accommodates everything from Claude Code's native agent format to gstack's SKILL.md pipeline format.
 
@@ -161,7 +161,7 @@ While a session is answering, you often want to peel off a side investigation wi
 
 ## SpeechNode — voice input that works in every browser
 
-Everything in VibeNode is a *node*. **SpeechNode** is the voice layer — an opt-in, **real-time** speech-to-text engine that runs entirely on your machine and is aware of the project you're working in.
+Everything in DevelopNode is a *node*. **SpeechNode** is the voice layer — an opt-in, **real-time** speech-to-text engine that runs entirely on your machine and is aware of the project you're working in.
 
 Standard browser dictation (the Web Speech API) is **Chromium-only** — on Firefox or Safari it silently locks you out, and even on Chrome it produces unpunctuated run-ons that mangle your project's own vocabulary. SpeechNode fixes all of that:
 
@@ -174,35 +174,35 @@ Standard browser dictation (the Web Speech API) is **Chromium-only** — on Fire
 - **Fully local and private** — powered by a local [Whisper](https://github.com/openai/whisper) model. Your audio never leaves your machine, there's no cloud API, and there's no per-use cost.
 - **Opt-in, one click** — enable it under **System → Preferences**; SpeechNode checks your machine is a good fit, downloads a small (~150 MB) model once, and you're set. Anyone who doesn't turn it on keeps the default voice input unchanged — nothing extra is installed.
 
-SpeechNode is off by default. When enabled, it becomes the voice engine across VibeNode — the live session input, the AI planner, and anywhere else you can talk to VibeNode.
+SpeechNode is off by default. When enabled, it becomes the voice engine across DevelopNode — the live session input, the AI planner, and anywhere else you can talk to VibeNode.
 
-## Mobile Command — drive VibeNode from your phone
+## Mobile Command — drive DevelopNode from your phone
 
-**Mobile Command** puts your whole VibeNode — sessions, task board, workforce, voice input and all — on your phone, privately. Answer a session's question from the couch, kick off a task from the train, check on a running session from anywhere, without exposing anything to the public internet.
+**Mobile Command** puts your whole DevelopNode — sessions, task board, workforce, voice input and all — on your phone, privately. Answer a session's question from the couch, kick off a task from the train, check on a running session from anywhere, without exposing anything to the public internet.
 
 It's a persistent toggle under **System → Mobile Command** (it works like Persistent Storage — set it once and it re-arms itself on every startup). Under the hood it uses [Tailscale](https://tailscale.com), which you likely already have, to bridge your phone to the web server:
 
-- **Private to your devices — never public.** VibeNode stays bound to `127.0.0.1`; nothing rebinds the server or opens it to your LAN or the internet. Mobile Command uses `tailscale serve` (not `funnel`), so only your own authenticated devices on your tailnet can reach it. The connection is WireGuard-encrypted end to end.
+- **Private to your devices — never public.** DevelopNode stays bound to `127.0.0.1`; nothing rebinds the server or opens it to your LAN or the internet. Mobile Command uses `tailscale serve` (not `funnel`), so only your own authenticated devices on your tailnet can reach it. The connection is WireGuard-encrypted end to end.
 - **Full phone experience, including voice.** The bridge is served over HTTPS using Tailscale's real `ts.net` certificate — not for privacy (the tailnet is already encrypted) but because iOS only unlocks the microphone in a secure context. So SpeechNode voice input works on your phone, not just desktop.
-- **Add to Home Screen.** A per-machine device label (defaults to the computer's hostname, editable in the modal) names the Home-Screen icon, so multiple VibeNode machines stay distinguishable on the same phone.
+- **Add to Home Screen.** A per-machine device label (defaults to the computer's hostname, editable in the modal) names the Home-Screen icon, so multiple DevelopNode machines stay distinguishable on the same phone.
 - **Guided, self-verifying setup.** A step-by-step wizard reads your live Tailscale state to walk you through the one-time setup — it tells you the exact account to sign your phone into (the #1 first-time mistake), shows a positive "✓ Your iPhone connected" the instant the phone joins, and routes you through Tailscale's one-time HTTPS-certificates toggle only if it's still off. After that it's automatic forever.
 - **Defensive by design.** Tailscale can be missing, logged out, or lacking certs — every path degrades to a clear status telling you the next action, never a stack trace. No new Python dependency: it's pure stdlib plus the Tailscale CLI already on your machine.
 
 Mobile Command is off by default. It requires [Tailscale](https://tailscale.com/download) installed and signed in on both your computer and your phone (same account).
 
-**Surviving unattended reboots.** Out of the box, the phone link comes back when you log in to the computer. If the machine reboots while nobody is around (power blip, auto-update) and you want your phone to bring VibeNode back *before anyone logs in*, run the one-time setup for your OS in [`scripts/boot_access/`](scripts/boot_access/README.md) — including an "Unlock & start" page for Linux machines with encrypted home directories.
+**Surviving unattended reboots.** Out of the box, the phone link comes back when you log in to the computer. If the machine reboots while nobody is around (power blip, auto-update) and you want your phone to bring DevelopNode back *before anyone logs in*, run the one-time setup for your OS in [`scripts/boot_access/`](scripts/boot_access/README.md) — including an "Unlock & start" page for Linux machines with encrypted home directories.
 
 ## Phone a Friend — open one session to someone who can help
 
-Stuck in a session? **Phone a Friend** opens just that one session to someone you trust, so they can watch it, suggest messages, or drive it, until you or they hang up. Nothing else on your computer is shared. It is the first feature of **VibeNode Orgs**: a small group of people whose VibeNodes can reach each other through your cloud storage.
+Stuck in a session? **Phone a Friend** opens just that one session to someone you trust, so they can watch it, suggest messages, or drive it, until you or they hang up. Nothing else on your computer is shared. It is the first feature of **DevelopNode Orgs**: a small group of people whose VibeNodes can reach each other through your cloud storage.
 
-- **Set up once.** Under **System → VibeNode Orgs**, create an org (it lives in the Supabase project you already use for Persistent Storage). **Add member** makes a one-time invite prompt that expires in 1, 3 or 7 days; copy it into an email, your friend pastes it into any session on their VibeNode, picks a username and is in. No accounts to create, no ports to open, no shared network needed.
+- **Set up once.** Under **System → DevelopNode Orgs**, create an org (it lives in the Supabase project you already use for Persistent Storage). **Add member** makes a one-time invite prompt that expires in 1, 3 or 7 days; copy it into an email, your friend pastes it into any session on their DevelopNode, picks a username and is in. No accounts to create, no ports to open, no shared network needed.
 - **Call from the session.** Tap the four squares beside Send (or use the session's menu) → **Phone a friend**. Pick one or more people, what they can do and for how long (until you revoke, by default), and add a note about what you need. Each person gets their own call, so you can hang up on one without ending the others. A phone mark on the session lists who is on it, with Revoke.
 - **Three levels.** **View** shows them the thread. **Suggest** lets them write a message that waits for you to send it. **Drive** runs their messages in your session as if you typed them; the dialog warns what that allows.
-- **Being phoned feels like any session.** You get a notification, and a "*name* phoned you" project appears at the top of your projects with a phone icon. Their session is a normal session in it, titled with their project, drawn by VibeNode's own chat, summaries and composer. Type in it and it goes to them; Hang up is in the four-squares menu. The note is shown on both sides and either of you can edit it.
+- **Being phoned feels like any session.** You get a notification, and a "*name* phoned you" project appears at the top of your projects with a phone icon. Their session is a normal session in it, titled with their project, drawn by DevelopNode's own chat, summaries and composer. Type in it and it goes to them; Hang up is in the four-squares menu. The note is shown on both sides and either of you can edit it.
 - **Live.** Updates arrive in about a second each way, and the caller's Working status shows on the friend's side.
 
-**Security.** Every line of a shared thread and every message a friend writes is encrypted end to end before it leaves a VibeNode: each member has a key pair that never leaves their computer, each shared session has its own key locked separately for each person on the call, and anyone hung up on never gets the keys for what follows. Your cloud storage, and whoever owns it, holds only scrambled text; who called whom, session titles, projects and notes stay readable there. A VibeNode only ever holds the project's public key and its own member token; every table is closed to it and each call goes through database functions that check what that member may do. Unlocked or forged messages are refused, a friend can write at most 10 messages a minute, and threads nobody has had a call on for a week are deleted. Over Mobile Command only your own Tailscale sign-in counts as you, and the publish check refuses every org member's name.
+**Security.** Every line of a shared thread and every message a friend writes is encrypted end to end before it leaves a DevelopNode: each member has a key pair that never leaves their computer, each shared session has its own key locked separately for each person on the call, and anyone hung up on never gets the keys for what follows. Your cloud storage, and whoever owns it, holds only scrambled text; who called whom, session titles, projects and notes stay readable there. A DevelopNode only ever holds the project's public key and its own member token; every table is closed to it and each call goes through database functions that check what that member may do. Unlocked or forged messages are refused, a friend can write at most 10 messages a minute, and threads nobody has had a call on for a week are deleted. Over Mobile Command only your own Tailscale sign-in counts as you, and the publish check refuses every org member's name.
 
 ## Runs unattended
 
@@ -224,9 +224,9 @@ Validation leverage only pays off if the work keeps moving while you're not look
 
 If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, open your terminal and tell Claude:
 
-> Get me set up with https://github.com/CustomerNode/VibeNode
+> Get me set up with https://github.com/CustomerNode/DevelopNode
 
-Claude handles the rest — cloning the repo, installing Python and Flask if needed, creating a desktop shortcut, and launching VibeNode for you.
+Claude handles the rest — cloning the repo, installing Python and Flask if needed, creating a desktop shortcut, and launching DevelopNode for you.
 
 See [FileTaskNode](https://github.com/CustomerNode/FileTaskNode) for an example of a Claude Code workspace built around this kind of AI-assisted setup.
 
@@ -235,8 +235,8 @@ See [FileTaskNode](https://github.com/CustomerNode/FileTaskNode) for an example 
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/CustomerNode/VibeNode.git
-cd VibeNode
+git clone https://github.com/CustomerNode/DevelopNode.git
+cd DevelopNode
 pip install -r requirements.txt
 ```
 
@@ -250,7 +250,7 @@ The browser opens automatically to http://localhost:5050.
 
 ### 3. Desktop shortcut (Windows)
 
-Run this once in PowerShell to create a desktop shortcut that launches VibeNode with one click:
+Run this once in PowerShell to create a desktop shortcut that launches DevelopNode with one click:
 
 ```powershell
 $WshShell = New-Object -ComObject WScript.Shell
@@ -270,27 +270,27 @@ Uses `pythonw.exe` (windowless) so no console flashes on launch. When you click 
 Create an alias in your Applications folder:
 
 ```bash
-ln -s ~/Documents/VibeNode/src/launcher/launch.sh /Applications/VibeNode
+ln -s ~/Documents/DevelopNode/src/launcher/launch.sh /Applications/VibeNode
 ```
 
 Or create a clickable `.command` file on your Desktop:
 
 ```bash
 echo '#!/bin/bash
-cd ~/Documents/VibeNode && ./src/launcher/launch.sh' > ~/Desktop/VibeNode.command
+cd ~/Documents/DevelopNode && ./src/launcher/launch.sh' > ~/Desktop/VibeNode.command
 chmod +x ~/Desktop/VibeNode.command
 ```
 
 ### 5. Desktop shortcut (Linux)
 
-Run this from inside your cloned VibeNode directory. It writes a launcher entry that appears in your application menu and (optionally) on the Desktop. Paths are captured from the current working directory, so no manual editing is required:
+Run this from inside your cloned DevelopNode directory. It writes a launcher entry that appears in your application menu and (optionally) on the Desktop. Paths are captured from the current working directory, so no manual editing is required:
 
 ```bash
 VIBENODE_DIR="$(pwd)"
 mkdir -p ~/.local/share/applications
 cat > ~/.local/share/applications/vibenode.desktop << EOF
 [Desktop Entry]
-Name=VibeNode
+Name=DevelopNode
 Comment=Development platform for agentic programming
 Exec=bash -c 'cd "$VIBENODE_DIR" && ./src/launcher/launch.sh'
 Icon=$VIBENODE_DIR/src/web/static/vibenode.png
@@ -314,7 +314,7 @@ Notes:
 - The Linux entry uses `src/web/static/vibenode.png` because most desktop environments don't render `.ico` files. The `.ico` is still used on Windows.
 - `~` and `$HOME` don't expand inside `.desktop` `Icon=`/`Exec=` fields, so the snippet above bakes in absolute paths via `$VIBENODE_DIR`.
 
-#### Optional: a "Stop VibeNode" shortcut
+#### Optional: a "Stop DevelopNode" shortcut
 
 Same idea, but kills the running web server (5050), the session daemon (5051), and any orphaned subprocesses. Uses a grayed-out logo with a red X (`src/web/static/vibenode_stop.png`) so it's visually distinct from the launch shortcut. Hard stop — any active agent sessions are terminated.
 
@@ -324,8 +324,8 @@ mkdir -p ~/.local/share/applications
 cat > ~/.local/share/applications/vibenode-stop.desktop << EOF
 [Desktop Entry]
 Type=Application
-Name=Stop VibeNode
-Comment=Stop VibeNode (kills web server 5050, daemon 5051, and any orphaned subprocesses)
+Name=Stop DevelopNode
+Comment=Stop DevelopNode (kills web server 5050, daemon 5051, and any orphaned subprocesses)
 Exec=bash -c "cd '$VIBENODE_DIR' && '$VIBENODE_DIR/src/launcher/stop.sh'; exec bash"
 Path=$VIBENODE_DIR
 Terminal=true
@@ -344,7 +344,7 @@ fi
 
 ## Platform support
 
-**Windows, macOS, and Linux.** VibeNode is actively developed on both Windows and Linux, so both are first-class targets. macOS *should* work — the platform branches are in place and the agent backend SDK handles all session management cross-platform — but it isn't part of our regular development loop, so expect a few rough edges until a Mac user files them in.
+**Windows, macOS, and Linux.** DevelopNode is actively developed on both Windows and Linux, so both are first-class targets. macOS *should* work — the platform branches are in place and the agent backend SDK handles all session management cross-platform — but it isn't part of our regular development loop, so expect a few rough edges until a Mac user files them in.
 
 | Feature | Windows | macOS | Linux |
 |---|---|---|---|
@@ -359,7 +359,7 @@ fi
 
 ### macOS users
 
-VibeNode runs on all three platforms with explicit, tested platform branches for each operating system. `src/launcher/launch.sh` handles Python detection, virtual environment activation, and automatic package installation — just clone and run.
+DevelopNode runs on all three platforms with explicit, tested platform branches for each operating system. `src/launcher/launch.sh` handles Python detection, virtual environment activation, and automatic package installation — just clone and run.
 
 **Linux quick-start** (Ubuntu/Debian):
 ```bash
@@ -368,9 +368,9 @@ sudo apt install python3 python3-pip python3-tk
 # Optional: for the folder picker dialog
 sudo apt install zenity
 # Install Claude Code: https://docs.anthropic.com/en/docs/claude-code
-# Then launch VibeNode
-git clone https://github.com/CustomerNode/VibeNode.git ~/Documents/VibeNode
-cd ~/Documents/VibeNode
+# Then launch DevelopNode
+git clone https://github.com/CustomerNode/DevelopNode.git ~/Documents/DevelopNode
+cd ~/Documents/DevelopNode
 ./src/launcher/launch.sh
 ```
 
@@ -380,7 +380,7 @@ If you run into a platform-specific bug, please submit a pull request with the f
 
 Full API reference for all 146 REST endpoints, 33 SocketIO events, and 27 daemon IPC methods — browsable and searchable.
 
-- **Live in the app:** [http://localhost:5050/api/docs](http://localhost:5050/api/docs) (when VibeNode is running)
+- **Live in the app:** [http://localhost:5050/api/docs](http://localhost:5050/api/docs) (when DevelopNode is running)
 - **On disk:** Open `docs/api/index.html` in any browser
 - **SocketIO events:** `docs/api/socketio-events.md`
 - **Daemon IPC (internal):** `docs/api/daemon-ipc.md`
@@ -389,9 +389,9 @@ The server listens on localhost only. Requests from this machine, and from your 
 
 ## Architecture
 
-VibeNode runs as two processes on your machine: a Flask web server (port 5050) serving the UI, and the **Session Engine** (port 5051, `src/engine/` in the source) that owns all agent sessions. The Session Engine survives web server restarts so active sessions are never interrupted. Each agent session is an asyncio task on a single shared event loop, talking over stdio to its own CLI subprocess, which runs inside a small Session Host process so it can outlive an engine restart. The web server proxies all session operations to the Session Engine over a TCP/JSON-lines IPC channel.
+DevelopNode runs as two processes on your machine: a Flask web server (port 5050) serving the UI, and the **Session Engine** (port 5051, `src/engine/` in the source) that owns all agent sessions. The Session Engine survives web server restarts so active sessions are never interrupted. Each agent session is an asyncio task on a single shared event loop, talking over stdio to its own CLI subprocess, which runs inside a small Session Host process so it can outlive an engine restart. The web server proxies all session operations to the Session Engine over a TCP/JSON-lines IPC channel.
 
-This separation means **VibeNode can code itself** — multiple agent sessions can edit VibeNode's own source files simultaneously, restart the web server to pick up changes, and keep working without interrupting each other. The Session Engine holds all active sessions in memory while the web server restarts around it. Most of VibeNode was built this way: from inside VibeNode.
+This separation means **DevelopNode can code itself** — multiple agent sessions can edit DevelopNode's own source files simultaneously, restart the web server to pick up changes, and keep working without interrupting each other. The Session Engine holds all active sessions in memory while the web server restarts around it. Most of DevelopNode was built this way: from inside VibeNode.
 
 Restarting the Session Engine no longer ends running sessions: each session's CLI lives in its own Session Host, which keeps it running and buffers its output until the restarted engine reattaches. The app still never restarts the engine on its own; a banner tells you when the engine is running older code than the files on disk and offers a restart that waits until nothing is busy.
 
@@ -405,7 +405,7 @@ Restarting the Session Engine no longer ends running sessions: each session's CL
 - **Session Engine separation.** The engine is a detached subprocess. Web server restarts (code changes, crashes) don't kill running sessions. Crash recovery restores sessions from a registry file on disk.
 - **Three-thread IPC bridge.** The DaemonClient uses a reader thread (TCP socket), an emitter thread (SocketIO broadcasts), and a queue between them. This prevents slow WebSocket writes from blocking IPC response processing.
 - **Heavy I/O offloaded.** File snapshots, JSONL parsing, and directory scans run in a ThreadPoolExecutor so they don't block the event loop and stall other sessions.
-- **Five SDK monkey-patches.** The Claude Code SDK was designed for single-turn CLI usage. VibeNode patches it at runtime for unknown-message tolerance, the multi-turn transport adapter (keep stdin open, permission protocol compatibility), Windows no-window subprocess spawning, POSIX process-group isolation so a kill can never reach the daemon itself, and a larger JSON stream buffer. Each patch checks its preconditions against the installed SDK; a patch that cannot apply is reported on the engine status banner rather than silently skipped.
+- **Five SDK monkey-patches.** The Claude Code SDK was designed for single-turn CLI usage. DevelopNode patches it at runtime for unknown-message tolerance, the multi-turn transport adapter (keep stdin open, permission protocol compatibility), Windows no-window subprocess spawning, POSIX process-group isolation so a kill can never reach the daemon itself, and a larger JSON stream buffer. Each patch checks its preconditions against the installed SDK; a patch that cannot apply is reported on the engine status banner rather than silently skipped.
 
 **Performance:**
 
@@ -417,7 +417,7 @@ Restarting the Session Engine no longer ends running sessions: each session's CL
 
 ## Supported backends
 
-VibeNode is an orchestrator for agentic coding, not a client hard-wired to one vendor's SDK. This isn't aspirational — the decoupling is **already done and running in production**. The entire orchestration layer — cross-session awareness, the task board, the workforce library, permissions, the live terminal — talks only to an **abstract backend interface**, and `src/engine/session_manager.py` contains **zero imports of any vendor SDK**. Every vendor-specific line lives behind the interface, in one swappable file.
+DevelopNode is an orchestrator for agentic coding, not a client hard-wired to one vendor's SDK. This isn't aspirational — the decoupling is **already done and running in production**. The entire orchestration layer — cross-session awareness, the task board, the workforce library, permissions, the live terminal — talks only to an **abstract backend interface**, and `src/engine/session_manager.py` contains **zero imports of any vendor SDK**. Every vendor-specific line lives behind the interface, in one swappable file.
 
 **Currently supported:**
 
@@ -427,7 +427,7 @@ VibeNode is an orchestrator for agentic coding, not a client hard-wired to one v
 | **Codex** | 🔜 Coming soon |
 | Others (e.g. Gemini, open-source agents) | 🔌 Drop-in — implement one class, inject it |
 
-The backend isn't hardcoded — it's **dependency-injected**. `SessionManager(sdk=…, store=…)` takes any `AgentSDK` / `ChatStore` pair and defaults to the Claude implementations when none is passed. Claude Code isn't wired into the orchestrator; it's simply the backend VibeNode injects today. Swapping it is constructing the manager with a different pair — no changes to the orchestrator, the daemon, the task board, or the UI.
+The backend isn't hardcoded — it's **dependency-injected**. `SessionManager(sdk=…, store=…)` takes any `AgentSDK` / `ChatStore` pair and defaults to the Claude implementations when none is passed. Claude Code isn't wired into the orchestrator; it's simply the backend DevelopNode injects today. Swapping it is constructing the manager with a different pair — no changes to the orchestrator, the daemon, the task board, or the UI.
 
 ### How the abstraction works
 
@@ -436,7 +436,7 @@ The daemon's orchestration logic never imports a vendor SDK — that was fully r
 - **`AgentSDK` (abstract base)** — the single interface for every SDK touchpoint: create a session, connect (spawn the agent subprocess), send a query, stream the response, interrupt, disconnect, switch models mid-session, extract the subprocess PID for cleanup, and check transport liveness. `ClaudeAgentSDK` is the one implementation today; a new backend is a new subclass injected at construction.
 - **`VibeNodeMessage` (normalized message type)** — each backend normalizes its own message/content-block types into one backend-agnostic shape inside its `receive_response()`. The orchestrator processes only `VibeNodeMessage` and contains **zero `isinstance` checks against any SDK-specific type**, so a new backend's message formats never leak upward.
 - **`SessionOptions`** — backend-agnostic session config (working directory, resume ID, model, system prompt, allowed tools, permission mode, streaming). Each backend maps it to its own options object (`ClaudeCodeOptions` for Claude).
-- **`PermissionResult` / `PermissionAction`** — tool approval/denial expressed in neutral ALLOW/DENY terms, so VibeNode's permission orchestration doesn't depend on any vendor's permission classes.
+- **`PermissionResult` / `PermissionAction`** — tool approval/denial expressed in neutral ALLOW/DENY terms, so DevelopNode's permission orchestration doesn't depend on any vendor's permission classes.
 - **`ChatStore` (abstract persistence)** — all session reading/writing/discovery behind one interface. The Claude implementation reads and writes Claude Code's native JSONL under `~/.claude/projects/`; another backend could persist to SQLite, an API, or any other format without the rest of the app noticing.
 
 ### Adding a new backend
@@ -448,13 +448,13 @@ Because the orchestrator already speaks only the abstract types above, a new age
 3. Apply any SDK-specific runtime patches in the subclass's `apply_patches()` (Claude needs four; another SDK may need none).
 4. Inject it: `SessionManager(sdk=YourAgentSDK(), store=YourStore())`.
 
-Everything else — the session grid, cross-session awareness, the hierarchical task board, session scoping, the workforce library, mobile access, and voice input — works unchanged, because none of it knows or cares which SDK is behind a session. That's the whole point of the boundary: the hard, differentiating work of VibeNode is backend-neutral, and vendor specifics are quarantined in one small, swappable layer.
+Everything else — the session grid, cross-session awareness, the hierarchical task board, session scoping, the workforce library, mobile access, and voice input — works unchanged, because none of it knows or cares which SDK is behind a session. That's the whole point of the boundary: the hard, differentiating work of DevelopNode is backend-neutral, and vendor specifics are quarantined in one small, swappable layer.
 
 ## Notes
 
 - Sessions are read from `~/.claude/projects/`
 - Session input is managed through the active agent backend (Claude Code today)
-- VibeNode itself stores everything locally. Agent sessions communicate with their provider's API as usual (Claude Code → Anthropic). Enabling Supabase cloud storage for tasks is optional.
+- DevelopNode itself stores everything locally. Agent sessions communicate with their provider's API as usual (Claude Code → Anthropic). Enabling Supabase cloud storage for tasks is optional.
 
 ---
 

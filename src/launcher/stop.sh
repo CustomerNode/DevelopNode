@@ -12,7 +12,15 @@
 
 set -uo pipefail   # NOT -e; we want to keep going past already-dead procs
 
-cd "$(dirname "$0")/../.."
+# Follow links first: the desktop shortcut starts the link at the repo's top
+# (launch.sh / stopvibenode.sh), and "../.." from there left the repo, so every
+# click failed with "can't open file .../src/launcher/session_manager.py".
+_self="$0"
+while [ -L "$_self" ]; do
+    _to="$(readlink "$_self")"
+    case "$_to" in /*) _self="$_to" ;; *) _self="$(dirname "$_self")/$_to" ;; esac
+done
+cd "$(dirname "$_self")/../.."
 VIBENODE_DIR="$(pwd)"   # the repo root
 
 echo "Stopping VibeNode..."
@@ -80,5 +88,5 @@ rm -f /tmp/vibenode_boot_*.status 2>/dev/null || true
 if (( killed_any == 0 )); then
     echo "Nothing was running."
 else
-    echo "VibeNode stopped."
+    echo "DevelopNode stopped."
 fi

@@ -85,7 +85,7 @@ def api_setup():
         return jsonify(ok=False, error="cloud_storage_off",
                        message="Turn on cloud storage in System settings first."), 409
     if store.load():
-        return jsonify(ok=False, error="already_member", message="This VibeNode is already in an org."), 409
+        return jsonify(ok=False, error="already_member", message="This DevelopNode is already in an org."), 409
     key = str(d.get("publishable_key") or c["publishable"]).strip()
     if not _KEY_RE.match(key):
         return jsonify(ok=False, error="publishable_key_missing",
@@ -124,7 +124,7 @@ def api_join():
     """Join an org from an invite prompt. The invite works once."""
     d = _body()
     if store.load():
-        return jsonify(ok=False, error="already_member", message="This VibeNode is already in an org."), 409
+        return jsonify(ok=False, error="already_member", message="This DevelopNode is already in an org."), 409
     try:
         inv = invite.parse(d.get("invite") or d.get("prompt") or "")
     except (ValueError, TypeError) as e:

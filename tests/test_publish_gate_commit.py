@@ -53,7 +53,7 @@ class TestCommitMessage:
         assert "\n" not in first and first.startswith("a b cxxx") and len(first) <= 120
 
     def test_area_rules(self):
-        assert git_ops.summarize_staged([]) == "Update VibeNode"
+        assert git_ops.summarize_staged([]) == "Update DevelopNode"
         assert git_ops.summarize_staged(["README.md"]) == "Update README.md (1 file)"
         assert git_ops.summarize_staged(["src/engine/a.py", "src/engine/b.py"]) == "Update engine (2 files)"
         many = ["d%d/x/y.py" % i for i in range(8)]

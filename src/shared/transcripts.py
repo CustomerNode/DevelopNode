@@ -163,9 +163,9 @@ def automated_source(text: str, is_meta: bool = False) -> str:
     if t.startswith("<task-notification>"):
         return "Background job finished"
     if t.startswith("[VibeNode watchdog]"):
-        return "VibeNode watchdog"
+        return "DevelopNode watchdog"
     if t.startswith("[VibeNode"):
-        return "VibeNode"
+        return "DevelopNode"
     if t.strip().lower().rstrip(". ") in _continue_prompts():
         return "Automatic continue"
     if t.startswith("Your response above was cut off"):

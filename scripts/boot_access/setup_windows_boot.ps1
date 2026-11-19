@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Make VibeNode's phone Start-page survive reboots on Windows — even before
+  Make DevelopNode's phone Start-page survive reboots on Windows — even before
   anyone logs in.
 
 .DESCRIPTION
@@ -13,7 +13,7 @@
 
   After a reboot, before any login: tailscaled (a system service) brings the
   tailnet up, the reviver serves the Start page on 127.0.0.1:5050, and your
-  phone can tap "Start VibeNode" as usual.
+  phone can tap "Start DevelopNode" as usual.
 
   Idempotent — run again any time (e.g. after moving the checkout).
 
@@ -38,7 +38,7 @@ $Reviver  = Join-Path $RepoRoot 'reviver.py'
 $md5      = [System.Security.Cryptography.MD5]::Create()
 $saltHex  = -join ($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes($RepoRoot)) |
                    ForEach-Object { $_.ToString('x2') })
-$TaskName = "VibeNode Boot Access $($saltHex.Substring(0,8))"
+$TaskName = "DevelopNode Boot Access $($saltHex.Substring(0,8))"
 
 if ($Uninstall) {
     $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -52,7 +52,7 @@ if ($Uninstall) {
 }
 
 if (-not (Test-Path $Reviver)) {
-    throw "reviver.py not found at '$Reviver' — run this script from inside the VibeNode checkout."
+    throw "reviver.py not found at '$Reviver' — run this script from inside the DevelopNode checkout."
 }
 
 # Windowless interpreter so boot never flashes a console.
@@ -137,4 +137,4 @@ try {
 } catch { }
 
 Write-Host ""
-Write-Host "Test it for real: reboot without logging in, then open VibeNode on your phone." -ForegroundColor Cyan
+Write-Host "Test it for real: reboot without logging in, then open DevelopNode on your phone." -ForegroundColor Cyan

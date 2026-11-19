@@ -63,6 +63,12 @@ def _app(browser, mode, sort_js):
     return a, ids
 
 
+# A card's opacity where it ends up: cards may fade it, and the page clock is
+# frozen in these tests, so a running fade would report its starting value.
+SETTLED_OPACITY = ("const settled = c => { const t = c.style.transition; c.style.transition = 'none'; "
+                   "const o = getComputedStyle(c).opacity; c.style.transition = t; return o; };")
+
+
 def _card(sid):
     return f"#workforce-grid .wf-card[data-sid=\"{sid}\"]"
 
@@ -215,15 +221,20 @@ def test_new_session_has_no_verdict_and_done_is_grey(browser):
         done = _card(ids[1])
         got = app.eval(f"""() => {{ const c = document.querySelector('{done}');
             const l = c.querySelector('.wf-status-label');
+            {SETTLED_OPACITY}
             const faint = getComputedStyle(document.documentElement).getPropertyValue('--text-faint').trim();
             const probe = document.createElement('span'); probe.style.color = faint; document.body.appendChild(probe);
             const faintRgb = getComputedStyle(probe).color; probe.remove();
             return [l.textContent, getComputedStyle(l).color === faintRgb,
-                    getComputedStyle(c.querySelector('.wf-avatar')).filter, getComputedStyle(c).opacity]; }}""")
+                    getComputedStyle(c.querySelector('.wf-avatar')).filter, settled(c)]; }}""")
         assert got[0] == "Done"
         assert got[1], got
         assert "grayscale(1)" in got[2], got
-        assert got[3] == "1", got
+        # Done does not fade the card as a whole: it is drawn as strongly as
+        # any other card that is not open (a finish may dim every card but
+        # the open one, so compare with one, not with 1).
+        other = app.eval(f"() => {{ {SETTLED_OPACITY} return settled(document.querySelector('{_card(ids[0])}')); }}")
+        assert got[3] == other, (got, other)
         assert not app.errors, app.errors
     finally:
         app.close()

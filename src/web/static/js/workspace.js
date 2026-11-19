@@ -206,8 +206,8 @@ function _renderHierarchicalWorkspace(mainBody, sessions, tree) {
     const totalSubDepts = _wfc.subDepartments;
     html += '<div class="wf-cc-subtitle">' + totalDepts + ' department' + (totalDepts !== 1 ? 's' : '') + (totalSubDepts ? ' &middot; ' + totalSubDepts + ' sub-department' + (totalSubDepts !== 1 ? 's' : '') : '') + ' &middot; ' + totalSessions + ' session' + (totalSessions !== 1 ? 's' : '') + '</div>';
     html += '<div class="wf-cc-opinionated">'
-      + '<span class="wf-cc-opinionated-icon" title="VibeNode is opinionated about how knowledge assets are organized.">&#9432;</span> '
-      + 'VibeNode organizes your knowledge assets into <strong>departments</strong> &mdash; not skills, not agents. '
+      + '<span class="wf-cc-opinionated-icon" title="DevelopNode is opinionated about how knowledge assets are organized.">&#9432;</span> '
+      + 'DevelopNode organizes your knowledge assets into <strong>departments</strong> &mdash; not skills, not agents. '
       + 'Drop any .md file into a department and invoke it as either. We handle both.'
       + '</div>';
     html += '<div class="wf-local-notice">'
@@ -1895,7 +1895,7 @@ function _renderConfigAvailable() {
       }).length
     : 0;
 
-  h += '<div class="wf-avail-section-title">VibeNode Built-in Library</div>';
+  h += '<div class="wf-avail-section-title">DevelopNode Built-in Library</div>';
   h += '<div class="wf-avail-section-desc">Role-based assets organized into departments. Pick a size or uninstall to start fresh.</div>';
   h += '<div class="wf-avail-tiers">';
 

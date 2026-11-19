@@ -72,6 +72,29 @@ function deselectSession() {
   document.getElementById('main-body').innerHTML = _buildDashboard();
 }
 
+/** Cancel on a new session that has sent nothing: close it AND drop it, so
+ *  no "New Session" row, draft or folder entry is left behind (the X only
+ *  closes the view and keeps the row). */
+function cancelNewSession() {
+  const id = activeId;
+  // Only ever drawn on a session with nothing sent; a running one is kept.
+  if (!id || runningIds.has(id)) { deselectSession(); return; }
+  const ta = document.getElementById('live-input-ta');
+  if (ta) ta.value = '';                       // deselect must not save it as a draft
+  window._pendingTemplateSystemPrompt = null;
+  deselectSession();
+  if (typeof _clearDraft === 'function') _clearDraft(id);
+  if (typeof removeSessionFromFolder === 'function') { try { removeSessionFromFolder(id); } catch (_e) { /* not in a folder */ } }
+  guiOpenDelete(id);
+  SessionStore.remove(id);
+  filterSessions();
+}
+
+/** The Cancel button drawn under a new session's suggested prompts. */
+function _newSessionCancelHtml() {
+  return '<div><button class="new-session-cancel" onclick="cancelNewSession()" title="Discard this new session">Cancel</button></div>';
+}
+
 function handleSessionClick(id) {
   if (id === activeId) { startListInlineRename(); } else { selectSession(id); }
 }
@@ -321,279 +344,310 @@ function _buildDashboard() {
   </div>`;
 }
 
-function _buildHomepageContent() {
-  const polled = _waitingPolledOnce || false;
-  const total = allSessions.length;
-  const working = polled ? allSessions.filter(s => runningIds.has(s.id) && sessionKinds[s.id] === 'working').length : 0;
-  const idle = polled ? allSessions.filter(s => runningIds.has(s.id) && sessionKinds[s.id] === 'idle').length : 0;
-  const question = polled ? allSessions.filter(s => runningIds.has(s.id) && sessionKinds[s.id] === 'question').length : 0;
-  const active = working + idle + question;
-  const sleeping = total - active;
+/* The Home screen: a project chooser (the "dashboard" finish).  Projects run
+ * down the left as cards (a coloured initial, name, sessions, last activity,
+ * how many need you); the right previews the chosen one: Open, three numbers
+ * (Needs you, Working, sessions active this week with a 7-day line) and the
+ * sessions behind the first two.  The current project is chosen at first.
+ *
+ * The current project's numbers and lists are live (SessionStore and the
+ * state maps, as the sidebar draws them); other projects come from
+ * GET /api/project-status?detail=1, read again at most every 10 s. */
+let _hpSel = null;              // encoded project shown in the preview
+let _hpDetail = {};             // encoded -> project-status detail
+let _hpDetailAt = 0;
+let _hpDetailBusy = false;
+let _hpAnimate = true;          // play the rise-in on the next draw (a new choice)
 
-  // Workflow stats — count tasks per column, use column colors
-  // Kick off async fetch if board data hasn't been loaded yet
-  if (typeof kanbanTasks !== 'undefined' && kanbanTasks.length === 0 && typeof kanbanColumns !== 'undefined' && kanbanColumns.length === 0 && !_hpBoardFetching) {
-    _hpBoardFetching = true;
-    // Name the project: the server's active project is shared by every open
-    // tab, so without it this tile showed whichever project another tab had
-    // switched to (kanban_api._requested_project).
-    const _hpBoardProj = localStorage.getItem('activeProject') || '';
-    fetch('/api/kanban/board' + (_hpBoardProj ? '?project=' + encodeURIComponent(_hpBoardProj) : '')).then(r => r.ok ? r.json() : null).then(data => {
-      _hpBoardFetching = false;
-      _hpBoardLoaded = true;
-      if (data) {
-        kanbanColumns = data.columns || [];
-        kanbanTasks = data.tasks || [];
-        if (data.tags && typeof kanbanAllTags !== 'undefined') kanbanAllTags = data.tags;
-        // Re-render homepage if still visible
-        if (typeof _updateHomepageStats === 'function') _updateHomepageStats();
-      }
-    }).catch(() => { _hpBoardFetching = false; _hpBoardLoaded = true; });
-  }
-  // If kanban data was already loaded (e.g. user visited board first), mark as loaded
-  if (!_hpBoardLoaded && typeof kanbanTasks !== 'undefined' && (kanbanTasks.length > 0 || typeof _kanbanHasLoaded !== 'undefined' && _kanbanHasLoaded)) {
-    _hpBoardLoaded = true;
-  }
-  const cols = (typeof kanbanColumns !== 'undefined') ? kanbanColumns : [];
-  const tasks = (typeof kanbanTasks !== 'undefined') ? kanbanTasks : [];
-  const taskTotal = tasks.length;
-  const colCounts = [];
-  let maxColCount = 0;
-  for (const col of cols) {
-    const count = tasks.filter(t => t.status === col.status_key).length;
-    colCounts.push({ name: col.name, color: col.color || 'var(--border)', count });
-    if (count > maxColCount) maxColCount = count;
-  }
-  // Build column bar viz
-  const _wfStillLoading = !_hpBoardLoaded && (taskTotal === 0);
-  let colBarsHtml = '';
-  if (_wfStillLoading) {
-    // Shimmer skeleton while data is loading
-    colBarsHtml = '<div class="hp-col skel-shimmer" style="height:60%;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:40%;animation-delay:0.15s;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:75%;animation-delay:0.3s;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:30%;animation-delay:0.45s;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:55%;animation-delay:0.6s;"></div>';
-  } else if (colCounts.length && taskTotal > 0) {
-    for (const c of colCounts) {
-      const pct = maxColCount > 0 ? Math.max(8, (c.count / maxColCount) * 100) : 8;
-      colBarsHtml += `<div class="hp-col" style="height:${pct}%;background:${c.color};opacity:0.8;" title="${c.name}: ${c.count}"></div>`;
+/** A project's initial in a small outlined tile, as the All projects view
+ *  draws it: no project colours, because colour on these screens means status. */
+function _hpMono(name, size) {
+  const ch = (String(name || '').trim().charAt(0) || '?').toUpperCase();
+  return `<span class="hd-mono" style="width:${size}px;height:${size}px">${escHtml(ch)}</span>`;
+}
+function _hpAgo(ts) {
+  if (!ts) return '';
+  const m = Math.max(0, (Date.now() / 1000 - ts) / 60);
+  if (m < 2) return 'just now';
+  if (m < 60) return Math.round(m) + ' min ago';
+  if (m < 60 * 24) return Math.round(m / 60) + ' h ago';
+  const d = Math.round(m / 1440);
+  return d === 1 ? 'yesterday' : d + ' days ago';
+}
+function _hpProjects() {
+  return (typeof _allProjects !== 'undefined' && Array.isArray(_allProjects)) ? _allProjects : [];
+}
+function _hpActiveEnc() { return localStorage.getItem('activeProject') || ''; }
+
+/** Read every project's detail (one call), at most every 10 s. */
+function _hpLoadDetail(force) {
+  const list = _hpProjects();
+  if (!list.length || _hpDetailBusy || (!force && Date.now() - _hpDetailAt < 10000)) return;
+  _hpDetailBusy = true;
+  fetch('/api/project-status?detail=1&projects=' + encodeURIComponent(list.map(p => p.encoded).join(',')), { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(async data => {
+      _hpDetailAt = Date.now();
+      if (data) Object.assign(_hpDetail, data);
+      // A web server older than ?detail=1 answers counts only: fill the chosen
+      // project's lists from its session list instead.
+      const sel = _hpSel || _hpActiveEnc();
+      if (sel !== _hpActiveEnc() && _hpDetail[sel] && !_hpDetail[sel].items) await _hpDetailFromSessions(sel);
+    })
+    .catch(() => {})
+    .finally(() => { _hpDetailBusy = false; _hpAnimate = false; _updateHomepageStats(); });
+}
+async function _hpDetailFromSessions(enc) {
+  try {
+    const r = await fetch('/api/sessions?project=' + encodeURIComponent(enc), { cache: 'no-store' });
+    const rows = r.ok ? await r.json() : [];
+    const items = { needs: [], working: [], standby: [] };
+    const daily = _hpDaily(rows);
+    let last = 0;
+    for (const x of rows) {
+      last = Math.max(last, x.last_activity_ts || x.sort_ts || 0);
+      if (x.hold === 'done') continue;
+      if (x.hold === 'standby') { items.standby.push(x); continue; }
+      const verb = x.next_step && x.next_step.verb;
+      const g = verb === 'waiting' ? 'working' : (verb || x.message_count) ? 'needs' : null;
+      if (g) items[g].push(x);
     }
-  } else {
-    // Placeholder columns when genuinely no data
-    colBarsHtml = '<div class="hp-col" style="height:60%;background:var(--border);opacity:0.3;"></div>'
-      + '<div class="hp-col" style="height:40%;background:var(--border);opacity:0.3;"></div>'
-      + '<div class="hp-col" style="height:20%;background:var(--border);opacity:0.3;"></div>'
-      + '<div class="hp-col" style="height:50%;background:var(--border);opacity:0.3;"></div>';
-  }
-  // Build workflow stat line
-  let wfStatLine = '';
-  if (_wfStillLoading) {
-    wfStatLine = '<span class="skel-shimmer" style="display:inline-block;width:120px;height:13px;border-radius:4px;vertical-align:middle;"></span>';
-  } else if (taskTotal > 0) {
-    const parts = colCounts.filter(c => c.count > 0).map(c => `${c.count} ${c.name.toLowerCase()}`);
-    wfStatLine = `${taskTotal} task${taskTotal !== 1 ? 's' : ''} &middot; ${parts.join(', ')}`;
-  } else {
-    wfStatLine = 'No tasks yet';
-  }
+    const pick = arr => arr.sort((p, q) => (q.last_activity_ts || 0) - (p.last_activity_ts || 0)).slice(0, 5)
+      .map(x => ({ id: x.id, title: x.display_title || '', ts: x.last_activity_ts || 0 }));
+    const had = _hpDetail[enc] || {};
+    // Counts from the list until the live ones arrive (GET /api/project-status).
+    const counts = ('needs' in had) ? {} : { needs: items.needs.length, working: items.working.length, standby: items.standby.length };
+    _hpDetail[enc] = Object.assign({}, had, counts, {
+      items: { needs: pick(items.needs), working: pick(items.working), standby: pick(items.standby) },
+      last_ts: last, daily });
+  } catch (e) { /* the preview shows the counts only */ }
+}
 
-  // Workforce stats: the same source as the Workforce view's header
-  // (workforceCounts in folders.js, the installed department tree), so the two
-  // can never disagree.  null until the tree has loaded.
-  const _wfc = (typeof workforceCounts === 'function') ? workforceCounts() : null;
-  const agentCount = _wfc ? _wfc.agents : 0;
-  const deptCount = _wfc ? _wfc.departments : 0;
-
-  // Session segmented bar
-  const barParts = [];
-  if (working) barParts.push(`<div style="flex:${working};background:var(--accent);height:100%;border-radius:3px;"></div>`);
-  if (question) barParts.push(`<div style="flex:${question};background:#ff9500;height:100%;border-radius:3px;"></div>`);
-  if (idle) barParts.push(`<div style="flex:${idle};background:var(--idle-label);height:100%;border-radius:3px;"></div>`);
-  if (sleeping) barParts.push(`<div style="flex:${sleeping};background:var(--border);height:100%;border-radius:3px;"></div>`);
-  const sessionBar = barParts.length
-    ? barParts.join('')
-    : '<div style="flex:1;background:var(--border);height:100%;border-radius:3px;"></div>';
-
-  // Session stat line
-  const sessionStat = total === 0 ? 'No sessions yet'
-    : active > 0 ? `${working} working &middot; ${question} waiting &middot; ${idle} idle`
-    : `${total} session${total !== 1 ? 's' : ''} &middot; all sleeping`;
-
-  // Compose stats — async fetch like workflow
-  if (!_hpComposeFetching && !_hpComposeLoaded) {
-    _hpComposeFetching = true;
-    fetch('/api/compose/board').then(r => r.ok ? r.json() : null).then(data => {
-      _hpComposeFetching = false;
-      _hpComposeLoaded = true;
-      if (data) {
-        _hpComposeTasks = data.tasks || [];
-        _hpComposeColumns = data.columns || [];
-        if (typeof _updateHomepageStats === 'function') _updateHomepageStats();
-      }
-    }).catch(() => { _hpComposeFetching = false; _hpComposeLoaded = true; });
+/** Sessions last active on each of the last 7 days, oldest first, ending today. */
+function _hpDaily(rows) {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const today = start.getTime() / 1000;
+  const out = [0, 0, 0, 0, 0, 0, 0];
+  for (const x of rows) {
+    const ts = x.last_activity_ts || x.sort_ts || 0;
+    if (!ts) continue;
+    const back = ts >= today ? 0 : Math.ceil((today - ts) / 86400);
+    if (back <= 6) out[6 - back]++;
   }
-  const composeTasks = _hpComposeTasks || [];
-  const composeCols = _hpComposeColumns || [];
-  const composeTotal = composeTasks.length;
-  const _compStillLoading = !_hpComposeLoaded && composeTotal === 0;
+  return out;
+}
 
-  // Compose column bar viz
-  let composeColBarsHtml = '';
-  const composeColCounts = [];
-  let compMaxCol = 0;
-  for (const col of composeCols) {
-    const cnt = composeTasks.filter(t => t.status === col.status_key).length;
-    composeColCounts.push({ name: col.name, color: col.color || 'var(--border)', count: cnt });
-    if (cnt > compMaxCol) compMaxCol = cnt;
+/** The preview's numbers and lists for one project. */
+function _hpProjectView(enc) {
+  const d = _hpDetail[enc] || null;
+  if (enc === _hpActiveEnc()) {
+    // The open project: live, from the same state the sidebar draws.
+    const polled = _waitingPolledOnce || false;
+    const lists = _hpAttentionLists(polled);
+    const c3 = _hpThree(polled);
+    return {
+      live: true, polled,
+      needs: c3.needs === '-' ? 0 : c3.needs, working: c3.working === '-' ? 0 : c3.working,
+      needItems: lists.needs.map(x => ({ id: x.s.id, title: x.s.display_title || x.s.id, why: x.why })),
+      runItems: lists.running.map(s => ({ id: s.id, title: s.display_title || s.id, since: _hpSince(s) })),
+      last: allSessions.reduce((m, s) => Math.max(m, s.last_activity_ts || 0), 0) || (d && d.last_ts) || 0,
+      daily: _hpDaily(allSessions),
+    };
   }
-  if (_compStillLoading) {
-    composeColBarsHtml = '<div class="hp-col skel-shimmer" style="height:55%;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:70%;animation-delay:0.15s;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:35%;animation-delay:0.3s;"></div>'
-      + '<div class="hp-col skel-shimmer" style="height:50%;animation-delay:0.45s;"></div>';
-  } else if (composeColCounts.length && composeTotal > 0) {
-    for (const c of composeColCounts) {
-      const pct = compMaxCol > 0 ? Math.max(8, (c.count / compMaxCol) * 100) : 8;
-      composeColBarsHtml += `<div class="hp-col" style="height:${pct}%;background:${c.color};opacity:0.8;" title="${c.name}: ${c.count}"></div>`;
-    }
-  } else {
-    composeColBarsHtml = '<div class="hp-col" style="height:50%;background:var(--border);opacity:0.3;"></div>'
-      + '<div class="hp-col" style="height:70%;background:var(--border);opacity:0.3;"></div>'
-      + '<div class="hp-col" style="height:30%;background:var(--border);opacity:0.3;"></div>'
-      + '<div class="hp-col" style="height:55%;background:var(--border);opacity:0.3;"></div>';
-  }
-
-  // Compose stat line
-  let composeStatLine = '';
-  if (_compStillLoading) {
-    composeStatLine = '<span class="skel-shimmer" style="display:inline-block;width:120px;height:13px;border-radius:4px;vertical-align:middle;"></span>';
-  } else if (composeTotal > 0) {
-    const parts = composeColCounts.filter(c => c.count > 0).map(c => `${c.count} ${c.name.toLowerCase()}`);
-    composeStatLine = `${composeTotal} section${composeTotal !== 1 ? 's' : ''} &middot; ${parts.join(', ')}`;
-  } else {
-    composeStatLine = 'No subsessions yet';
-  }
-
-  // Workforce dot grid — colored by department
-  const deptColors = ['#58a6ff','#58a6ff','#58a6ff','#58a6ff',
-    '#3fb950','#3fb950','#3fb950',
-    '#d29922','#d29922',
-    '#bc8cff','#bc8cff',
-    '#39d2c0','#f85149','#e3b341'];
-  let dotGridHtml = '';
-  const dotCount = Math.min(agentCount, 36);
-  for (let i = 0; i < dotCount; i++) {
-    const c = deptColors[i % deptColors.length];
-    const delay = (i * 0.02).toFixed(2);
-    dotGridHtml += `<div class="hp-dot" style="background:${c};animation-delay:${delay}s"></div>`;
-  }
-  if (dotCount === 0) {
-    for (let i = 0; i < 12; i++) {
-      dotGridHtml += `<div class="hp-dot" style="background:var(--border);opacity:0.5;"></div>`;
-    }
-  }
-
-  // Featured Sessions card: four status counts, then what needs the user
-  // ("Needs you") and what is running ("Running").  Numbers are desktop-only
-  // (".hpx-*" in style.css); the two lists show on every screen (".hpn-*").
-  const _hpNum = (n, label, cls) => `<div class="hpx-num ${n ? cls : 'zero'}"><b>${n}</b><span>${label}</span></div>`;
-  const _h3 = _hpThree(polled);
-  const hpNumsHtml = window.SessionVerb
-    ? _hpNum(_h3.needs === '-' ? 0 : _h3.needs, 'Needs you', 'wait') + _hpNum(_h3.working === '-' ? 0 : _h3.working, 'Working', 'work')
-      + (_h3.standby && _h3.standby !== '-' ? _hpNum(_h3.standby, 'Standby', '') : '')
-      + _hpNum(_h3.done === '-' ? 0 : _h3.done, 'Done', '')
-    : _hpNum(working, 'Working', 'work') + _hpNum(question, 'Waiting on you', '')   // Smart termination off
-      + _hpNum(idle, 'Idle', '') + _hpNum(sleeping, 'Sleeping', '');
-  const hpLists = _hpAttentionLists(polled);
-  const _hpRow = (s, ico) => {
-    const sid = String(s.id).replace(/[^A-Za-z0-9_-]/g, '');
-    return `<div class="hpx-row hpn-row" data-sid="${sid}" onclick="event.stopPropagation();_hpOpenSession('${sid}')" title="${escHtml(s.display_title || '')}">`
-      + `<span class="hpx-ico ${ico}"></span><span class="t">${escHtml(s.display_title || s.id)}</span>`
-      + `<span class="d">${escHtml(typeof _shortDate === 'function' ? _shortDate(s.last_activity) : '')}</span></div>`;
+  const it = (d && d.items) || {};
+  return {
+    live: false, polled: !!d,
+    needs: d ? d.needs : '–', working: d ? d.working : '–',
+    needItems: (it.needs || []).map(x => ({ id: x.id, title: x.title || x.id })),
+    runItems: (it.working || []).map(x => ({ id: x.id, title: x.title || x.id, since: _hpAgo(x.ts) })),
+    last: d ? d.last_ts : 0, daily: d && d.daily,
   };
-  let hpAttentionHtml = '';
-  if (hpLists.needs.length) {
-    hpAttentionHtml += `<div class="hpn-hd">Needs you</div><div class="hpn-list" id="hp-needs-list">`
-      + hpLists.needs.map(x => _hpRow(x.s, x.why === 'question' ? 'question' : 'unread')).join('') + `</div>`;
-  }
-  if (hpLists.running.length) {
-    hpAttentionHtml += `<div class="hpn-hd">Running</div><div class="hpn-list" id="hp-running-list">`
-      + hpLists.running.map(s => _hpRow(s, 'working')).join('') + `</div>`;
-  }
-  if (!hpAttentionHtml && polled && total > 0) {
-    hpAttentionHtml = `<div class="hpn-empty" id="hp-attention-empty">Nothing needs you. ${sleeping} sleeping.</div>`;
-  }
-  const hpStripHtml = _hpStatusStrip();
+}
 
-  // Project selector for homepage
-  const _hpProject = _allProjects ? _allProjects.find(p => p.encoded === localStorage.getItem('activeProject')) : null;
-  const _hpProjectName = (window.VNAllProjects && VNAllProjects.on()) ? 'All projects' : (_hpProject ? _projectShortName(_hpProject) : 'No project');
+function _hpSpark(v) {
+  if (!Array.isArray(v) || v.length < 2) return '';
+  const w = 120, h = 26, m = Math.max(1, ...v);
+  const pts = v.map((y, i) => `${(i / (v.length - 1) * w).toFixed(1)},${(h - 2 - (y / m) * (h - 4)).toFixed(1)}`).join(' ');
+  return `<svg class="hd-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
 
+/** Every project's Needs you / Standby / Working counts, from the same
+ *  sources as the project picker (app.js): the last fetched counts, this
+ *  page's own detail fetch, and the open project's live statuses. */
+function _hpCounts() {
+  const out = Object.assign({}, window._projectStatusCounts || {});
+  for (const [enc, d] of Object.entries(_hpDetail)) {
+    if (d && 'needs' in d) out[enc] = { needs: d.needs || 0, standby: d.standby || 0, working: d.working || 0 };
+  }
+  return Object.assign(out, (typeof _localProjectCounts === 'function') ? _localProjectCounts() : {});
+}
+/** The picker's three count cells for one project (app.js _renderProjectOverlay). */
+function _hpCountCells(c) {
+  const groups = (typeof _PS_GROUPS !== 'undefined') ? _PS_GROUPS : ['needs', 'standby', 'working'];
+  const label = (typeof _PS_LABEL !== 'undefined') ? _PS_LABEL : { needs: 'Needs you', standby: 'Standby', working: 'Working' };
+  return '<span class="ps-cols">' + groups.map(g => {
+    const n = c ? (c[g] || 0) : null;
+    return n ? `<span class="ps-n vs-${g}" title="${n} ${label[g].toLowerCase()}">${n}</span>`
+             : `<span class="ps-n zero">${n === null ? '' : '\u00b7'}</span>`;
+  }).join('') + '</span>';
+}
+
+function _hpSideHtml() {
+  const act = _hpActiveEnc();
+  const sel = _hpSel || act;
+  const counts = _hpCounts();
+  const groups = (typeof _PS_GROUPS !== 'undefined') ? _PS_GROUPS : ['needs', 'standby', 'working'];
+  const label = (typeof _PS_LABEL !== 'undefined') ? _PS_LABEL : { needs: 'Needs you', standby: 'Standby', working: 'Working' };
+  const head = '<div class="ps-head hd-ps-head" aria-hidden="true"><span></span>'
+    + groups.map(g => `<span title="${label[g]}">${typeof _psIcon === 'function' ? _psIcon(g) : ''}</span>`).join('') + '</div>';
+  const list = _hpProjects().slice().sort((x, y) => (y.encoded === act) - (x.encoded === act));
+  const rows = list.map(p => {
+    const name = _projectShortName(p);
+    const d = _hpDetail[p.encoded];
+    const last = p.encoded === act ? _hpProjectView(act).last : (d && d.last_ts);
+    return `<button type="button" class="hd-proj${p.encoded === sel ? ' on' : ''}" data-enc="${escHtml(p.encoded)}" onclick="_hpChoose(this.dataset.enc)" ondblclick="_hpOpenProject(this.dataset.enc)">`
+      + _hpMono(name, 28)
+      + `<span class="hd-pt"><span class="nm">${escHtml(name)}</span><span class="s">${p.session_count || 0} session${p.session_count === 1 ? '' : 's'}${last ? ' · ' + _hpAgo(last) : ''}</span></span>`
+      + _hpCountCells(counts[p.encoded])
+      + `</button>`;
+  }).join('');
+  return head + rows + `<button type="button" class="hd-proj hd-add" onclick="_hpAddProject()"><span class="hd-mono hd-mono-add">+</span><span class="hd-pt"><span class="nm">Add a project</span></span></button>`;
+}
+
+function _hpPaneHtml() {
+  const act = _hpActiveEnc();
+  const sel = _hpSel || act;
+  const p = _hpProjects().find(x => x.encoded === sel);
+  const name = (sel === act && window.VNAllProjects && VNAllProjects.on()) ? 'All projects' : (p ? _projectShortName(p) : 'No project');
+  const v = _hpProjectView(sel);
+  const enc = escHtml(sel);
+  const row = (x, kind) => {
+    const sid = String(x.id).replace(/[^A-Za-z0-9_-]/g, '');
+    const lead = kind === 'run' ? '<span class="hs-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
+      : `<span class="hpx-ico ${x.why === 'question' ? 'question' : 'unread'}"></span>`;
+    const tail = kind === 'run' && x.since ? `<span class="d">${escHtml(x.since)}</span>` : '';
+    const click = v.live ? `_hpOpenSession('${sid}')` : `_hpOpenOther('${enc}','${sid}')`;
+    return `<div class="hd-r hpn-row" data-sid="${sid}" onclick="event.stopPropagation();${click}" title="${escHtml(x.title)}">${lead}<span class="t">${escHtml(x.title)}</span>${tail}</div>`;
+  };
+  const sleeping = v.live ? (allSessions.length - _hpActiveCount()) : 0;
+  let needs, run;
+  if (v.needItems.length) needs = `<div class="hpn-list" ${v.live ? 'id="hp-needs-list"' : ''}>${v.needItems.map(x => row(x, 'need')).join('')}</div>`;
+  else if (v.live && v.polled && allSessions.length && !v.runItems.length) needs = `<div class="hpn-empty" id="hp-attention-empty">Nothing needs you. ${sleeping} sleeping.</div>`;
+  else needs = `<div class="hd-none">${!v.live && v.needs > 0 ? 'Open the project to see them.' : 'Nothing waiting.'}</div>`;
+  // Another project's running sessions are listed only by a web server that
+  // knows ?detail=1; an older one gives the count alone.
+  run = v.runItems.length ? `<div class="hpn-list" ${v.live ? 'id="hp-running-list"' : ''}>${v.runItems.map(x => row(x, 'run')).join('')}</div>`
+    : `<div class="hd-none">${!v.live && v.working > 0 ? 'Open the project to see them.' : 'Nothing running.'}</div>`;
+  const week = Array.isArray(v.daily) ? v.daily.reduce((a, b) => a + b, 0) : '–';
+  const an = _hpAnimate ? ' hd-anim' : '';
+  return `<div class="hd-hero${an}">${_hpMono(name, 40)}<div class="hd-ht"><h2 class="hd-name">${escHtml(name)}</h2>`
+    + `<div class="hd-sub">${v.last ? 'Last active ' + _hpAgo(v.last) : (p ? (p.session_count || 0) + ' sessions' : '')}</div></div>`
+    + `<button type="button" class="hd-open" id="hd-open" onclick="_hpOpenProject('${enc}')">Open <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg></button></div>`
+    + `<div class="hd-stats${an}"><div class="hd-stat${v.needs ? ' n' : ''}"><div class="sm">Needs you</div><b>${v.needs}</b></div>`
+    + `<div class="hd-stat w"><div class="sm">Working</div><b>${v.working}</b></div>`
+    + `<div class="hd-stat"><div class="sm">Active this week</div><b>${week}</b>${_hpSpark(v.daily)}</div></div>`
+    + `<div class="hd-lists${an}" id="hp-attention"><div><div class="sm">Needs you</div>${needs}</div><div><div class="sm">Working</div>${run}</div></div>`;
+}
+
+/** Choose a project for the preview (the open project is not changed). */
+function _hpChoose(enc) {
+  if (!enc || enc === (_hpSel || _hpActiveEnc())) return;
+  _hpSel = enc;
+  _hpAnimate = true;
+  const el = document.getElementById('homepage-container');
+  if (el) el.innerHTML = _buildHomepageContent();
+  _hpAnimate = false;
+  // On a phone the chosen project is drawn at the top: bring it into view.
+  const pane = document.getElementById('hd-pane');
+  if (pane && window.matchMedia('(max-width: 768px)').matches) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const d = _hpDetail[enc];
+  if (enc !== _hpActiveEnc() && (!d || !d.items)) {
+    // Its own session list answers at once; the live counts follow.
+    _hpDetailFromSessions(enc).then(() => _updateHomepageStats());
+    _hpLoadDetail(true);
+  }
+}
+/** Open: the project's sessions (switching project when it is another one). */
+function _hpOpenProject(enc) {
+  if (!enc || enc === _hpActiveEnc()) { if (typeof setViewMode === 'function') setViewMode('sessions'); return; }
+  _hpSel = null;
+  if (typeof selectProjectFromOverlay === 'function') selectProjectFromOverlay(enc);
+}
+/** A session of another project: switch to it, then open the session. */
+async function _hpOpenOther(enc, sid) {
+  _hpSel = null;
+  if (typeof selectProjectFromOverlay === 'function') await selectProjectFromOverlay(enc);
+  if (typeof openInGUI === 'function') openInGUI(sid);
+}
+function _hpAddProject() {
+  if (typeof openProjectOverlay === 'function') openProjectOverlay();
+  if (typeof addProjectOverlay === 'function') addProjectOverlay();
+}
+
+/** Working for N min (the open project), else the last activity time. */
+function _hpSince(s) {
+  const since = (window._workingSinceMap || {})[s.id];
+  if (since) {
+    const m = Math.max(0, Math.round((Date.now() - since) / 60000));
+    return m < 60 ? m + ' min' : Math.round(m / 60) + ' h';
+  }
+  return typeof _shortDate === 'function' ? _shortDate(s.last_activity) : '';
+}
+function _hpActiveCount() {
+  return allSessions.filter(s => runningIds.has(s.id)).length;
+}
+
+/** Usage meters under the projects: one per usage window the account has
+ *  (Week, Fable, 5-hour), from _usageRows (invoke-workforce.js); the full
+ *  readings and disk use are in its hover.  Empty until a reading exists;
+ *  _renderUsageLimits repaints the Home screen when one arrives. */
+const _HP_USAGE_LABEL = { '7d': 'Week', 'Fable': 'Fable', '5h': '5-hour' };
+function _hpUsageHtml() {
+  if (typeof _usageRows !== 'function') return '';
+  const rows = _usageRows().filter(r => r.known && !r.off);
+  if (!rows.length) return '';
+  const parts = (typeof _usageLimitsParts === 'function') ? _usageLimitsParts() : null;
+  const label = r => _HP_USAGE_LABEL[(_USAGE_WINDOW_ORDER.find(w => w.name === r.name) || {}).label] || r.name;
+  return `<div class="hs-usage" id="hs-usage" title="${escHtml(parts ? parts.title : '')}">`
+    + rows.map(r => {
+      const pct = Math.max(0, Math.min(100, r.pct || 0));
+      return `<div class="hs-um${r.cls || ''}"><span>${escHtml(label(r))}</span><b><i style="width:${pct}%"></i></b><em>${pct}%</em></div>`;
+    }).join('') + '</div>';
+}
+
+/** The DevelopNode banner at the top of Home: the mark and name, a greeting,
+ *  and how many sessions need you or are working across every project (the
+ *  same counts as the project list, _hpCounts). */
+const _HP_MARK = '<svg class="hb-mark" viewBox="0 0 181 142" aria-hidden="true"><path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/></svg>';
+function _hpBannerHtml() {
+  const c = _hpCounts();
+  let needs = 0, working = 0;
+  for (const k in c) { needs += c[k].needs || 0; working += c[k].working || 0; }
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const n = _hpProjects().length;
+  const line = (needs ? `<span class="hb-n">${needs} need you</span>` : 'Nothing needs you')
+    + ' · ' + (working ? `<span class="hb-w">${working} working</span>` : 'nothing running')
+    + ` · ${n} project${n === 1 ? '' : 's'}`;
+  return _HP_MARK.replace('hb-mark', 'hb-mark hb-big')
+    + `<div class="hb-lock">${_HP_MARK}<span>DEVELOPNODE<sup>TM</sup></span></div>`
+    + `<h2 class="hb-greet">${greet}</h2><div class="hb-line">${line}</div>`;
+}
+
+function _buildHomepageContent() {
+  // The chosen project must still exist (removed, or the list not loaded yet).
+  if (_hpSel && !_hpProjects().some(p => p.encoded === _hpSel)) _hpSel = null;
+  _hpLoadDetail(false);
   return `
-  <div class="homepage">
-    <div class="hp-project-trigger" onclick="openProjectOverlay()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      <span class="hp-project-label">Project:</span>
-      <span class="hp-project-name">${escHtml(_hpProjectName)}</span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.35;"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    ${hpStripHtml}
-    <div class="homepage-cards">
-
-      <div class="homepage-card hp-sessions hpx" onclick="setViewMode('sessions')">
-        <div class="hp-icon-wrap">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </div>
-        <h3>Sessions</h3>
-        <p class="hp-desc">Interactive Claude Code terminals with live streaming, voice input, and permission management.</p>
-        <div class="hpx-nums">${hpNumsHtml}</div>
-        <div class="hp-viz">
-          <div class="hp-bar">${sessionBar}</div>
-        </div>
-        <div class="hp-stat">${sessionStat}</div>
-        ${hpAttentionHtml ? `<div class="hpn" id="hp-attention">${hpAttentionHtml}</div>` : ''}
-        <div class="hp-cta">Open Sessions <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+  <div class="homepage hs hd">
+    <div class="hd-wrap">
+      <div class="hd-banner" id="hd-banner">${_hpBannerHtml()}</div>
+      <div class="hd-grid">
+        <div class="hd-side" id="hd-side">${_hpSideHtml()}</div>
+        <div class="hd-pane" id="hd-pane">${_hpPaneHtml()}</div>
       </div>
-
-      <div class="homepage-card hp-workflow" onclick="setViewMode('kanban')">
-        <div class="hp-icon-wrap">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
-        </div>
-        <h3>Workflow</h3>
-        <p class="hp-desc">Hierarchical task board where your roadmap terminates in working Claude sessions at the leaves.</p>
-        <div class="hp-viz">
-          <div class="hp-columns">${colBarsHtml}</div>
-        </div>
-        <div class="hp-stat">${wfStatLine}</div>
-        <div class="hp-cta">Open Workflow <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
-      </div>
-
-      <div class="homepage-card hp-workforce" onclick="setViewMode('workplace')">
-        <div class="hp-icon-wrap">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="20" cy="7" r="2.5"/><path d="M23 15a5 5 0 0 0-6 0"/><circle cx="4" cy="7" r="2.5"/><path d="M7 15a5 5 0 0 0-6 0"/></svg>
-        </div>
-        <h3>Workforce <span class="beta-tag">Beta</span></h3>
-        <p class="hp-desc">Knowledge asset library — skills and agent definitions organized into a department hierarchy.</p>
-        <div class="hp-viz">
-          <div class="hp-dots">${dotGridHtml}</div>
-        </div>
-        <div class="hp-stat" id="hp-workforce-stat">${_wfc ? (deptCount ? `${agentCount} agent${agentCount !== 1 ? 's' : ''} &middot; ${deptCount} department${deptCount !== 1 ? 's' : ''}` : 'Not set up in this project') : '<span class="skel-shimmer" style="display:inline-block;width:120px;height:13px;border-radius:4px;vertical-align:middle;"></span>'}</div>
-        <div class="hp-cta">Open Workforce <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
-      </div>
-
-      <div class="homepage-card hp-compose" onclick="setViewMode('compose')">
-        <div class="hp-icon-wrap">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </div>
-        <h3>Subsessions <span class="beta-tag">Beta</span></h3>
-        <p class="hp-desc">Spawn parallel subsessions from any session — children inherit parent context and report conclusions back up.</p>
-        <div class="hp-viz">
-          <div class="hp-columns">${composeColBarsHtml}</div>
-        </div>
-        <div class="hp-stat">${composeStatLine}</div>
-        <div class="hp-cta">Open Subsessions <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
-      </div>
-
+      <div id="hs-usage-wrap">${_hpUsageHtml()}</div>
+      <div id="hs-strip-wrap">${_hpStatusStrip()}</div>
     </div>
   </div>`;
 }
@@ -640,7 +694,7 @@ function _hpAttentionLists(polled) {
   return { needs, running: running.slice(0, _HP_LIST_MAX) };
 }
 
-/** The strip under the project name: usage-limit gauge, Durable Jobs that
+/** The strip under the project name: Durable Jobs that
  *  need a person, an older-code Session Engine, and "Name N untitled
  *  sessions".  Every piece reads data another module already keeps:
  *  _usageLimitsPillHtml (invoke-workforce.js, repainted by
@@ -649,13 +703,7 @@ function _hpAttentionLists(polled) {
  *  (app.js _refreshUntitledButton).  A piece with nothing to say is left out. */
 function _hpStatusStrip() {
   const parts = [];
-  // Always present when the gauge exists: _renderUsageLimits() repaints every
-  // .usage-limits-pill (and un-hides it) when a reading arrives, and CSS hides
-  // the whole item while the pill is hidden.
-  if (typeof _usageLimitsPillHtml === 'function') {
-    parts.push('<span class="hps-item hps-usage" title="Usage limits"><span class="hps-lbl">Usage</span>'
-      + _usageLimitsPillHtml() + '</span>');
-  }
+  // Usage is not here: it is the labelled bars top right (_hpUsageHtml).
   const jobs = (window.VNJobs && typeof VNJobs.needsPersonCount === 'function') ? VNJobs.needsPersonCount() : 0;
   if (jobs > 0) {
     parts.push('<button type="button" class="hps-item hps-jobs" id="hp-jobs-link" '
@@ -676,9 +724,21 @@ function _hpStatusStrip() {
 
 function _updateHomepageStats() {
   const el = document.getElementById('homepage-container');
-  if (el && el.style.display !== 'none') {
-    el.innerHTML = _buildHomepageContent();
+  if (!el || el.style.display === 'none') return;
+  // Repaint the parts that change, so the page does not flash or replay its animation.
+  if (el.querySelector('#hd-pane')) {
+    _hpAnimate = false;
+    if (_hpSel && !_hpProjects().some(p => p.encoded === _hpSel)) _hpSel = null;
+    const set = (id, html) => { const n = document.getElementById(id); if (n && n.innerHTML !== html) n.innerHTML = html; };
+    set('hd-side', _hpSideHtml());
+    set('hd-pane', _hpPaneHtml());
+    set('hs-usage-wrap', _hpUsageHtml());
+    set('hs-strip-wrap', _hpStatusStrip());
+    set('hd-banner', _hpBannerHtml());
+    _hpLoadDetail(false);
+    return;
   }
+  el.innerHTML = _buildHomepageContent();
 }
 
 function dashStartSession() {
@@ -1375,7 +1435,14 @@ async function _confirmPicker() {
 (function() {
   const handle = document.getElementById('resize-handle');
   const sidebar = document.querySelector('.sidebar');
-  const HIDE_BELOW = 110, SHOW_ABOVE = 140;
+  const HIDE_BELOW = 110, SHOW_ABOVE = 140, MIN_W = 180, MAX_W = 600;
+  // The open width is remembered per device.  Dragging the panel shut passes
+  // through the 180px minimum on its way, so the width it had when the drag
+  // started is put back as it hides: otherwise it reopened at 180px.
+  const WIDTH_KEY = 'sidebarWidthDesktop';
+  const setWidth = w => document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+  const savedW = parseInt(localStorage.getItem(WIDTH_KEY), 10);
+  if (savedW >= MIN_W && savedW <= MAX_W) setWidth(savedW);
   let dragging = false, moved = false, startX = 0, startW = 0, startCollapsed = false;
   const isCollapsed = () => sidebar.classList.contains('collapsed');
   const syncTitle = () => {
@@ -1406,10 +1473,13 @@ async function _confirmPicker() {
     if (!dragging) return;
     const raw = startW + e.clientX - startX;
     if (Math.abs(e.clientX - startX) > 3) moved = true;
-    if (!isCollapsed() && raw < HIDE_BELOW) { setCollapsed(true); return; }
+    if (!isCollapsed() && raw < HIDE_BELOW) {
+      const keep = startCollapsed ? parseInt(localStorage.getItem(WIDTH_KEY), 10) : startW;
+      if (keep >= MIN_W && keep <= MAX_W) setWidth(keep);
+      setCollapsed(true); return;
+    }
     if (isCollapsed()) { if (raw < SHOW_ABOVE) return; setCollapsed(false); }
-    const newW = Math.min(600, Math.max(180, raw));
-    document.documentElement.style.setProperty('--sidebar-w', newW + 'px');
+    setWidth(Math.min(MAX_W, Math.max(MIN_W, raw)));
   });
 
   document.addEventListener('mouseup', () => {
@@ -1421,6 +1491,7 @@ async function _confirmPicker() {
     // A plain click on the strip of a hidden panel opens it.
     if (!moved && startCollapsed) setCollapsed(false);
     else syncTitle();
+    if (moved && !isCollapsed()) localStorage.setItem(WIDTH_KEY, String(sidebar.offsetWidth));
   });
 
   handle.addEventListener('dblclick', () => setCollapsed(!isCollapsed()));

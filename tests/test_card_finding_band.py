@@ -160,7 +160,7 @@ def _page_html(cards):
         + json.dumps(c).replace("'", "&#39;") + "'></div></div></div>" for c in cards)
     return f"""<!doctype html><html><head><meta charset="utf-8"></head><body><div id="live-log">{msgs}</div>
 <script>var liveSessionId='s1', sessionKinds={{s1:'idle'}}; window.__sent=[];
-window._liveSubmitDirect=(sid,text)=>{{ window.__sent.push([sid,text]); }};
+window.__marked=[]; window._liveSubmitDirect=(sid,text)=>{{ const w=text.replace(/^⟦VN-NOTE⟧[\\s\\S]*?⟦\\/VN-NOTE⟧\\s*/, ''); window.__marked.push(w!==text); window.__sent.push([sid,w]); }};
 window.fetch=()=>Promise.reject(new Error('offline'));</script>
 <script src="{LAST_CARD.as_uri()}"></script>
 <script>VNLastCard.renderIn(document.getElementById('live-log'));</script></body></html>"""
@@ -187,6 +187,8 @@ def test_deal_with_it_sends_the_default_text_as_the_users_message(browser, tmp_p
         assert btn.count() == 1 and btn.inner_text() == "Deal with it"
         btn.click()
         assert page.evaluate("window.__sent") == [["s1", WHAT_DEFAULT]]
+        # the session is told the words are its own, tapped, not typed
+        assert page.evaluate("window.__marked") == [True]
         assert page.evaluate("document.querySelector('.lm-find .go').disabled") is True
         assert page.locator(".lm-find.sent").count() == 1
         # a second click sends nothing more

@@ -439,7 +439,7 @@ def _org_name_rule():
         try:
             data = json.loads(ORG_NAMES_FILE.read_text(encoding="utf-8"))
             fps, lens = data.get("fingerprints") or [], data.get("lengths") or []
-            _org_cache["rule"] = (_IdentityRule("Org Member Name", "Name of a person in your VibeNode org found in file",
+            _org_cache["rule"] = (_IdentityRule("Org Member Name", "Name of a person in your DevelopNode org found in file",
                                                 fps, lens, as_name=True) if fps else None)
         except (OSError, ValueError, AttributeError):
             _org_cache["rule"] = None

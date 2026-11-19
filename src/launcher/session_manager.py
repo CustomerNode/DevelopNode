@@ -429,17 +429,26 @@ def _vibenode_already_running() -> bool:
 
     /api/ping is answered 200 {"ok": true} by the real web server only; the
     reviver's Start page answers every /api/ path with 503.
+
+    A busy web server can miss one 3-second ping, and answering "not running"
+    then starts a cold launch that kills it.  So while the web port still
+    accepts connections, ask again (three tries in all) before saying no.
     """
     import json
+    import time
     import urllib.request
-    try:
-        with urllib.request.urlopen(  # noqa: S310 (loopback only)
-                "http://127.0.0.1:%d/api/ping" % _web_port(), timeout=3) as r:
-            if r.status != 200 or not json.loads(r.read() or b"{}").get("ok"):
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(  # noqa: S310 (loopback only)
+                    "http://127.0.0.1:%d/api/ping" % _web_port(), timeout=3) as r:
+                if r.status != 200 or not json.loads(r.read() or b"{}").get("ok"):
+                    return False          # the reviver, or not VibeNode: a real answer
+            break
+        except Exception:
+            if attempt == 2 or not _port_accepting(_web_port()):
                 return False
-    except Exception:
-        return False
-    return _port_accepting(_daemon_port())
+            time.sleep(1)
+    return any(_port_accepting(_daemon_port(), timeout=2) for _ in range(2))
 
 
 def _load_browser_opener():
@@ -487,10 +496,10 @@ def _reuse_running_instance(background: bool) -> bool:
     if not _vibenode_already_running():
         return False
     if background:
-        _log_line("VibeNode is already running on port %d -- background "
+        _log_line("DevelopNode is already running on port %d -- background "
                   "start has nothing to do" % _web_port())
         return True
-    _log_line("VibeNode is already running on port %d -- opening a window "
+    _log_line("DevelopNode is already running on port %d -- opening a window "
               "to it, not starting a second copy" % _web_port())
     try:
         _load_browser_opener()()
@@ -575,10 +584,17 @@ def _startup() -> None:
                 import tkinter  # noqa: F401
             except ImportError:
                 _msg = "Starting up… (install python3-tk for the boot splash)"
-        _show_notification("VibeNode", _msg)
+        _show_notification("DevelopNode", _msg)
 
     # Mobile Command reviver hook (no-op unless mobile_command_enabled).
     _reviver_hook()
+
+    # developnode:// link, so developnode.com/app can start VibeNode later.
+    try:
+        from launcher import url_scheme as _url_scheme
+        _url_scheme.ensure()
+    except Exception:
+        pass
 
     # Now import and run the real app. runpy hands run.py the
     # ``__main__`` name so its own ``if __name__ == "__main__":`` block

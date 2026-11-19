@@ -53,7 +53,10 @@ class TestStopScriptScoping:
         """``cd "$(dirname "$0")"`` makes the script portable: the user
         can clone VibeNode anywhere and the shortcut still works."""
         src = _read()
-        assert 'cd "$(dirname "$0")/../.."' in src, \
+        # $0 is followed through any link first (_self), so a shortcut that
+        # links to the script still lands in the repo it belongs to.
+        assert 'cd "$(dirname "$0")/../.."' in src or (
+            '_self="$0"' in src and 'cd "$(dirname "$_self")/../.."' in src), \
             "stopvibenode.sh must cd into its own directory so the kill " \
             "patterns reference the right absolute path. Hardcoding a " \
             "path breaks every user except the one who wrote the script."

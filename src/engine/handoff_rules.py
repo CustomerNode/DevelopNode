@@ -334,6 +334,22 @@ _VISUAL_CHOICE = re.compile(
     r"animations?|slides?|slide\s*decks?|decks?|powerpoint|presentations?|one-pager|"
     r"dashboards?|charts?|diagrams?|logos?|illustrations?|branding|appearance)\b", re.I)
 
+# What goes where on a web page is a choice about looks too, even when the
+# words name only the content ("add the three reasons above the quotes",
+# "its own animated part", "a strip before setup"): the user judges it by
+# seeing the page.  Used only by the two "show the options" checks, never by
+# _VISUAL_CHOICE's other readers.  Bare "site" / "website" are left out: they
+# name a deploy target as often as a page ("tests ran against a site copy").
+_PAGE_PART = re.compile(
+    r"\b(?:animated|motion\s+graphics?|hero|landing\s+pages?|home\s*pages?|above\s+the\s+fold|"
+    r"(?:on|onto|into|to|of)\s+the\s+(?:page|site|homepage)|page\s+(?:sections?|parts?)|"
+    r"sections?\s+of\s+the\s+page)\b", re.I)
+
+
+def _looks_choice(text: str):
+    """The words that make a choice about looks: _VISUAL_CHOICE, else _PAGE_PART."""
+    return _VISUAL_CHOICE.search(text) or _PAGE_PART.search(text)
+
 
 def _viewable(it) -> bool:
     """A link row the user can SEE: a picture, or a page the app can show."""
@@ -354,7 +370,7 @@ def visual_choice_problem(card: dict) -> Optional[str]:
     naming = [_s(card.get("title")), _s(card.get("headline")), _s(needs.get("ask"))]
     for r in replies:
         naming += [_s(r.get("label")), _s(r.get("detail"))]
-    m = _VISUAL_CHOICE.search(_norm(" \n ".join(naming)))
+    m = _looks_choice(_norm(" \n ".join(naming)))
     if not m:
         return None
     if any(_viewable(s) for r in replies for s in _items(r.get("screens"))):
@@ -372,7 +388,8 @@ def visual_choice_problem(card: dict) -> Optional[str]:
             "is about another project's app, build the variants IN that app (its design "
             "trials when it has them) instead of redrawing it on a scratch page: each "
             "reply's \"screens\" are that app's live pages on this machine, with their "
-            "pictures in \"image\".")
+            "pictures in \"image\". Fix it by showing the choices, never by renaming the words "
+            "that named the look.")
 
 
 _SHIP_IT = re.compile(r"\b(?:ship|look(?:s)?\s+(?:right|good|ok|okay|fine)|approve|accept|go\s+live|publish|"
@@ -968,6 +985,75 @@ def variant_caption_problem(card: dict) -> Optional[str]:
             "reply's \"label\", \"detail\" and \"what\".")
 
 
+# A variants page that frames the live app keeps ONE running copy of it.
+# Each option section with its own app frame (or a frame booted when its
+# section shows, and dropped when another does) plays the app's splash
+# screen on every switch of the Decide popup.  The page shares one frame
+# marked data-keep (the popup never hides it, _isolate in last-card.js) and
+# swaps only the option's styles in it.  Read from the page on disk: it
+# frames the app when an iframe's address is this app's root ("/", "/?…",
+# or VibeNode's own port), set in markup or in script.
+_APP_ROOT = r"""(?:/|/\?[^"'`\s]*|https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::5050)?/(?:\?[^"'`\s]*)?)"""
+_APP_FRAME = re.compile(
+    r"""<iframe\b[^>]*\bsrc\s*=\s*["']""" + _APP_ROOT + r"""["']"""
+    r"""|\.src\s*=\s*["'`]""" + _APP_ROOT + r"""["'`]"""
+    r"""|\.src\s*=\s*(?:location|window\.location)\.origin\s*\+\s*["'`]/(?:\?[^"'`]*)?["'`]""", re.I)
+_KEEP_FRAME = re.compile(r"""<iframe\b[^>]*\bdata-keep\b|\.dataset\.keep\s*=|setAttribute\(\s*["']data-keep["']""", re.I)
+
+
+def _option_element(text: str, m) -> str:
+    """The whole element whose data-option attribute m matched: its open tag
+    to its own closing tag (same-name tags nested inside are counted)."""
+    begin = text.rfind("<", 0, m.start())
+    tag = re.match(r"<([a-zA-Z][a-zA-Z0-9-]*)", text[begin:]) if begin >= 0 else None
+    if not tag:
+        return ""
+    name, depth = tag.group(1).lower(), 0
+    for t in re.finditer(r"<(/?)" + re.escape(name) + r"\b[^>]*>", text[begin:], re.I):
+        depth += -1 if t.group(1) else 1
+        if depth == 0:
+            return text[begin:begin + t.end()]
+    return text[begin:begin + 20_000]
+
+
+def live_app_reboot_problem(card: dict) -> Optional[str]:
+    """Why a decision's variants page boots the live app per option, or None."""
+    needs = card.get("needs") if isinstance(card.get("needs"), dict) else {}
+    replies = [r for r in _items(needs.get("replies")) if isinstance(r, dict)]
+    if _s(needs.get("kind")) != "decision" or len(replies) < 2:
+        return None
+    pages = []
+    for r in replies:
+        for sc in _items(r.get("screens")):
+            u = _s(sc.get("url")) if isinstance(sc, dict) else ""
+            if _MOCKUP_PAGE.match(u):
+                pg = re.sub(r"^https?://[^/]+", "", re.sub(r"[?#].*$", "", u))
+                if pg not in pages:
+                    pages.append(pg)
+    for page in pages:
+        try:
+            f = (_SCRATCH_DIR / page.rsplit("/", 1)[-1]).resolve()
+            if f.parent != _SCRATCH_DIR.resolve() or not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")[:600_000]
+        except OSError:
+            continue
+        if not _APP_FRAME.search(text) or _KEEP_FRAME.search(text) or len(_variant_keys(page)) < 2:
+            continue
+        # One frame in the markup, outside every option section, and none made
+        # in script: the page already shares one copy.
+        in_sections = sum(_option_element(text, m).count("<iframe") for m in _OPTION_ATTR.finditer(text))
+        if (not in_sections and text.count("<iframe") == 1
+                and not re.search(r"""createElement\(\s*["']iframe["']""", text, re.I)):
+            continue
+        return (f"The variants page {page} boots its own copy of the live app per option, so the user "
+                "sees the app's splash screen every time they switch choices. Load the app ONCE: one "
+                "<iframe data-keep> outside the data-option sections (the Decide popup never hides it), "
+                "and when the section on screen changes, swap only that option's styles inside the one "
+                "running copy. Never create, reload or remove an app frame per option.")
+    return None
+
+
 def _variant_keys(url: str) -> list:
     m = _MOCKUP_PAGE.match(url or "")
     if not m:
@@ -1098,6 +1184,83 @@ def picture_page(url) -> bool:
 
 
 picture_only_page = picture_page
+
+
+# A public website as the place to try the work.  The card opens a Validate
+# page in its own review window only when it can frame it: a page of this
+# app, another port of this machine, or a page on the tailnet (_reviewSrc in
+# last-card.js).  Any other web address opens in a separate browser tab, so
+# the user leaves the app to review.  A site that lets itself be framed can be
+# shown inside the app through a scratch page that frames it; a site that
+# refuses framing (sign-in services, code hosts) passes, since no window of
+# the app could show it.  Whether a site allows framing is read from its
+# response headers, once per host for ``_FRAME_CACHE_S``.
+_FRAME_CACHE_S = 600.0
+_frame_cache: dict = {}
+
+
+def _in_app_address(url) -> bool:
+    """True when the card can show ``url`` in its own window (the Python twin
+    of ``_reviewSrc`` in last-card.js), or it is not a web address at all."""
+    u = _s(url).strip()
+    if not re.match(r"^https?://", u, re.I):
+        return True
+    try:
+        host = (urllib.parse.urlsplit(u).hostname or "").lower()
+    except ValueError:
+        return True
+    return (host in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+            or host.endswith(".ts.net") or not host)
+
+
+def frames_allowed(url, timeout: float = 2.5) -> Optional[bool]:
+    """Whether the page at ``url`` lets another site frame it: True, False
+    (X-Frame-Options or a frame-ancestors rule refuses), or None when it
+    cannot be told (no answer, or ``VIBENODE_LINK_CHECK=0``)."""
+    if os.environ.get("VIBENODE_LINK_CHECK") == "0":
+        return None
+    import time
+    import urllib.request
+    try:
+        host = (urllib.parse.urlsplit(_s(url)).hostname or "").lower()
+    except ValueError:
+        return None
+    hit = _frame_cache.get(host)
+    if hit and time.monotonic() - hit[0] < _FRAME_CACHE_S:
+        return hit[1]
+    answer: Optional[bool] = None
+    try:
+        req = urllib.request.Request(_s(url), headers={"User-Agent": "VibeNode-FrameCheck"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            headers = resp.headers
+            if resp.status < 400:
+                xfo = (headers.get("X-Frame-Options") or "").strip().lower()
+                csp = " ".join(headers.get_all("Content-Security-Policy") or []).lower()
+                fa = re.search(r"frame-ancestors([^;]*)", csp)
+                refused = bool(xfo) or (fa is not None and "*" not in fa.group(1).split())
+                answer = not refused
+    except Exception:  # noqa: BLE001 (any failure means "cannot tell")
+        answer = None
+    _frame_cache[host] = (time.monotonic(), answer)
+    return answer
+
+
+def outside_app_validate_problem(card: dict, probe=None) -> Optional[str]:
+    """Why the card's Validate row sends the user out to a browser tab when the
+    page could have been shown in the app's own review window, or None."""
+    if not isinstance(card, dict):
+        return None
+    v = card.get("validate") if isinstance(card.get("validate"), dict) else {}
+    url = _s(v.get("url")).strip()
+    if not url or _in_app_address(url) or _VALIDATE_PICTURE.search(url) or _DOWNLOAD_FILE.search(url):
+        return None
+    if (probe or frames_allowed)(url) is not True:
+        return None
+    return (f"validate.url ({url}) is a public website: the app cannot show it in its own review "
+            "window, so Try it sends the user out to a separate browser tab. This site lets itself be "
+            "framed, so show it inside the app: build src/web/static/scratch/<name>.html, a page that "
+            f"frames {url} whole (an iframe filling the window, nothing else), put that page in "
+            "validate.url, and put the public address in Full.")
 
 
 def validate_picture_problem(card: dict) -> Optional[str]:
@@ -1420,6 +1583,8 @@ def format_problems(card: dict) -> list[str]:
                        "when the real moment is in validate.later.")
         elif validate_picture_problem(card):
             out.append(validate_picture_problem(card))
+        elif outside_app_validate_problem(card):
+            out.append(outside_app_validate_problem(card))
         if failed_checks:
             out.append("A \"done\" card cannot carry a failed check: "
                        + "; ".join(_s(v.get("check")) or "(unnamed)" for v in failed_checks)
@@ -1489,6 +1654,9 @@ def format_problems(card: dict) -> list[str]:
     caption = variant_caption_problem(card)
     if caption:
         out.append(caption)
+    reboot = live_app_reboot_problem(card)
+    if reboot:
+        out.append(reboot)
     pick = variants_pick_problem(card)
     if pick:
         out.append(pick)
@@ -2053,12 +2221,12 @@ def form_visual_problem(card: dict) -> Optional[str]:
         opts = [o for o in _items(q.get("options")) if isinstance(o, dict)]
         text = " \n ".join([_s(q.get("question")), _s(q.get("context"))] + [_s(o.get("label")) for o in opts])
         # "set it up on her screen" says where a job is done, not how a thing looks
-        return _VISUAL_CHOICE.search(_ON_A_SCREEN.sub(" ", _norm(text)))
+        return _looks_choice(_ON_A_SCREEN.sub(" ", _norm(text)))
 
     hits = [(i, q, visual(q)) for i, q in enumerate(qs)]
     looks = [(i, q, m) for i, q, m in hits if m]
     if not looks:
-        m = _VISUAL_CHOICE.search(_norm(" \n ".join(
+        m = _looks_choice(_norm(" \n ".join(
             [_s(card.get("title")), _s(card.get("headline")), _s(needs.get("ask"))])))
         if not m:
             return None
@@ -2074,7 +2242,8 @@ def form_visual_problem(card: dict) -> Optional[str]:
             "without seeing. Give EVERY option of those questions an \"image\": a picture of that "
             "choice (\"/static/scratch/<name>.png\" or \"/api/preview/asset/<id>\"), cropped to the "
             "thing being chosen. The popup draws it atop the option's card. For another project's app, "
-            "picture its real components, not a redrawing.")
+            "picture its real components, not a redrawing. Fix it by adding the pictures, never by "
+            "renaming the words that named the look: what to put where on a page is judged by seeing it.")
 
 
 # Where a card's own words are drawn, outside the popup.
@@ -2794,6 +2963,10 @@ calls for, not an explain card that only answers it.
 - The user asked for a file (a download, a zip, a PDF, a deck) → "deliverable" \
 with "files".
 - The user gave an order, and it is finished and checked → "done".
+- The user's last message was an order or a redirect (not a question) and \
+you changed something this turn → "done" with its Validate, even when you \
+also answer an earlier question (that answer goes in "answer"). An \
+"explain" card has no Validate row and nothing to try, so it hides the work.
 - The user gave an order, and a choice that only the user can make blocks it → \
 "needs_you" with needs.kind "decision", tied to that order in "asks" (state \
 "needs_you"). One decision, the one that blocks the work.
@@ -2910,12 +3083,15 @@ the user tries it at phone size). A screenshot is never that page, nor is a \
 page that only shows screenshots (a scratch page wrapping a picture): pictures go \
 in "links" and are drawn beside the row as "OR just look". When the work is in \
 another app on this machine, "url" is that app's live page, at the address the \
-user already uses. When the app's own \
+user already uses. A public website (a site you deployed, a hosted \
+page) opens in a separate browser tab, outside the app's review window: when \
+the site lets itself be framed, "url" is a scratch page that frames it whole \
+(an iframe filling the window), and the public address goes in Full. When the app's own \
 page cannot be linked to the exact spot, build a demo page in the scratch \
 folder that loads the real code and opens on it. When the real check \
 only happens later (the next time something occurs), build a demo page that \
 shows it happening, link it in "url", and put the real moment in "later". A \
-Validate row with nothing to open, or one that only opens VibeNode's front \
+Validate row with nothing to open, or one that only opens DevelopNode's front \
 page (the app the user is already in), is sent back. The page must open \
 where the user is already signed in: one that lands on a sign-in page (a \
 server you started on a new port, a second copy, an address the user's browser \
@@ -2939,14 +3115,19 @@ before you ask, put the thing in front of the user yourself (screenshots in \
 needs.look). If you can name the likely answers, make it a decision with each \
 one spelled out instead. A button that only asks you to show something first \
 is sent back on every card. A choice about how something looks \
-or is presented (a design, layout, style, slides, a deck) must SHOW every \
+or is presented (a design, layout, style, slides, a deck, and what goes \
+where on a web page: which sections, in what order, animated or not) must SHOW every \
 option before you ask: a scratch page of clickable mockups in needs.look and \
 each reply's "screens" pointing at its own section of that page \
-("<page>.html#<id>"), shown live like the Now tab, never a screenshot. A file \
+("<page>.html#<id>"), shown live like the Now tab, never a screenshot. A page \
+that frames the live app keeps ONE copy of it (an iframe marked data-keep, \
+shared by every section) so switching choices never replays its splash. A file \
 to read is not a preview; such a card is sent back. Several such choices in \
 one needs.form: the popup hides needs.look, so every option of a question \
 about looks carries its own "image", a picture of that choice; a form that \
-leaves them as words is sent back. When the choice is about \
+leaves them as words is sent back. When a check says a choice is about \
+looks, add the pictures: renaming the words that named the look hides the \
+fault from the check, not from the user. When the choice is about \
 another project's app, the variants are built in that app and shown from it, \
 never redrawn by hand on a scratch page. An approval of something \
 the user must see ("ship the new dashboard?") puts ONE page to review in needs.look[0] \
@@ -3036,7 +3217,7 @@ zoom lines or ask ("Header A", "Layout 4", "your pick B"): say what it is.
 The headline and needs.ask are shown ON THEIR OWN (sidebar, Needs you list, \
 notifications) to a user working across many sessions. Each must make sense \
 with no other context: name the project and the exact thing ("Pick a design \
-for the buttons on VibeNode's end-of-turn summary card", not "Pick a button \
+for the buttons on DevelopNode's end-of-turn summary card", not "Pick a button \
 design for the card"). No bare "the card", "the fix", "this", "it".
 
 Write from the reviewer's seat, not the implementer's. The user reads the \
@@ -3386,7 +3567,7 @@ def _lands_on_signin(url: str, timeout: float = 4.0) -> Optional[str]:
     else None (also None when it cannot tell)."""
     import urllib.request
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "VibeNode link check"})
+        req = urllib.request.Request(url, headers={"User-Agent": "DevelopNode link check"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             final = r.geturl()
             body = r.read(400_000).decode("utf-8", "replace")

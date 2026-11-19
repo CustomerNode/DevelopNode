@@ -1489,6 +1489,8 @@ function _renderUsageLimits() {
     el.innerHTML = p ? p.html : '';
     el.title = p ? p.title : '';
   });
+  // The Home screen draws usage as labelled bars (_hpUsageHtml, toolbar.js).
+  if (typeof viewMode !== 'undefined' && viewMode === 'homepage' && typeof _updateHomepageStats === 'function') _updateHomepageStats();
   _renderStatusPanel();
 }
 
@@ -1560,7 +1562,7 @@ function _diskColumn() {
   const p = _diskUsePct();
   return {html: '<span class="ulp-gap"></span><span class="ulp-c ulp-disk' + _diskCls(p) +
       '"><i style="height:' + Math.max(8, p) + '%"></i></span>',
-    tip: 'Disk: VibeNode uses ' + _fmtBytes(_diskUsed()) + ' of ' + _fmtBytes(_diskAllotted()) + ' allotted'};
+    tip: 'Disk: DevelopNode uses ' + _fmtBytes(_diskUsed()) + ' of ' + _fmtBytes(_diskAllotted()) + ' allotted'};
 }
 
 function _loadDisk(full) {
@@ -1602,9 +1604,9 @@ function _diskCapNote(b) {
 function _diskCapHtml() {
   const m = window._disk, d = m.disk;
   const cap = _diskAllotted();
-  return '<div class="vsp-cap"><div class="vsp-cap-top"><span>Allotted to VibeNode</span><b id="vsp-cap-val">' +
+  return '<div class="vsp-cap"><div class="vsp-cap-top"><span>Allotted to DevelopNode</span><b id="vsp-cap-val">' +
     _diskCapLabel(cap) + '</b></div>' +
-    '<input type="range" id="vsp-cap" min="0" max="1000" step="1" value="' + _diskBytesToPos(cap) + '" aria-label="Most disk VibeNode may use">' +
+    '<input type="range" id="vsp-cap" min="0" max="1000" step="1" value="' + _diskBytesToPos(cap) + '" aria-label="Most disk DevelopNode may use">' +
     '<div class="vsp-cap-scale"><span>1 GB</span><span>' + _fmtBytes(_diskAvail()) + ' available · disk ' + d.percent + '% full</span></div>' +
     '<small id="vsp-cap-note">' + _diskCapNote(cap) + '</small></div>';
 }
@@ -1637,7 +1639,7 @@ function _diskSectionHtml() {
   const s = m.share;
   let out = '<div class="vsp-sec"><span>Disk</span><em>' +
     (s && s.trash > 0 ? '<a role="button" tabindex="0" data-act="disk-trash">Empty Trash (' + _fmtBytes(s.trash) + ')</a>' : '') + '</em></div>' +
-    (s ? '<div class="vsp-row' + _diskCls(_diskUsePct()) + '" style="margin-top:0"><span>VibeNode uses</span><span class="vsp-pct">' +
+    (s ? '<div class="vsp-row' + _diskCls(_diskUsePct()) + '" style="margin-top:0"><span>DevelopNode uses</span><span class="vsp-pct">' +
       _diskUsePct() + '%</span><span class="vsp-trk"><i style="width:' + _diskUsePct() + '%"></i></span><small>' +
       _fmtBytes(_diskUsed()) + ' of ' + _fmtBytes(_diskAllotted()) + ' allotted · sessions ' + _fmtBytes(s.sessions) +
       ', Trash ' + _fmtBytes(s.trash) + '</small></div>' : '') + _diskCapHtml();

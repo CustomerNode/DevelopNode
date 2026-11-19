@@ -33,7 +33,7 @@ CHECK_IN = "Check the deploy watcher output; if my build is green, report done; 
 
 SAMPLES = [
     (NOTICE, False, "Background job finished"),
-    ("[VibeNode watchdog] You ended your turn waiting on background work.", False, "VibeNode watchdog"),
+    ("[VibeNode watchdog] You ended your turn waiting on background work.", False, "DevelopNode watchdog"),
     ("Continue from where you left off.", False, "Automatic continue"),
     (CHECK_IN, True, "Scheduled check-in"),
     (CHECK_IN, False, ""),
@@ -187,7 +187,7 @@ def test_a_steps_line_under_the_banner_gets_the_same_room_as_under_a_message(pag
         const m = add('msg assistant');
         const t1 = add('vn-trail');
         const a = document.createElement('div');
-        _renderAutomatedMsg(a, 'VibeNode watchdog', 'hello', 0); log.appendChild(a);
+        _renderAutomatedMsg(a, 'DevelopNode watchdog', 'hello', 0); log.appendChild(a);
         const t2 = add('vn-trail');
         const gap = (x, y) => Math.round(y.getBoundingClientRect().top - x.getBoundingClientRect().bottom);
         return {afterMsg: gap(m, t1), afterBanner: gap(a, t2)};

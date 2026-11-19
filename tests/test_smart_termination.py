@@ -286,9 +286,9 @@ def test_utility_sessions_are_left_alone(sm, stype):
     assert m._smart_termination_prompt("") == st.INSTRUCTIONS
 
 
-def test_preference_is_opt_in():
+def test_preference_is_on_by_default():
     from shared.config import _kanban_config_defaults
-    assert _kanban_config_defaults()["smart_termination"] is False
+    assert _kanban_config_defaults()["smart_termination"] is True
 
 
 # ── The send-back is drawn as a card, never as the user's bubble ────────

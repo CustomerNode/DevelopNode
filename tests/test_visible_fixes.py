@@ -150,7 +150,9 @@ SIDEBAR_STATE = """() => {
     display: getComputedStyle(sb).display, inline: sb.style.display, width: r.width,
     projectVisible: pr.width > 0 && pr.height > 0,
     viewMode: viewMode,
-    kanbanShown: getComputedStyle(document.getElementById('kanban-board')).display !== 'none',
+    // Workflow mode shows either its task columns or its feed (feed.js).
+    kanbanShown: getComputedStyle(document.getElementById('kanban-board')).display !== 'none'
+      || getComputedStyle(document.getElementById('feed-view')).display !== 'none',
   };
 }"""
 

@@ -129,7 +129,7 @@ def _open(browser, tmp_path, width=1200):
     f.write_text(f"""<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="{CSS.as_uri()}"></head>
 <body><div id="live-log"><div class="msg asst"><div class="msg-body"><div class="vn-card-ph" data-card='{json.dumps(c).replace("'", "&#39;")}'></div></div></div></div>
 <script>var liveSessionId='s1', sessionKinds={{s1:'idle'}}; window.__sent=[];
-window._liveSubmitDirect=(sid,text)=>{{ window.__sent.push([sid,text]); }};
+window.__marked=[]; window._liveSubmitDirect=(sid,text)=>{{ const w=text.replace(/^⟦VN-NOTE⟧[\\s\\S]*?⟦\\/VN-NOTE⟧\\s*/, ''); window.__marked.push(w!==text); window.__sent.push([sid,w]); }};
 window.fetch=()=>Promise.reject(new Error('offline'));</script>
 <script src="{LAST_CARD.as_uri()}"></script>
 <script>VNLastCard.renderIn(document.getElementById('live-log'));</script></body></html>""", encoding="utf-8")

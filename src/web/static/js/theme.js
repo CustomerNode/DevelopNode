@@ -190,7 +190,7 @@ function applyTheme(pref) {
   document.getElementById('btn-theme').title = pref.charAt(0).toUpperCase() + pref.slice(1) + ' theme';
   // Swap logo for dark/light
   const logo = document.querySelector('.app-logo');
-  if (logo) logo.src = effective === 'dark' ? '/static/images/logo-dark.png' : '/static/images/logo.png';
+  if (logo && logo.tagName === 'IMG') logo.src = effective === 'dark' ? '/static/images/logo-mark-dark.svg' : '/static/images/logo-mark.svg';
 }
 
 /* ── Theme-switch splash ──

@@ -3,7 +3,7 @@ id: hotfix-team
 name: Hotfix Team
 department: compose
 source: vibenode
-version: 1.1.0
+version: 1.1.1
 depends_on: []
 type: prompt-template
 ---
@@ -27,7 +27,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 ## The Prompt
 
-Run the Hotfix Team: Rapid Triage, Surgical Fix Engineer, Quick Verification. All have full knowledge of the VibeNode codebase and architecture.
+Run the Hotfix Team: Rapid Triage, Surgical Fix Engineer, Quick Verification. All have full knowledge of the DevelopNode codebase and architecture.
 
 Restore production stability fast with the smallest safe change. Prefer containment over elegance.
 

@@ -448,19 +448,44 @@ function _parseVnEvent(text) {
 // What a queued message shows as while it waits: a hook line reads
 // "Source: text", never its raw markers.
 function _queueDisplayText(text) {
+  // A queued summary-button answer carries a hidden note (last-card.js):
+  // show only the words, as the bubble does.
+  text = _stripVnMeta(String(text || '')).clean;
   const ev = _parseVnEvent(text);
   return ev ? ev.source + ': ' + ev.body : text;
 }
 
 // ── Strip "Sent from <device> at ..." footer from message text for display ──
+// The hidden note a summary's button puts on its message (last-card.js
+// CARD_TAP_NOTE): the session wrote these words; the user tapped them.
+const _CARD_TAP_MARK = '[VibeNode note: sent by a summary button]';
+function _isCardTap(text) {
+  const m = String(text || '').match(/⟦VN-NOTE⟧([\s\S]*?)⟦\/VN-NOTE⟧/g);
+  return !!(m && m.some(b => b.indexOf(_CARD_TAP_MARK) !== -1));
+}
+// Draw a user message sent by a summary button as a full-width line, like an
+// automated message, with its words underneath.  It stays a `.msg.user` with
+// its words in `.msg-body`: the summary reads that to see it was answered.
+function _markCardTap(div) {
+  if (!div || div.classList.contains('vn-tap-msg')) return;
+  div.classList.add('vn-tap-msg');
+  const bar = document.createElement('div');
+  bar.className = 'vn-tap-bar';
+  bar.innerHTML = '<svg class="vn-tap-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 15l3 3 5-6"/></svg>' +
+    '<span class="vn-tap-tag">Sent from a summary button</span><span class="vn-tap-src">Claude\u2019s words, your tap</span>';
+  const body = div.querySelector('.msg-body');
+  div.insertBefore(bar, body || div.firstChild);
+}
+
 function _stripVnMeta(text) {
+  const cardTap = _isCardTap(text);
   // Remove the server-injected headless-mobile preamble (⟦VN-MOBILE⟧…⟦/VN-MOBILE⟧)
   // so it never shows in the user's own bubble — it's context for the agent only.
   text = text.replace(/⟦VN-(?:MOBILE|NOTE)⟧[\s\S]*?⟦\/VN-(?:MOBILE|NOTE)⟧\s*/g, '');
   // Any device word: "Mobile", "PC", and older stamps such as "Q".
   const m = text.match(/\n{1,2}Sent from \S+ at (\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} [AP]M)(\s*\(transcribed from voice[^)]*\))?\s*$/);
-  if (!m) return {clean: text, sentAt: null, voice: false};
-  return {clean: text.replace(m[0], ''), sentAt: m[1], voice: !!m[2]};
+  if (!m) return {clean: text, sentAt: null, voice: false, cardTap: cardTap};
+  return {clean: text.replace(m[0], ''), sentAt: m[1], voice: !!m[2], cardTap: cardTap};
 }
 
 function _formatSentAt(str) {
@@ -1264,9 +1289,10 @@ async function openInGUI(id) {
         '<div class="live-panel" id="live-panel">' +
         '<div class="conversation live-log" id="live-log">' +
         '<div class="empty-state" style="padding:60px 0;text-align:center;">' +
-        '<svg class="vibenode-mark" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' +
+        '<svg class="vibenode-mark dn-mark" width="30" height="24" viewBox="0 0 181 142" aria-hidden="true"><path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/></svg>' +
         '<div class="vibenode-greeting">What are we building today?</div>' +
         (typeof _renderTemplateGrid === 'function' ? _renderTemplateGrid(id) : '') +
+        (typeof _newSessionCancelHtml === 'function' ? _newSessionCancelHtml() : '') +
         '</div></div>' +
         '<div class="live-output-shelf" id="live-output-shelf"></div>' +
         '<div id="live-queue-area"></div>' +
@@ -2121,8 +2147,8 @@ function _automatedSource(e, text) {
   if (e && typeof e.auto === 'string' && e.auto) return e.auto;
   const t = String(text || '').replace(/^\s+/, '');
   if (t.startsWith('<task-notification>')) return 'Background job finished';
-  if (t.startsWith('[VibeNode watchdog]')) return 'VibeNode watchdog';
-  if (t.startsWith('[VibeNode')) return 'VibeNode';
+  if (t.startsWith('[VibeNode watchdog]')) return 'DevelopNode watchdog';
+  if (t.startsWith('[VibeNode')) return 'DevelopNode';
   if (/^continue from where you left off\.?$/i.test(t.trim())) return 'Automatic continue';
   if (t.startsWith('Your response above was cut off')) return 'Automatic continue';
   if (t.startsWith('Your response above was stopped by a safety classifier')) return 'Safety notice';
@@ -2209,9 +2235,11 @@ function renderLiveEntry(e, opts) {
     let text = e.text || '';
     let vnSentAt = null;
     let vnIsVoice = false;
+    let vnCardTap = false;
     if (e.kind === 'user') {
       const vnMeta = _stripVnMeta(text);
       text = vnMeta.clean;
+      vnCardTap = vnMeta.cardTap;
       vnSentAt = vnMeta.sentAt;
       vnIsVoice = vnMeta.voice;
     }
@@ -2300,6 +2328,7 @@ function renderLiveEntry(e, opts) {
       footer.innerHTML = _vnMsgFooterHtml(vnIsVoice, _formatSentAt(vnSentAt));
       div.appendChild(footer);
     }
+    if (vnCardTap) _markCardTap(div);
 
   } else if (e.kind === 'tool_use') {
     const _isAgent = (e.name === 'Agent');
@@ -4012,6 +4041,7 @@ function _addOptimisticBubble(sid, text, isVoice, opts) {
   // A queued or hook message arrives with the server's "Sent from ... at" stamp:
   // hide it here too, as the confirmed bubble does.
   const _vnMeta = _stripVnMeta(text || '');
+  const _vnCardTap = _vnMeta.cardTap;
   text = _vnMeta.clean;
   if (_vnMeta.voice) isVoice = true;
   // A hook line (see _parseVnEvent) is drawn under its source, without its markers.
@@ -4060,6 +4090,7 @@ function _addOptimisticBubble(sid, text, isVoice, opts) {
     userMsg.dataset.pendingId = _pend.id;
     if (!_vnEvent) vnFooter.insertAdjacentHTML('beforeend', _sendStateHtml(_pend));
   }
+  if (_vnCardTap) _markCardTap(userMsg);
   userMsg.addEventListener('animationend', () => userMsg.classList.remove('msg-entering'), {once: true});
   logEl.appendChild(userMsg);
   // [classic] Classic scroll: every bubble jumps to the bottom.

@@ -218,7 +218,7 @@ async function loadProjects() {
     // Backend never came up in the retry window. Leave a clear, non-skeleton
     // state and let the server-reachable health check take over recovery.
     const listEl = document.getElementById('session-list');
-    if (listEl) listEl.innerHTML = '<div class="empty-state" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">Reconnecting to VibeNode…</div>';
+    if (listEl) listEl.innerHTML = '<div class="empty-state" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">Reconnecting to DevelopNode…</div>';
     return;
   }
   const saved = localStorage.getItem('activeProject');
@@ -720,6 +720,9 @@ async function selectProjectFromOverlay(encoded) {
     return;
   }
   closeProjectOverlay();
+  // The project being left: its tile slides out as the new one slides in.
+  const _fromP = _allProjects.find(x => x.encoded === localStorage.getItem('activeProject'));
+  const fromName = (window.VNAllProjects && VNAllProjects.on()) ? 'All projects' : (_fromP ? _projectShortName(_fromP) : '');
   // All projects (all-projects.js): a view over every project; the active
   // project stays the current one until a session from another is opened.
   const _toAll = !!(window.VNAllProjects && encoded === VNAllProjects.ALL);
@@ -727,12 +730,13 @@ async function selectProjectFromOverlay(encoded) {
   if (_toAll) encoded = localStorage.getItem('activeProject') || ((_allProjects[0] || {}).encoded) || '';
   const p = _allProjects.find(x => x.encoded === encoded);
   const name = _toAll ? 'All projects' : (p ? _projectShortName(p) : 'project');
+  const count = _toAll ? _allProjects.reduce((n, x) => n + (x.session_count || 0), 0) : (p ? p.session_count : null);
 
   // Show the full-screen splash.  The floor only exists so the splash can
   // finish revealing the project name instead of flashing up and straight
   // back down; it is NOT a pacing device.  It used to be 1800ms, which meant
   // every switch waited on the animation long after the data was ready.
-  _showProjectSwitchLoader(name);
+  _showProjectSwitchLoader(name, fromName, count);
   const _minDisplay = new Promise(r => setTimeout(r, 400));
   // Let the splash go opaque BEFORE the old project is torn down, so the
   // teardown itself is never seen.
@@ -761,7 +765,9 @@ async function selectProjectFromOverlay(encoded) {
 // and builds the new one in several steps (empty dashboard, sessions known
 // from the live snapshot before the list arrives, the list, the restored
 // session's thread), every one of which showed through it as stale data.
-function _showProjectSwitchLoader(projectName) {
+// The old project's tile slides out as the new one's slides in, and the name
+// under them swaps; with no old name, or the same one, the new tile pops in.
+function _showProjectSwitchLoader(projectName, fromName, sessionCount) {
   let overlay = document.getElementById('project-switch-loader');
   if (overlay) overlay.remove();
 
@@ -769,9 +775,17 @@ function _showProjectSwitchLoader(projectName) {
   overlay.id = 'project-switch-loader';
   overlay.className = 'vn-splash vn-switch';
   overlay.setAttribute('aria-hidden', 'true');
-  overlay.innerHTML = '<div class="vns-label">Project</div>'
-    + '<div class="vns-brand">' + escHtml(projectName) + '</div>'
-    + '<div class="vns-track"><div class="vns-bar"></div></div>';
+  const both = !!fromName && fromName !== projectName;
+  const initial = n => escHtml((String(n).trim()[0] || '?').toUpperCase());
+  const tile = (n, kind) => '<div class="vns-tile ' + kind + '">'
+    + (kind === 'new' ? '<svg viewBox="0 0 76 76"><rect x="1" y="1" width="74" height="74" rx="22" pathLength="100"/></svg>' : '')
+    + '<b>' + initial(n) + '</b></div>';
+  overlay.innerHTML = '<div class="vns-lane' + (both ? '' : ' vns-solo') + '">'
+    + (both ? tile(fromName, 'old') : '') + tile(projectName, 'new') + '</div>'
+    + '<div class="vns-names">' + (both ? '<span class="vns-was">' + escHtml(fromName) + '</span>' : '')
+    + '<span class="vns-now">' + escHtml(projectName) + '</span></div>'
+    + (typeof sessionCount === 'number'
+      ? '<div class="vns-count">' + sessionCount + (sessionCount === 1 ? ' session' : ' sessions') + '</div>' : '');
   document.body.appendChild(overlay);
   overlay.offsetHeight;   // force reflow so the fade-in runs
   overlay.classList.add('in');
@@ -1015,15 +1029,24 @@ async function addProjectCreate() {
 }
 
 // --- Sidebar collapse ---
+// Only the desktop layout saves or restores a hidden panel.  The phone layout
+// (<= 768px) uses the same .collapsed class as its drawer and closes it every
+// time a session opens; saving that under the desktop's key hid the desktop
+// panel on its next load whenever the same browser had been at phone width
+// (a narrow window, a phone-size preview frame).  The key was renamed so a
+// value the phone layout wrote earlier is not read.  Tests:
+// tests/test_sidebar_collapse.py.
+const _SIDEBAR_HIDDEN_KEY = 'sidebarHiddenDesktop';
+const _sidebarDesktop = () => window.matchMedia('(min-width: 769px)').matches;
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
   const expandBtn = document.getElementById('btn-sidebar-expand');
   const collapsed = sidebar.classList.toggle('collapsed');
   expandBtn.classList.toggle('visible', collapsed);
-  localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '');
+  if (_sidebarDesktop()) localStorage.setItem(_SIDEBAR_HIDDEN_KEY, collapsed ? '1' : '');
 }
-// Restore on load
-if (localStorage.getItem('sidebarCollapsed') === '1') {
+// Restore on load (desktop only; the phone layout opens and closes its drawer itself)
+if (_sidebarDesktop() && localStorage.getItem(_SIDEBAR_HIDDEN_KEY) === '1') {
   document.querySelector('.sidebar').classList.add('collapsed');
   document.getElementById('btn-sidebar-expand').classList.add('visible');
 }
@@ -1034,7 +1057,7 @@ const _viewModes = {
     icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
     label: 'Home',
     title: 'Home',
-    desc: 'VibeNode homepage',
+    desc: 'DevelopNode homepage',
   },
   sessions: {
     icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
@@ -1522,9 +1545,10 @@ async function addNewAgent() {
     '<div class="live-panel" id="live-panel">' +
     '<div class="conversation live-log" id="live-log">' +
     '<div class="empty-state" style="padding:60px 0;text-align:center;">' +
-    '<svg class="vibenode-mark" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' +
+    '<svg class="vibenode-mark dn-mark" width="30" height="24" viewBox="0 0 181 142" aria-hidden="true"><path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/></svg>' +
     '<div class="vibenode-greeting">What are we building today?</div>' +
     (typeof _renderTemplateGrid === 'function' ? _renderTemplateGrid(newId) : '') +
+    (typeof _newSessionCancelHtml === 'function' ? _newSessionCancelHtml() : '') +
     '</div></div>' +
     '<div class="live-input-bar" id="live-input-bar"></div></div>';
 
@@ -2264,6 +2288,130 @@ function _onSessionList(t) {
   }, {capture: true, passive: true});
 })();
 
+// ── Smooth reorder: rows glide to their new place (FLIP) ─────────────────
+// renderList / renderWorkforce rebuild the container with innerHTML, so a
+// re-sort used to make rows jump.  _flipReorder measures every row by its
+// session id before the redraw, and after it starts each moved row at its old
+// place and lets it slide to the new one; a row that is new to the list fades
+// in.  It moves rows with the `translate` property, not `transform`: the
+// hairline finish pins cards to `transform: none !important`.  Positions are taken inside the container (scroll included), so a
+// redraw that resets scrolling does not read as movement.  Rows far outside
+// the visible area are not animated.  Reduced motion: no animation.
+const _FLIP_MS = 260;
+const _FLIP_ROW_SEL = '.session-item[data-sid], .wf-card[data-sid]';
+function _flipSnapshot(el) {
+  if (!el || !el.isConnected) return null;
+  const box = el.getBoundingClientRect();
+  if (!box.height) return null;
+  const pos = new Map(), moving = new Set();
+  el.querySelectorAll(_FLIP_ROW_SEL).forEach(r => {
+    const b = r.getBoundingClientRect();
+    if (r._vnFlip) moving.add(r.getAttribute('data-sid'));
+    pos.set(r.getAttribute('data-sid'),
+            {x: b.left - box.left + el.scrollLeft, y: b.top - box.top + el.scrollTop});
+  });
+  return {el, pos, moving};
+}
+function _flipPlay(snap) {
+  if (!snap || !snap.pos.size || !snap.el.isConnected) return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const el = snap.el, box = el.getBoundingClientRect();
+  const vh = window.innerHeight || 1000;
+  let kept = 0, inFlight = false;
+  const rows = [];
+  el.querySelectorAll(_FLIP_ROW_SEL).forEach(r => {
+    const b = r.getBoundingClientRect();
+    const was = snap.pos.get(r.getAttribute('data-sid'));
+    if (was) kept++;
+    rows.push({r, b, was});
+  });
+  // A different list (project switch, a filter that swapped most rows):
+  // nothing to glide between.
+  if (!kept || kept < rows.length / 2) return;
+  rows.forEach(({r, b, was}) => {
+    if (was) {
+      const dx = was.x - (b.left - box.left + el.scrollLeft);
+      const dy = was.y - (b.top - box.top + el.scrollTop);
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      const fromTop = b.top + dy;
+      if ((b.bottom < -200 || b.top > vh + 200) && (fromTop + b.height < -200 || fromTop > vh + 200)) return;
+      r.style.transition = 'none';
+      r.style.translate = dx + 'px ' + dy + 'px';
+      if (snap.moving.has(r.getAttribute('data-sid'))) inFlight = true;
+    } else {
+      if (b.bottom < 0 || b.top > vh) return;
+      r.style.transition = 'none';
+      r.style.opacity = '0';
+    }
+    r._vnFlip = true;
+  });
+  // Rows wait at their old place until the screen has drawn them there, and
+  // only then slide.  A re-sort arrives in a burst of redraws and the page is
+  // busy for ~200 ms after it; a slide started at once had run out its clock
+  // before the first frame was drawn, so it showed as a jump.  A redraw that
+  // lands meanwhile measures the rows where they wait, so it glides on from
+  // there.
+  const go = () => rows.forEach(({r}) => {
+    if (!r._vnFlip || !r.isConnected) return;
+    r.style.transition = 'translate ' + _FLIP_MS + 'ms cubic-bezier(.2,.8,.2,1), opacity ' + _FLIP_MS + 'ms ease';
+    r.style.translate = '';
+    r.style.opacity = '';
+    setTimeout(() => { if (!r.style.translate) r.style.transition = ''; r._vnFlip = false; }, _FLIP_MS + 40);
+  });
+  // A row caught mid-slide by this redraw is already on screen and moving:
+  // waiting two frames would freeze it in place, which read as a stutter.
+  if (inFlight) { void el.offsetWidth; go(); }
+  else requestAnimationFrame(() => requestAnimationFrame(go));
+}
+// Write a session list's markup only when it changed.  A re-sort arrives as
+// a burst of 3-4 redraws, most of them identical, and each rebuild cost
+// ~17 ms of parsing and layout for 130 cards: the hitches you could feel.
+// The rows must also still stand in the order they were drawn: a pinned drag
+// moves them by hand and its Escape redraws to put them back.  Returns
+// whether it wrote.
+function _vnRowOrder(el) {
+  let o = '';
+  el.querySelectorAll(_FLIP_ROW_SEL).forEach(r => { o += r.getAttribute('data-sid') + '\n'; });
+  return o;
+}
+function _vnWriteRows(el, html) {
+  if (el._vnHTML === html && el._vnOrder === _vnRowOrder(el)) { el._vnSkipped = true; return false; }
+  el.innerHTML = html;
+  el._vnHTML = html;
+  el._vnOrder = _vnRowOrder(el);
+  el._vnSkipped = false;
+  return true;
+}
+function _flipReorder(id, render) {
+  const el = document.getElementById(id);
+  if (!el) { render(); return; }
+  // Every row on screen now, by session id, with the markup it was drawn from.
+  const old = new Map();
+  el.querySelectorAll(_FLIP_ROW_SEL).forEach(r => old.set(r.getAttribute('data-sid'), r));
+  const snap = _flipSnapshot(el);
+  el._vnSkipped = false;
+  render();
+  if (el._vnSkipped) return;   // nothing was redrawn
+  // Keep every row whose markup did not change: put the existing element in
+  // the new one's place.  Rebuilding them all restarted each slide in
+  // progress, the spinning status icons and hover states on every redraw
+  // (a re-sort arrives as a burst of 3-4), which showed as hitches.  Rows
+  // whose markup changed (status, title, selection) are the new elements.
+  // Inline handlers carry over with the element; a pinned drag's Escape
+  // still gets its order back, because the kept rows take the NEW order.
+  el.querySelectorAll(_FLIP_ROW_SEL).forEach(r => {
+    const html = r.outerHTML;
+    const was = old.get(r.getAttribute('data-sid'));
+    if (was && was !== r && was._vnHTML === html && !was.contains(r)) {
+      r.replaceWith(was);
+    } else {
+      r._vnHTML = html;
+    }
+  });
+  el._vnOrder = _vnRowOrder(el);
+  _flipPlay(snap);
+}
+
 function filterSessions() {
   // A pinned card is being dragged (sessions.js _pinDragMove): a redraw would
   // replace it under the mouse.  The drag redraws when it ends.
@@ -2291,10 +2439,12 @@ function filterSessions() {
   } else if (viewMode === 'sessions' && sessionDisplayMode === 'control') {
     if (typeof renderMissionControl === 'function') renderMissionControl();
   } else if (viewMode === 'sessions' && sessionDisplayMode === 'grid') {
-    renderWorkforce(_windowSessions(wfSortedSessions(_applySessionFilters(allSessions))));
+    _flipReorder('workforce-grid', () =>
+      renderWorkforce(_windowSessions(wfSortedSessions(_applySessionFilters(allSessions)))));
     _mountWindowSentinel(document.getElementById('workforce-grid'));
   } else if (viewMode === 'sessions') {
-    renderList(_windowSessions(sortedSessions(_applySessionFilters(allSessions))));
+    _flipReorder('session-list', () =>
+      renderList(_windowSessions(sortedSessions(_applySessionFilters(allSessions)))));
     _mountWindowSentinel(document.getElementById('session-list'));
   } else if (viewMode === 'compose') {
     // Keep the Subsessions "Ad-hoc" family tree live as session state
@@ -2434,6 +2584,9 @@ function _sessionInRenderWindow(id) { return _sessionWindowIds.has(id); }
 
 function _mountWindowSentinel(container) {
   if (_sessionWindowIO) { _sessionWindowIO.disconnect(); _sessionWindowIO = null; }
+  // A redraw that changed nothing keeps the old rows (_vnWriteRows), and the
+  // old sentinel with them: never leave two.
+  if (container) container.querySelectorAll(':scope > .session-window-sentinel').forEach(n => n.remove());
   if (!container || _sessionWindowTotal <= _sessionWindowLimit) return;
   const s = document.createElement('div');
   s.className = 'session-window-sentinel';
@@ -2794,7 +2947,7 @@ function openPreferences() {
   const enterToSend = sendBehavior === 'enter';
   const stickyOn = localStorage.getItem('stickyUserMsgs') !== 'off';
   const wsdOn = window._wrongSessionDetectionEnabled !== false;
-  const stOn = window._smartTerminationEnabled === true;  // opt-in
+  const stOn = window._smartTerminationEnabled !== false;  // on by default
   const unreadOn = typeof unreadDotsEnabled === 'function' ? unreadDotsEnabled() : true;
 
   const snOn = !!(window.SpeechNode && window.SpeechNode.isEnabled());
@@ -2870,7 +3023,7 @@ function openPreferences() {
       b.classList.toggle('on', on);
       b.setAttribute('aria-checked', on ? 'true' : 'false');
     };
-    sync('smartterm', cfg.smart_termination === true);
+    sync('smartterm', cfg.smart_termination !== false);
     sync('wsd', cfg.wrong_session_detection !== false);
     sync('chrome', cfg.chrome_control === true);
     sync('usagepace', cfg.usage_pace_warning !== false);
@@ -3062,7 +3215,7 @@ function openServerTools() {
         if (a !== 'shutdown') { _closePm(); if (typeof _doRestart === 'function') _doRestart(a); return; }
         _devAsk(card, {
           title: 'Turn off the server?', danger: true, yes: 'Turn Off', back: rows,
-          text: 'This stops both the web server (5050) and the Session Engine (5051). All running sessions and agents end, and VibeNode has to be started again by hand.',
+          text: 'This stops both the web server (5050) and the Session Engine (5051). All running sessions and agents end, and DevelopNode has to be started again by hand.',
           go: () => { _closePm(); if (typeof _doShutdown === 'function') _doShutdown(); },
         });
       };
@@ -3258,3 +3411,63 @@ function openAddDepartment() {
 
 
 // Compose code moved to compose.js
+
+// Shown inside developnode.com/app, the DevelopNode logo (the home button)
+// goes to the website, the way a site's logo does. Everywhere else it opens
+// the app's own home view (its inline onclick). Capture phase so this runs
+// before that onclick; only a click inside the lockup is taken.
+(function () {
+  var SITE = /^https:\/\/(www\.)?developnode\.com$/;
+  function inSite() {
+    if (window.top === window) return false;
+    var a = location.ancestorOrigins;
+    if (a && a.length) return SITE.test(a[a.length - 1]);
+    try { return SITE.test(new URL(document.referrer).origin); } catch (e) { return false; }
+  }
+  if (!inSite()) return;
+
+  // Tell the site where the app is, so developnode.com/app's address carries
+  // this one (developnode.com/app?chat=… is 127.0.0.1:5050/?chat=…) and the
+  // tab shows this page's title. Only the address and title are sent.
+  var site = (location.ancestorOrigins && location.ancestorOrigins.length)
+    ? location.ancestorOrigins[location.ancestorOrigins.length - 1] : 'https://developnode.com';
+  var last = '';
+  function tellSite() {
+    var msg = { type: 'dn:url', url: location.pathname + location.search + location.hash, title: document.title };
+    var key = msg.url + '\n' + msg.title;
+    if (key === last) return;
+    last = key;
+    try { window.top.postMessage(msg, site); } catch (e) {}
+  }
+  ['pushState', 'replaceState'].forEach(function (m) {
+    var orig = history[m];
+    history[m] = function () { var r = orig.apply(this, arguments); tellSite(); return r; };
+  });
+  window.addEventListener('popstate', tellSite);
+  window.addEventListener('hashchange', tellSite);
+  window.addEventListener('load', tellSite);
+  var t = document.querySelector('title');
+  if (t && window.MutationObserver) new MutationObserver(tellSite).observe(t, { childList: true, characterData: true, subtree: true });
+  tellSite();
+
+  // The site already shows the same splash, so ours stays hidden; the site
+  // lifts its own the moment ours would have (the first session list drawn).
+  var splash = document.getElementById('vn-splash');
+  function tellReady() { try { window.top.postMessage({ type: 'dn:ready' }, site); } catch (e) {} }
+  if (!splash || !document.body.contains(splash) || splash.classList.contains('ready')) tellReady();
+  else {
+    splash.style.visibility = 'hidden';
+    var watchSplash = new MutationObserver(function () {
+      if (!document.body.contains(splash) || splash.classList.contains('ready')) { watchSplash.disconnect(); tellReady(); }
+    });
+    watchSplash.observe(splash, { attributes: true });
+    watchSplash.observe(document.body, { childList: true });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('.dn-lockup')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.top.location.href = 'https://developnode.com/';
+  }, true);
+})();

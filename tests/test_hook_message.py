@@ -267,11 +267,14 @@ def _run_parser(texts: dict) -> dict:
     if not node:
         pytest.skip("node not installed")
     src = LIVE_PANEL_JS.read_text(encoding="utf-8")
-    script = "%s\n%s\nconst texts = %s; const out = {};\nfor (const k of Object.keys(texts)) out[k] = " \
+    # _queueDisplayText strips the hidden notes through _stripVnMeta, which
+    # asks _isCardTap (and its mark) whether a summary button sent the text.
+    mark = re.search(r"const _CARD_TAP_MARK = [^\n]*", src).group(0)
+    helpers = "\n".join([mark] + [_function_source(src, n) for n in
+                                   ("_isCardTap", "_stripVnMeta", "_parseVnEvent", "_queueDisplayText")])
+    script = "%s\nconst texts = %s; const out = {};\nfor (const k of Object.keys(texts)) out[k] = " \
              "{event: _parseVnEvent(texts[k]), queue: _queueDisplayText(texts[k])};\n" \
-             "process.stdout.write(JSON.stringify(out));" % (
-                 _function_source(src, "_parseVnEvent"), _function_source(src, "_queueDisplayText"),
-                 json.dumps(texts))
+             "process.stdout.write(JSON.stringify(out));" % (helpers, json.dumps(texts))
     proc = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout)

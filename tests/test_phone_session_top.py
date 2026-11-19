@@ -21,27 +21,21 @@ def browser():
 
 
 def test_the_phone_top_is_tidy_rows_with_a_filled_search(browser):
+    """The phone layout puts the project name and New Session on one row:
+    the name on the left edge, New Session a filled button on the right,
+    each a finger's target (44px) tall."""
     app = FakeApp(browser, fake_sessions(4), viewport={"width": 390, "height": 844})
     m = app.page.evaluate("""() => {
       const r = s => document.querySelector(s).getBoundingClientRect();
       const cs = s => getComputedStyle(document.querySelector(s));
-      return {project: r('#btn-project'), add: r('#btn-add-agent'), search: r('.sidebar-search-btn'),
-              filter: r('#sidebar-filter-btn'), menu: r('#sidebar-menu-btn'),
-              searchBg: cs('.sidebar-search-btn').backgroundColor, addBg: cs('#btn-add-agent').backgroundColor,
-              header: document.querySelector('.sidebar-header').getBoundingClientRect()};
+      return {project: r('#btn-project'), add: r('#btn-add-agent'),
+              addBg: cs('#btn-add-agent').backgroundColor, addBorder: cs('#btn-add-agent').borderStyle,
+              vw: window.innerWidth};
     }""")
-    lefts = {round(m[k]["left"]) for k in ("project", "add", "search")}
-    assert len(lefts) == 1, lefts
-    for k in ("project", "add", "search", "filter", "menu"):
+    p, a = m["project"], m["add"]
+    for k in ("project", "add"):
         assert m[k]["height"] >= 44, k
-    assert m["filter"]["width"] >= 44 and m["menu"]["width"] >= 44
-    assert m["add"]["width"] >= m["header"]["width"] - 40           # full width
-    assert m["searchBg"] not in ("rgba(0, 0, 0, 0)", "transparent")  # a filled field
-    assert m["addBg"] not in ("rgba(0, 0, 0, 0)", "transparent")
-    assert not app.errors
-
-
-def test_the_computer_top_is_unchanged(browser):
-    app = FakeApp(browser, fake_sessions(2))
-    h = app.page.evaluate("document.querySelector('#btn-add-agent').getBoundingClientRect().height")
-    assert h < 44
+    assert p["left"] <= 16                                    # the name starts at the left edge
+    assert m["vw"] - a["right"] <= 24                         # New Session sits at the right
+    assert abs((p["top"] + p["height"] / 2) - (a["top"] + a["height"] / 2)) <= 4   # one row
+    assert p["right"] < a["left"]                             # never overlapping

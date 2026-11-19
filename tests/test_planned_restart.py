@@ -49,15 +49,15 @@ def test_note_is_fresh_only_for_a_while(note):
 def test_a_real_outage_keeps_the_stopped_page(reviver, note):
     assert reviver._planned_restart() is None
     page = reviver._start_page("Box").decode()
-    assert "Stopped" in page and "Start VibeNode" in page
+    assert "Stopped" in page and "Start DevelopNode" in page
 
 
 def test_a_planned_restart_says_so_and_returns_by_itself(reviver, note):
     _write(note, 1)
     assert reviver._planned_restart() is not None
     page = reviver._restarting_page("Box").decode()
-    assert "VibeNode is restarting" in page
-    assert "Stopped" not in page and "Start VibeNode" not in page
+    assert "DevelopNode is restarting" in page
+    assert "Stopped" not in page and "Start DevelopNode" not in page
     assert "location.href = '/'" in page          # takes the user back in
     assert reviver._SENTINEL in page
 

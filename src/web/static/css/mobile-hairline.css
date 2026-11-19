@@ -1,0 +1,414 @@
+/* DevelopNode on a phone: built the way an iPhone app is (a navigation bar over a large title that shrinks as the
+   list scrolls, a search field, a frosted tab bar, a back button that names where it goes), drawn in DevelopNode's
+   own design (the desktop's base colours, hairline outlines, soft status discs, spaced-capital status words, the
+   desktop's session boxes two across).  Phone widths only, while html has .vn-mhl (js/mobile-hairline.js);
+   ?finish=classic leaves it off. */
+
+@media (max-width: 768px) {
+
+html.vn-mhl {
+  --mh-base: #0d0d11;
+  --mh-line: rgba(255, 255, 255, .07);
+  --mh-line2: rgba(255, 255, 255, .11);
+  --mh-acc: #7c7cff;
+  --mh-acc-line: rgba(124, 124, 255, .30);
+  --mh-acc-disc: rgba(124, 124, 255, .13);
+  --mh-needs: #ff9f0a;
+  --mh-needs-line: rgba(255, 149, 0, .40);
+  --mh-needs-disc: rgba(255, 149, 0, .13);
+  --mh-standby: #2dd4bf;
+  --mh-standby-line: rgba(45, 212, 191, .38);
+  --mh-standby-disc: rgba(45, 212, 191, .13);
+  --mh-done: #8b8b96;
+  --mh-done-disc: rgba(255, 255, 255, .05);
+  --mh-text: #ececf1;
+  --mh-text2: #a1a1ab;
+  --mh-text3: #6b6b76;
+  --mh-r: 14px;
+  --mh-bar: 84px;
+}
+html.vn-mhl[data-theme="light"] {
+  --mh-base: #f3f3f7;
+  --mh-line: rgba(20, 20, 50, .07);
+  --mh-line2: rgba(20, 20, 50, .12);
+  --mh-acc: #5b5bf0;
+  --mh-acc-disc: rgba(91, 91, 240, .10);
+  --mh-needs: #d97706;
+  --mh-needs-line: rgba(225, 125, 0, .5);
+  --mh-needs-disc: rgba(225, 125, 0, .10);
+  --mh-standby: #0d9488;
+  --mh-done: #8a8a96;
+  --mh-done-disc: rgba(20, 20, 50, .05);
+  --mh-text: #15151c;
+  --mh-text2: #55555f;
+  --mh-text3: #8d8d97;
+}
+
+/* ── Backdrop: one flat base colour, no glow, no filled panels ── */
+html.vn-mhl, html.vn-mhl body {
+  background: var(--mh-base) fixed;
+}
+html.vn-mhl .layout, html.vn-mhl .main, html.vn-mhl #main-panel, html.vn-mhl .main-toolbar, html.vn-mhl #main-body,
+html.vn-mhl .live-panel, html.vn-mhl #live-log, html.vn-mhl #live-input-bar, html.vn-mhl #workforce-grid, html.vn-mhl .session-list {
+  background: transparent !important; box-shadow: none !important;
+}
+html.vn-mhl body .layout .sidebar {
+  background: var(--mh-base) !important;
+  border: 0 !important; box-shadow: none !important;
+}
+html.vn-mhl body .layout .sidebar .sidebar-header { background: transparent !important; border: 0 !important; }
+
+/* ── One grid for every screen ──
+   16px side margins; icon buttons are 40px with a 20px glyph, set 6px from the edge so the glyph lines up on the
+   16px margin; type: 24/700 title, 15 body, 13/500 controls, 12 meta, 10.5/600 spaced capitals, 11/500 tab labels. */
+html.vn-mhl { --mh-m: 16px; --mh-ib: 40px; --mh-ib-edge: 6px; }
+/* The home bar's strip at the bottom: iOS reports no bottom inset to a home-screen app without viewport-fit=cover,
+   so a full-screen (standalone) app keeps at least 24px clear of it; the browser's own toolbar needs none. */
+html.vn-mhl { --mh-sb: env(safe-area-inset-bottom, 0px); }
+@media (display-mode: standalone) { html.vn-mhl { --mh-sb: max(env(safe-area-inset-bottom, 0px), 24px); } }
+html.vn-mhl .vn-mh-tabs, html.vn-mhl .vn-mh-tab, html.vn-mhl .vn-mh-seg { font-family: inherit; }
+
+/* The phone's session list uses the desktop's left menu (js/topbar.js: project masthead, New Session row, status counts).
+   The iPhone-style list top below is kept off: its rules need html.vn-mh-ios, which nothing sets. */
+/* ── The list's top: a navigation bar (title appears once the list scrolls, ••• menu), then the large title,
+   then the search field.  Scrolling the boxes folds the large title and search away (.vn-mh-folded). ── */
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-header {
+  display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; position: relative; z-index: 6;
+  padding: env(safe-area-inset-top) 0 0 0 !important; gap: 0 !important;
+}
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-sidebar-toggle,
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-add-agent,
+html.vn-mhl.vn-mh-ios body .layout .sidebar #sidebar-nav { display: none !important; }
+html.vn-mhl.vn-mh-ios .vn-mh-nav {
+  order: -1; flex: 1 1 100%; height: 44px; position: relative; display: flex; align-items: center; justify-content: flex-end;
+  padding: 0 var(--mh-ib-edge); box-shadow: 0 1px 0 transparent; transition: box-shadow .2s;
+}
+html.vn-mhl.vn-mh-ios .vn-mh-navtitle {
+  position: absolute; left: 64px; right: 64px; text-align: center; font-size: 17px; font-weight: 600; letter-spacing: -.01em; color: var(--mh-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity .15s; pointer-events: none;
+  border: 0; background: none; padding: 0; font-family: inherit; cursor: pointer; height: 44px;
+}
+html.vn-mhl.vn-mh-ios .vn-mh-folded .vn-mh-navtitle { pointer-events: auto; }
+html.vn-mhl.vn-mh-ios .vn-mh-more {
+  width: var(--mh-ib); height: var(--mh-ib); border: 0; background: none; border-radius: 10px; display: grid; place-items: center; color: var(--mh-acc); cursor: pointer;
+}
+html.vn-mhl.vn-mh-ios .vn-mh-more svg { width: 24px; height: 24px; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project {
+  opacity: 1 !important; order: 0; flex: 1 1 100%; min-width: 0; height: 44px; min-height: 0; padding: 0 var(--mh-m) !important; margin: 0 !important;
+  justify-content: flex-start; gap: 4px; overflow: hidden;
+  font-size: 32px !important; font-weight: 700 !important; line-height: 1.2 !important; letter-spacing: -.02em; color: var(--mh-text) !important;
+  background: none !important; border: 0 !important; transition: height .22s ease, opacity .18s ease;
+}
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project > svg:first-child { display: none !important; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project #project-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 !important; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project::after {
+  content: ""; flex: none; width: 18px; height: 18px; margin-top: 4px; background: var(--mh-text3);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+/* The search row: the Search button drawn as the search field; the funnel and ••• stay as anchors for their menus,
+   which the navigation bar's ••• menu opens */
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row {
+  order: 1; flex: 1 1 100% !important; width: auto !important; height: 48px; gap: 0 !important; margin: 0 !important; padding: 6px var(--mh-m) 6px !important;
+  position: relative; overflow: visible; transition: height .22s ease, opacity .18s ease, padding .22s ease;
+}
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-btn {
+  flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 36px !important; min-height: 0 !important; margin: 0 !important;
+  padding: 0 10px !important; gap: 7px !important; justify-content: flex-start !important; display: flex !important; align-items: center !important;
+  background: transparent !important; border: 0 !important; box-shadow: inset 0 0 0 1px var(--mh-line2) !important; border-radius: 10px !important;
+  color: var(--mh-text3) !important; font-size: 16px !important; font-weight: 400 !important; overflow: hidden;
+}
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-btn kbd { display: none !important; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-btn svg { width: 17px !important; height: 17px !important; flex: none; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row > .sidebar-filter-wrap,
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row > .sidebar-menu-wrap { position: absolute !important; top: 0; right: var(--mh-m); width: 0; height: 0; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row > .sidebar-filter-wrap > button,
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row > .sidebar-menu-wrap > button { position: absolute !important; width: 1px !important; height: 1px !important; min-height: 0 !important; opacity: 0 !important; pointer-events: none; padding: 0 !important; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row .sidebar-menu-dropdown { top: 0 !important; right: 0 !important; z-index: 60; }
+
+/* Folded: the list has scrolled, the title moves into the navigation bar */
+html.vn-mhl.vn-mh-ios .vn-mh-folded .vn-mh-navtitle { opacity: 1; }
+html.vn-mhl.vn-mh-ios .vn-mh-folded .vn-mh-nav { box-shadow: 0 1px 0 var(--mh-line); }
+html.vn-mhl.vn-mh-ios body .layout .sidebar.vn-mh-folded #btn-project { height: 0; opacity: 0; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar.vn-mh-folded .sidebar-search-row { height: 0; padding-top: 0 !important; padding-bottom: 0 !important; opacity: 0; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar.vn-mh-folded .sidebar-search-row .sidebar-search-btn { pointer-events: none; }
+
+/* The navigation bar's ••• menu (built by mobile-hairline.js) */
+html.vn-mhl.vn-mh-ios .vn-mh-menu {
+  position: absolute; z-index: 70; top: calc(env(safe-area-inset-top) + 44px); right: 12px; width: 250px; border-radius: 14px; overflow: hidden;
+  background: rgba(28, 28, 34, .94); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 0 0 1px var(--mh-line2), 0 12px 40px rgba(0, 0, 0, .45);
+  transform-origin: top right; transform: scale(.5); opacity: 0; pointer-events: none; transition: transform .26s cubic-bezier(.3, 1.3, .5, 1), opacity .16s;
+}
+html.vn-mhl.vn-mh-ios[data-theme="light"] .vn-mh-menu { background: rgba(255, 255, 255, .95); box-shadow: 0 0 0 1px var(--mh-line2), 0 12px 40px rgba(0, 0, 0, .12); }
+html.vn-mhl.vn-mh-ios .vn-mh-menu.open { transform: none; opacity: 1; pointer-events: auto; }
+html.vn-mhl.vn-mh-ios .vn-mh-menu button {
+  width: 100%; height: 46px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border: 0; background: none;
+  font: inherit; font-size: 16px; color: var(--mh-text); cursor: pointer; text-align: left;
+}
+html.vn-mhl.vn-mh-ios .vn-mh-menu button + button { box-shadow: 0 -1px 0 var(--mh-line); }
+html.vn-mhl.vn-mh-ios .vn-mh-menu button.gap { box-shadow: 0 -6px 0 rgba(0, 0, 0, .22); margin-top: 6px; }
+html.vn-mhl.vn-mh-ios[data-theme="light"] .vn-mh-menu button.gap { box-shadow: 0 -6px 0 rgba(20, 20, 50, .06); }
+html.vn-mhl.vn-mh-ios .vn-mh-menu button:active { background: var(--mh-done-disc); }
+html.vn-mhl.vn-mh-ios .vn-mh-menu svg { width: 20px; height: 20px; color: var(--mh-text2); }
+html.vn-mhl.vn-mh-ios .vn-mh-scrim { position: absolute; inset: 0; z-index: 65; display: none; }
+html.vn-mhl.vn-mh-ios .vn-mh-scrim.open { display: block; }
+
+/* ── Status tabs (built by mobile-hairline.js): the same underline tabs as a summary's Short / Plain words / Full ── */
+html.vn-mhl.vn-mh-ios .vn-mh-tabs {
+  order: 2; flex: 1 1 100%; display: flex; gap: 20px; height: 40px; margin: 2px var(--mh-m) 0;
+  border-bottom: 1px solid var(--mh-line);
+}
+html.vn-mhl.vn-mh-ios .vn-mh-seg {
+  position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 0; margin: 0 0 -1px; border: 0; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 500; line-height: 1; color: var(--mh-text3); border-bottom: 2px solid transparent; white-space: nowrap;
+}
+html.vn-mhl.vn-mh-ios .vn-mh-seg.on { color: var(--mh-text); border-bottom-color: var(--mh-text); }
+html.vn-mhl.vn-mh-ios .vn-mh-seg i { font-style: normal; font-weight: 400; color: var(--mh-text3); font-variant-numeric: tabular-nums; }
+html.vn-mhl.vn-mh-ios .vn-mh-seg[data-chip="needs"] i.has { color: var(--mh-needs); }
+
+/* ── Session boxes: the desktop's tall centred box, two across ── */
+html.vn-mhl body .layout .sidebar #workforce-grid {
+  gap: 8px !important; padding: 12px var(--mh-m) calc(var(--mh-sb) + 24px) !important; align-content: flex-start;
+}
+html.vn-mhl body .layout .sidebar .wf-card {
+  flex: 0 0 calc(50% - 4px) !important; max-width: calc(50% - 4px) !important; min-width: 0 !important; height: auto !important; min-height: 148px;
+  padding: 16px 12px 14px !important; gap: 0 !important; justify-content: flex-start; align-items: center;
+  background: transparent !important; border: 1px solid var(--mh-line) !important; border-radius: var(--mh-r) !important; box-shadow: none !important;
+}
+html.vn-mhl body .layout .sidebar .wf-card::before, html.vn-mhl body .layout .sidebar .wf-card::after { display: none !important; }
+html.vn-mhl body .layout .sidebar .wf-card:active { background: var(--mh-done-disc) !important; }
+html.vn-mhl body .layout .sidebar .wf-card.vs-working { border-color: var(--mh-acc-line) !important; }
+html.vn-mhl body .layout .sidebar .wf-card.vs-needs { border-color: var(--mh-needs-line) !important; }
+html.vn-mhl body .layout .sidebar .wf-card.vs-standby { border: 1px solid var(--mh-standby-line) !important; }
+html.vn-mhl body .layout .sidebar .wf-card.wf-selected { border-color: var(--mh-acc-line) !important; }
+html.vn-mhl body .layout .sidebar .wf-avatar {
+  width: 40px !important; height: 40px !important; flex: none; border-radius: 50% !important; margin: 0 0 10px !important;
+  display: flex !important; align-items: center; justify-content: center; background: var(--mh-done-disc) !important; border: 0 !important;
+}
+html.vn-mhl body .layout .sidebar .vs-working .wf-avatar { background: var(--mh-acc-disc) !important; }
+html.vn-mhl body .layout .sidebar .vs-needs .wf-avatar { background: var(--mh-needs-disc) !important; }
+html.vn-mhl body .layout .sidebar .vs-standby .wf-avatar { background: var(--mh-standby-disc) !important; }
+html.vn-mhl body .layout .sidebar .wf-avatar img, html.vn-mhl body .layout .sidebar .wf-avatar svg { width: 20px !important; height: 20px !important; }
+html.vn-mhl body .layout .sidebar .wf-status-label {
+  background: transparent !important; padding: 0 !important; margin: 0 0 5px !important; line-height: 13px !important;
+  font-size: 10.5px !important; font-weight: 600 !important; letter-spacing: .12em !important;
+}
+html.vn-mhl body .layout .sidebar .wf-name {
+  font-size: 15px !important; font-weight: 500 !important; line-height: 20px !important; color: var(--mh-text) !important; white-space: normal !important;
+  display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: center;
+  width: 100% !important; max-width: none !important; text-overflow: clip !important; margin: 0 0 6px !important;
+}
+/* Done names are as bright as every other name: a grey name read as disabled, not finished. */
+html.vn-mhl body .layout .sidebar .wf-card.vs-done .wf-name { color: var(--mh-text) !important; }
+html.vn-mhl body .layout .sidebar .wf-meta { font-size: 12px !important; line-height: 16px !important; color: var(--mh-text3) !important; margin: auto 0 0 !important; font-variant-numeric: tabular-nums; }
+
+/* The tab bar replaces the footer line */
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-footer { display: none !important; }
+
+/* ── Tab bar (built by mobile-hairline.js): frosted over the boxes, Sessions, Sync, New, Search, Settings ── */
+html.vn-mhl .vn-mh-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; align-items: flex-start;
+  height: calc(52px + var(--mh-sb)); padding: 0 var(--mh-ib-edge) var(--mh-sb);
+  background: rgba(13, 13, 17, .86); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 -1px 0 var(--mh-line);
+}
+html.vn-mhl[data-theme="light"] .vn-mh-bar { background: rgba(243, 243, 247, .88); }
+html.vn-mhl .vn-mh-tab {
+  position: relative; flex: 1 1 0; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding: 6px 0 0;
+  background: none; border: 0; font-size: 10.5px; font-weight: 500; line-height: 12px; color: var(--mh-text3); cursor: pointer;
+}
+html.vn-mhl .vn-mh-tab.on { color: var(--mh-text); }
+html.vn-mhl .vn-mh-tab svg { width: 25px; height: 25px; flex: none; }
+html.vn-mhl .vn-mh-tab.new { color: var(--mh-acc); }
+html.vn-mhl .vn-mh-tab.new svg { width: 27px; height: 27px; margin: -1px 0 0; }
+html.vn-mhl .vn-mh-tab:active svg { transform: scale(.92); }
+html.vn-mhl .vn-mh-tab .badge {
+  position: absolute; top: 6px; left: calc(50% + 8px); width: 8px; height: 8px; border-radius: 50%; background: var(--mh-needs);
+  box-shadow: 0 0 0 2px var(--mh-base); display: none;
+}
+html.vn-mhl .vn-mh-tab.has-badge .badge { display: block; }
+
+/* ── An open session: the old top bar folds away, one quiet title row with a back arrow ── */
+html.vn-mhl body.mob-drilled:not(.mc-mode) header {
+  height: 0 !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; overflow: visible !important; background: none !important;
+}
+html.vn-mhl body.mob-drilled:not(.mc-mode) header > :not(.hdr-sys) { display: none !important; }
+html.vn-mhl body.mob-drilled:not(.mc-mode) header .hdr-sys > button { display: none !important; }
+html.vn-mhl body.mob-drilled:not(.mc-mode) #main-panel { height: 100dvh !important; }
+/* Navigation bar: "‹ Sessions" back button in the accent, the session's name centred, ••• on the right; frosted */
+html.vn-mhl .sidebar-expand-btn {
+  top: calc(env(safe-area-inset-top) + 0px) !important; left: 4px !important; width: auto !important; height: 44px !important; padding: 0 8px 0 4px !important;
+  gap: 4px; border-radius: 10px !important; background: transparent !important; border: 0 !important; color: var(--mh-acc) !important;
+  font-size: 17px !important; font-weight: 400 !important; z-index: 3001 !important;
+}
+html.vn-mhl .sidebar-expand-btn svg { display: none !important; }
+html.vn-mhl .sidebar-expand-btn::before {
+  content: ""; width: 13px; height: 22px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 21' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 1.5 1.8 10.5 10 19.5'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 21' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 1.5 1.8 10.5 10 19.5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+html.vn-mhl .sidebar-expand-btn::after { content: "Sessions"; letter-spacing: -.01em; }
+html.vn-mhl body.mob-drilled .main-toolbar {
+  position: relative !important; height: calc(44px + env(safe-area-inset-top)) !important; min-height: 0 !important; align-items: center !important; gap: 0 !important;
+  padding: env(safe-area-inset-top) var(--mh-ib-edge) 0 0 !important; justify-content: flex-end !important;
+  background: rgba(13, 13, 17, .86) !important; -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 0 !important; box-shadow: 0 1px 0 var(--mh-line) !important; z-index: 20;
+}
+html.vn-mhl[data-theme="light"] body.mob-drilled .main-toolbar { background: rgba(243, 243, 247, .88) !important; }
+html.vn-mhl body.mob-drilled #main-title {
+  position: absolute !important; left: 112px; right: 112px; bottom: 0; height: 44px; line-height: 44px !important; text-align: center;
+  font-size: 17px !important; font-weight: 600 !important; letter-spacing: -.01em; color: var(--mh-text) !important;
+}
+html.vn-mhl body.mob-drilled .main-toolbar .toolbar-more { width: var(--mh-ib) !important; height: var(--mh-ib) !important; border-radius: 10px !important; color: var(--mh-acc) !important; }
+html.vn-mhl body.mob-drilled .main-toolbar .toolbar-more svg { width: 22px !important; height: 22px !important; }
+
+/* The thread: the desktop's own chat surfaces (hairline.css and quiet-chat.css, switched on at phone width by
+   mobile-hairline.js setting data-finish), on the phone's 16px margins */
+html.vn-mhl #live-log { padding-left: var(--mh-m) !important; padding-right: var(--mh-m) !important; }
+html.vn-mhl #live-input-bar { border-top: 0 !important; padding-left: var(--mh-m) !important; padding-right: var(--mh-m) !important; }
+
+/* ── Spacing: one 8pt rhythm ──
+   List: nav 44, title 52, 8 to the search field, 16 to the tabs, 20 to the boxes; 12 between boxes both ways.
+   Box: 20 to the disc, 12 disc to status, 6 to the name, 8 to the time, 18 below.
+   Thread: 24 between messages; a message's steps sit 12 under it. */
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project { height: 52px; align-items: flex-end; padding-bottom: 6px !important; }
+html.vn-mhl.vn-mh-ios body .layout .sidebar .sidebar-search-row { height: 60px; padding: 8px var(--mh-m) 16px !important; }
+html.vn-mhl.vn-mh-ios .vn-mh-tabs { margin-top: 0; }
+html.vn-mhl body .layout .sidebar #workforce-grid { gap: 12px !important; padding-top: 20px !important; }
+html.vn-mhl body .layout .sidebar .wf-card { flex-basis: calc(50% - 6px) !important; max-width: calc(50% - 6px) !important; min-height: 166px; padding: 20px 12px 18px !important; }
+html.vn-mhl body .layout .sidebar .wf-avatar { margin-bottom: 12px !important; }
+html.vn-mhl body .layout .sidebar .wf-status-label { margin-bottom: 6px !important; }
+html.vn-mhl body .layout .sidebar .wf-name { margin-bottom: 8px !important; }
+html.vn-mhl .vn-mh-tab { padding-top: 8px; gap: 4px; }
+/* New is the bar's main action: a 36px disc, its label still under it */
+/* No bottom tab bar on the phone: one ••• menu (js/mobile-hairline.js). Kept hidden if an older script draws it. */
+html.vn-mhl .vn-mh-bar { display: none !important; }
+/* The bar is solid: the session boxes no longer show through under the labels */
+html.vn-mhl .vn-mh-bar { background: var(--mh-base) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.vn-mhl .vn-mh-tab.new { padding-top: 1px; gap: 2px; }
+html.vn-mhl .vn-mh-tab.new svg { width: 34px; height: 34px; margin: 0; }
+html.vn-mhl #live-log > .msg { margin-top: 0 !important; margin-bottom: 24px !important; }
+html.vn-mhl #live-log > .vn-trail, html.vn-mhl #live-log > .live-entry { margin-top: -12px !important; margin-bottom: 24px !important; }
+html.vn-mhl #live-log > .msg + .msg { margin-top: 0 !important; }
+
+/* ── Session top bar: room to breathe ──
+   The back button is the chevron alone, its glyph on the 16px margin; the session's name is centred over the
+   full width between two 56px side zones, one line, 17/600; ••• sits on the right margin; the bar is 52 tall. */
+html.vn-mhl .sidebar-expand-btn { left: 0 !important; width: 56px !important; height: 52px !important; padding: 0 0 0 14px !important; justify-content: flex-start !important; }
+html.vn-mhl .sidebar-expand-btn::after { content: none !important; }
+html.vn-mhl body.mob-drilled .main-toolbar { height: calc(52px + env(safe-area-inset-top)) !important; padding-right: 8px !important; }
+html.vn-mhl body.mob-drilled #main-title { left: 56px !important; right: 56px !important; height: 52px !important; line-height: 52px !important; }
+html.vn-mhl body.mob-drilled .main-toolbar .toolbar-more { width: 40px !important; height: 40px !important; }
+html.vn-mhl #live-log { padding-top: 16px !important; }
+
+/* ── Project picker: a bottom sheet ──
+   The app's own picker (#project-overlay, its rows and actions unchanged) drawn as a sheet that slides up:
+   a grab handle, the title centred with Done on the right, 56px rows, the open project ticked, the counts in
+   their columns; rename and delete are revealed by swiping a project left (mobile-hairline.js). */
+html.vn-mhl #project-overlay { align-items: flex-end !important; justify-content: stretch !important; background: rgba(0, 0, 0, .5) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.vn-mhl[data-theme="light"] #project-overlay { background: rgba(0, 0, 0, .25) !important; }
+html.vn-mhl #project-overlay .project-card {
+  width: 100% !important; max-width: none !important; max-height: 88dvh !important; margin: 0 !important; border-radius: 14px 14px 0 0 !important;
+  background: #141419 !important; border: 0 !important; box-shadow: 0 -1px 0 var(--mh-line2) !important;
+  padding-bottom: var(--mh-sb) !important; opacity: 1 !important; transform: none;
+  animation: mh-sheet-up .42s cubic-bezier(.2, .9, .25, 1);
+}
+html.vn-mhl[data-theme="light"] #project-overlay .project-card { background: #fff !important; }
+html.vn-mhl #project-overlay.mh-closing { animation: mh-fade-out .26s ease forwards; }
+html.vn-mhl #project-overlay.mh-closing .project-card { animation: mh-sheet-down .26s cubic-bezier(.4, 0, 1, 1) forwards; }
+@keyframes mh-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes mh-sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes mh-fade-out { to { background: transparent; } }
+html.vn-mhl #project-overlay .project-card::before { content: ""; display: block; flex: none; width: 36px; height: 5px; border-radius: 3px; background: var(--mh-line2); margin: 6px auto 0; }
+html.vn-mhl #project-overlay .project-header { height: 52px; padding: 0 16px !important; display: flex !important; align-items: center !important; justify-content: center; flex-wrap: nowrap !important; position: relative; }
+html.vn-mhl #project-overlay .project-header h2 { font-family: inherit !important; font-size: 17px !important; font-weight: 600 !important; color: var(--mh-text); }
+html.vn-mhl #project-overlay .project-sub { display: none !important; }
+html.vn-mhl #project-overlay .project-header p:not([hidden]) { position: absolute; left: 16px; right: 16px; top: 44px; text-align: center; }
+html.vn-mhl #project-overlay .overlay-close {
+  top: 6px !important; right: 6px !important; width: auto !important; height: 40px !important; padding: 0 10px !important; border-radius: 10px;
+  font-size: 0 !important; color: var(--mh-acc) !important; background: none !important;
+}
+html.vn-mhl #project-overlay .overlay-close::after { content: "Done"; font-size: 16px; font-weight: 600; }
+html.vn-mhl #project-overlay .project-list { padding: 0 16px 12px !important; overflow-y: auto; }
+html.vn-mhl #project-overlay .project-sep { margin: 0 !important; height: 0 !important; }
+html.vn-mhl #project-overlay .ps-head { padding: 0 0 4px; }
+html.vn-mhl #project-overlay .project-item {
+  position: relative; overflow: hidden; min-height: 56px; padding: 0 !important; gap: 12px; border-radius: 0 !important; background: none !important;
+  box-shadow: 0 -1px 0 var(--mh-line); touch-action: pan-y;
+}
+html.vn-mhl #project-overlay .project-item-all { box-shadow: none; }
+html.vn-mhl #project-overlay .project-item:active { background: var(--mh-done-disc) !important; }
+html.vn-mhl #project-overlay .project-item-mark { width: 32px; height: 32px; border-radius: 9px; font-size: 14px; }
+html.vn-mhl #project-overlay .project-item-name { font-size: 16px !important; font-weight: 400 !important; }
+html.vn-mhl #project-overlay .project-item.active .project-item-name { font-weight: 500 !important; }
+html.vn-mhl #project-overlay .project-item-path { display: none !important; }
+html.vn-mhl #project-overlay .project-item-add .project-item-name { color: var(--mh-acc) !important; font-weight: 400 !important; }
+html.vn-mhl #project-overlay .project-item-add .project-item-mark { border: 0; background: var(--mh-acc-disc); color: var(--mh-acc); }
+/* Swipe a project left: Rename and Delete slide in from the right edge, full height */
+html.vn-mhl #project-overlay .project-item-actions {
+  position: absolute !important; top: 0; bottom: 0; right: 0; inset: 0 0 0 auto !important; order: 0 !important; z-index: 2; gap: 0 !important;
+  display: flex !important; opacity: 1 !important; pointer-events: auto !important; transform: translateX(100%); transition: transform .25s cubic-bezier(.2, .9, .25, 1);
+}
+html.vn-mhl #project-overlay .project-item.mh-swiped .project-item-actions { transform: none; }
+html.vn-mhl #project-overlay .project-item-actions .project-act-btn { width: 76px !important; height: auto !important; border-radius: 0 !important; color: #fff !important; background: #6b6b76 !important; font-size: 14px; font-weight: 500; }
+html.vn-mhl #project-overlay .project-item-actions .project-act-btn.danger { background: #ff453a !important; }
+html.vn-mhl #project-overlay .project-item-actions .project-act-btn svg { display: none; }
+html.vn-mhl #project-overlay .project-item-actions .project-rename-btn::after { content: "Rename"; }
+html.vn-mhl #project-overlay .project-item-actions .project-delete-btn::after { content: "Delete"; }
+html.vn-mhl #project-overlay .project-item:hover .project-item-count { visibility: visible !important; }
+html.vn-mhl #project-overlay .project-list.mh-hint::after {
+  content: "Swipe a project left to rename or delete it"; display: block; padding: 10px 0 2px; text-align: center; font-size: 12px; color: var(--mh-text3);
+}
+html.vn-mhl #project-overlay .project-item .project-item-right { position: static !important; }
+html.vn-mhl #project-overlay .project-item-actions { margin: 0 !important; align-items: stretch !important; transform: translateX(calc(100% + 12px)); }
+html.vn-mhl #project-overlay .project-item.mh-swiped .project-item-actions { transform: none; }
+html.vn-mhl #project-overlay .project-item-actions .project-act-btn { display: flex !important; align-items: center; justify-content: center; margin: 0 !important; }
+html.vn-mhl #project-overlay .project-item { -webkit-user-select: none; user-select: none; }
+/* The chevron after the large project name sits on the middle of the capitals, not the bottom of the line box */
+html.vn-mhl.vn-mh-ios body .layout .sidebar #btn-project::after { align-self: flex-end; margin: 0 0 var(--mh-chev-lift, 11px) 2px !important; }
+
+/* ── New session: the navigation bar stays, titled New Session, like every other session ── */
+html.vn-mhl body.mob-drilled #main-panel:has(#live-log > .empty-state > .vibenode-greeting) .main-toolbar { display: flex !important; }
+html.vn-mhl body.mob-drilled #main-panel:has(#live-log > .empty-state > .vibenode-greeting) #main-title { visibility: visible !important; }
+
+/* ── Search: the same bottom sheet as the project picker ──
+   (search.js builds it with inline styles, hence !important): handle, "Search" centred, Done at the top right,
+   the field under it, the hint as a quiet line, results scrolling below. */
+html.vn-mhl #deep-search-overlay { align-items: flex-end !important; padding: 0 !important; background: rgba(0, 0, 0, .5) !important; }
+html.vn-mhl[data-theme="light"] #deep-search-overlay { background: rgba(0, 0, 0, .25) !important; }
+html.vn-mhl #deep-search-overlay > div {
+  position: relative; width: 100% !important; max-width: none !important; height: 88dvh; max-height: 88dvh !important; border: 0 !important; border-radius: 14px 14px 0 0 !important;
+  background: #141419 !important; box-shadow: 0 -1px 0 var(--mh-line2); padding: 0 16px calc(env(safe-area-inset-bottom) + 12px) !important;
+  animation: mh-sheet-up .42s cubic-bezier(.2, .9, .25, 1);
+}
+html.vn-mhl[data-theme="light"] #deep-search-overlay > div { background: #fff !important; }
+html.vn-mhl #deep-search-overlay > div::before { content: ""; display: block; flex: none; width: 36px; height: 5px; border-radius: 3px; background: var(--mh-line2); margin: 6px auto 0; }
+html.vn-mhl #deep-search-overlay h3 { height: 52px; line-height: 52px; margin: 0 !important; text-align: center; font-size: 0 !important; }
+html.vn-mhl #deep-search-overlay h3::after { content: "Search"; font-size: 17px; font-weight: 600; color: var(--mh-text); }
+html.vn-mhl #deep-search-overlay #ds-input {
+  order: 0; height: 36px; padding: 0 12px !important; border-radius: 10px !important; border: 1px solid var(--mh-line2) !important;
+  background: transparent !important; font-size: 16px !important; color: var(--mh-text) !important; flex: none;
+}
+html.vn-mhl #deep-search-overlay p { order: 1; margin: 10px 2px 0 !important; font-size: 12px !important; line-height: 1.45; color: var(--mh-text3) !important; }
+html.vn-mhl #deep-search-overlay #ds-status { order: 2; }
+html.vn-mhl #deep-search-overlay #ds-results { order: 3; }
+html.vn-mhl #deep-search-overlay #ds-close {
+  position: absolute; top: 17px; right: 6px; height: 40px; padding: 0 10px !important; border: 0 !important; background: none !important; font-size: 0 !important; color: var(--mh-acc) !important;
+}
+html.vn-mhl #deep-search-overlay #ds-close::after { content: "Done"; font-size: 16px; font-weight: 600; }
+
+/* ── Menus (System, Session actions, a session's •••): the sheet's colours and corners ── */
+html.vn-mhl #mobile-sheet .sheet-card { background: #141419 !important; border-radius: 14px !important; box-shadow: 0 0 0 1px var(--mh-line2) !important; }
+html.vn-mhl[data-theme="light"] #mobile-sheet .sheet-card { background: #fff !important; }
+html.vn-mhl #mobile-sheet .sheet-item { border-bottom-color: var(--mh-line) !important; font-size: 16px !important; color: var(--mh-text) !important; }
+html.vn-mhl #mobile-sheet .sheet-cancel { background: #141419 !important; border-radius: 14px !important; box-shadow: 0 0 0 1px var(--mh-line2) !important; color: var(--mh-acc) !important; font-weight: 600 !important; }
+html.vn-mhl[data-theme="light"] #mobile-sheet .sheet-cancel { background: #fff !important; }
+html.vn-mhl body.mob-drilled #main-title { font-style: normal !important; }
+/* Search results: hairline boxes like the session boxes, 14px corners, 12px apart */
+html.vn-mhl #deep-search-overlay .deep-search-row { background: transparent !important; border: 1px solid var(--mh-line) !important; border-radius: var(--mh-r) !important; padding: 12px 14px !important; margin-bottom: 12px !important; }
+html.vn-mhl #deep-search-overlay .deep-search-title { font-size: 15px; font-weight: 500; color: var(--mh-text); }
+html.vn-mhl #deep-search-overlay .deep-search-date { font-size: 12px; color: var(--mh-text3); }
+html.vn-mhl #deep-search-overlay .deep-search-snip { font-size: 13.5px; line-height: 1.45; color: var(--mh-text2); margin-top: 6px; }
+}
+

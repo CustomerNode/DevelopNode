@@ -91,7 +91,7 @@ vm.runInContext(fs.readFileSync(process.argv[2], 'utf8'), ctx);
 const SV = ctx.SessionVerbCore;
 // The drawn statuses follow the Smart termination switch: off,
 // every caller falls back to the process statuses.
-const gate = [ctx.SessionVerb === undefined];
+const gate = [ctx.SessionVerb === SV];  // on by default before the config loads
 ctx.applySmartTerminationView(true); gate.push(ctx.SessionVerb === SV);
 ctx.applySmartTerminationView(false); gate.push(ctx.SessionVerb === undefined);
 ctx.applySmartTerminationView(true);

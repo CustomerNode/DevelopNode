@@ -6,12 +6,12 @@
      so the composer sits above the keyboard without the browser sliding the whole app up.  iOS Safari ignores it;
      see updateKeyboardOffset() in mobile.js for the iOS half. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-<title>VibeNode</title>
-<link rel="icon" href="/static/images/logo.png" type="image/png">
+<title>DevelopNode</title>
+<link rel="icon" href="/static/developnode.png" type="image/png">
 <!-- Mobile Command: install-to-home-screen shell (inert on desktop). Lets the phone
-     add VibeNode as a standalone, native-feeling app icon. See app/mobile_command.py. -->
+     add DevelopNode as a standalone, native-feeling app icon. See app/mobile_command.py. -->
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/static/vibenode.png">
+<link rel="apple-touch-icon" href="/static/developnode.png">
 <meta name="theme-color" content="#0b0d10">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <!-- Per-machine Home-Screen label so multiple computers are distinguishable on the
      phone (defaults to hostname; set in System → Mobile Command). iOS uses this for
      the Add-to-Home-Screen name. -->
-<meta name="apple-mobile-web-app-title" content="{{ a2hs_title|default('VibeNode', true) }}">
+<meta name="apple-mobile-web-app-title" content="{{ a2hs_title|default('DevelopNode', true) }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Inter is the body face. The CSS font stack asked for 'Inter' long before
@@ -29,12 +29,13 @@
      identical everywhere. display=swap means an offline/blocked load simply
      falls through to the system stack exactly as it did before, so this is
      safe for local-first / air-gapped use. -->
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ versioned_static('style.css') }}">
 <link rel="stylesheet" href="{{ versioned_static('css/mobile.css') }}">   <!-- mobile responsive layer (<=768px only) -->
 <link rel="stylesheet" href="{{ versioned_static('css/usage-pace.css') }}">   <!-- weekly usage pace pop-ups (usage-pace.js) -->
+<link rel="stylesheet" href="{{ versioned_static('css/rebrand.css') }}">   <!-- DevelopNode rename notice (rebrand.js) -->
 <link rel="stylesheet" href="{{ versioned_static('css/session-status.css') }}">   <!-- sidebar status oriented to the person (session-verb.js) -->
-<link rel="stylesheet" href="{{ versioned_static('css/phone-a-friend.css') }}">   <!-- Phone a Friend (VibeNode Orgs) -->
+<link rel="stylesheet" href="{{ versioned_static('css/phone-a-friend.css') }}">   <!-- Phone a Friend (DevelopNode Orgs) -->
 <link rel="stylesheet" href="{{ versioned_static('css/mobile-preview.css') }}">   <!-- mobile visual channel: preview cards + sheet -->
 <link rel="stylesheet" href="/speechnode/speechnode.css">   <!-- SpeechNode package assets -->
 <link rel="stylesheet" href="{{ versioned_static('css/embed.css') }}">   <!-- embed mode: hides project/view chrome, only active with ?embed=1 -->
@@ -60,6 +61,23 @@
     }
   }
   document.documentElement.setAttribute('data-theme', t);
+  // Visual finish (css/hairline.css).  Set here for desktop widths; at phone widths js/mobile-hairline.js sets it so
+  // the chat takes the same surfaces (hairline.css's layout rules are desktop-only).  ?finish=classic shows the previous look.
+  var fin = new URLSearchParams(location.search).get('finish');
+  if (!fin || !/^[a-z-]{1,20}$/.test(fin)) fin = window.matchMedia('(min-width: 769px)').matches ? 'hairline' : '';
+  if (fin) document.documentElement.setAttribute('data-finish', fin);
+  // The hairline left side: project row, toolbar row (labelled New Session, icons), tall centred session boxes, one control unit, project name set like an
+  // open session's title (css/hairline.css, data-side / data-unify / data-proj)
+  // Session box trials for one page (?cards=refined|badge|line|large, css/hairline.css); nothing is saved
+  var cards = new URLSearchParams(location.search).get('cards');
+  if (cards && /^[a-z]{1,12}$/.test(cards)) document.documentElement.setAttribute('data-cards', cards);
+  if (fin === 'hairline') {
+    document.documentElement.setAttribute('data-side', 'line');
+    document.documentElement.setAttribute('data-unify', 'quiet');
+    document.documentElement.setAttribute('data-proj', 'title');
+    document.documentElement.setAttribute('data-stack', 'split');
+    document.documentElement.setAttribute('data-tint', 'both');   // status colour: faint border + soft disc behind the icon   // project, then toolbar, then sessions
+  }
 })();
 </script>
 <!-- Loading splash: critical CSS inline so it paints before style.css arrives.  Markup + logic are the first
@@ -68,40 +86,81 @@
 .vn-splash { position: fixed; inset: 0; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: #111; color: #fff; opacity: 1; }
 html[data-theme="light"] .vn-splash { background: #fafafa; color: #111; }
-.vn-splash .vns-brand { font: 600 28px/1.2 'Space Grotesk', -apple-system, 'Segoe UI', sans-serif; letter-spacing: 2px; opacity: 0; user-select: none;
-  animation: vns-text .4s cubic-bezier(.22,1,.36,1) .1s forwards; }
-.vn-splash .vns-track { width: 160px; height: 3px; margin-top: 24px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,.09); opacity: 0;
-  animation: vns-fade .3s cubic-bezier(.22,1,.36,1) .3s forwards; }
-html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
-.vn-splash .vns-bar { width: 0; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #7c7cff, #6aa3ff, #7c7cff); background-size: 200% 100%;
-  animation: vns-fill 8s .4s forwards, vns-shimmer 2s cubic-bezier(.22,1,.36,1) infinite; }
-.vn-splash.ready .vns-bar { animation: vns-shimmer 2s cubic-bezier(.22,1,.36,1) infinite; width: 100%; transition: width .25s cubic-bezier(.22,1,.36,1); }
+/* The boot splash: the DevelopNode mark draws itself (the chevron's outline is traced, then filled), the dot drops
+   onto the baseline, and the name slides out from behind the mark.  --k scales every step: 1 on the first load in
+   a tab, .5 on later reloads (vns-quick), so the motion always finishes before the minimum hold ends. */
+.vn-splash { --k: 1; }
+.vn-splash.vns-quick { --k: .5; }
+.vn-splash .vns-draw { display: flex; align-items: center; font: 600 26px/1.2 'Geist', 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: .1em; white-space: nowrap; user-select: none; }
+.vn-splash .vns-mark { width: 46px; height: 36px; padding-right: 14px; overflow: visible; position: relative; z-index: 1; background: #111; }
+html[data-theme="light"] .vn-splash .vns-mark { background: #fafafa; }
+.vn-splash .vns-mark path { fill: transparent; stroke: currentColor; stroke-width: 9; stroke-linejoin: round; stroke-dasharray: 520; stroke-dashoffset: 520;
+  animation: vns-trace calc(.55s * var(--k)) cubic-bezier(.6,0,.3,1) forwards, vns-fillin calc(.2s * var(--k)) calc(.5s * var(--k)) forwards; }
+.vn-splash .vns-mark circle { fill: #8B8FF7; opacity: 0; transform: translateY(-70px); transform-box: fill-box; transform-origin: center;
+  animation: vns-drop calc(.45s * var(--k)) cubic-bezier(.3,1.5,.5,1) calc(.55s * var(--k)) forwards; }
+.vn-splash .vns-name { overflow: hidden; }
+.vn-splash .vns-tm { font-size: .42em; font-weight: 500; letter-spacing: 0; vertical-align: top; margin-left: .15em; line-height: 1; }
+.vn-splash .vns-name span { display: inline-block; opacity: 0; transform: translateX(-110%);
+  animation: vns-slidein calc(.45s * var(--k)) cubic-bezier(.22,1,.36,1) calc(.85s * var(--k)) forwards; }
 .vn-splash.out { opacity: 0; pointer-events: none; transition: opacity .8s cubic-bezier(.16,1,.3,1); }
-@keyframes vns-text { from { opacity: 0; letter-spacing: 8px; filter: blur(6px); } to { opacity: .9; letter-spacing: 2px; filter: blur(0); } }
-@keyframes vns-fade { to { opacity: 1; } }
-@keyframes vns-fill { 0% { width: 0; } 5% { width: 20%; } 10% { width: 35%; } 18% { width: 48%; } 28% { width: 58%; } 40% { width: 66%; } 55% { width: 73%; }
-  70% { width: 79%; } 82% { width: 84%; } 92% { width: 87%; } 100% { width: 89%; } }
-@keyframes vns-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.vn-splash:not(.vn-switch).out { transform: translateY(-10px); transition: opacity .35s ease-in, transform .35s ease-in; }
+@keyframes vns-trace { to { stroke-dashoffset: 0; } }
+@keyframes vns-fillin { to { fill: currentColor; } }
+@keyframes vns-drop { to { opacity: 1; transform: none; } }
+@keyframes vns-slidein { to { opacity: .9; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .vn-splash .vns-brand, .vn-splash .vns-track, .vn-splash .vns-bar { animation: none !important; }
-  .vn-splash .vns-brand { opacity: .9; } .vn-splash .vns-track { opacity: 1; }
+  .vn-splash .vns-mark path, .vn-splash .vns-mark circle, .vn-splash .vns-name span { animation: none !important; }
+  .vn-splash .vns-mark path { fill: currentColor; stroke-dashoffset: 0; }
+  .vn-splash .vns-mark circle, .vn-splash .vns-name span { opacity: .9; transform: none; }
   .vn-splash.out { transition-duration: .01s; }
 }
 /* The same splash, reused for a project switch (_showProjectSwitchLoader in app.js): it fades in over the old
-   project, names the new one, and lifts once the new project has finished drawing. */
-.vn-splash.vn-switch { z-index: 100000; opacity: 0; transition: opacity .16s ease-out; }
+   project and the projects' tiles slide past each other: the old one (grey) slides out left as the new one (its
+   initial on the accent gradient) slides in from the right, the name under them swaps, the session count fades in,
+   and a ring traces round the new tile until the new project has finished drawing (it closes on .ready). */
+.vn-splash.vn-switch { z-index: 100000; opacity: 0; transition: opacity .14s ease-out; }
 .vn-splash.vn-switch.in { opacity: 1; }
-.vn-splash.vn-switch.out { opacity: 0; transition: opacity .5s cubic-bezier(.16,1,.3,1); }
-.vn-splash .vns-label { margin-bottom: 10px; font: 600 10px/1 -apple-system, 'Segoe UI', sans-serif; letter-spacing: .14em; text-transform: uppercase; opacity: .45; }
-/* A switch is over in under a second, so its bar starts sooner than the boot splash's. */
-.vn-splash.vn-switch .vns-brand { animation-delay: .04s; }
-.vn-splash.vn-switch .vns-track { animation-delay: .1s; }
-.vn-splash.vn-switch .vns-bar { animation-delay: .16s, 0s; }
-.vn-splash.vn-switch .vns-brand { max-width: 80vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vn-splash.vn-switch.out { opacity: 0; transition: opacity .4s ease-out; }
+.vn-splash .vns-lane { position: relative; width: 240px; height: 76px; user-select: none; }
+.vn-splash .vns-tile { position: absolute; left: 88px; top: 6px; width: 64px; height: 64px; }
+.vn-splash .vns-tile b { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 17px; color: #fff;
+  font: 600 28px/1 'Geist', 'Inter', -apple-system, 'Segoe UI', sans-serif; background: linear-gradient(140deg, #8B8FF7, #6aa3ff); }
+.vn-splash .vns-tile.old b { background: rgba(255,255,255,.12); color: rgba(255,255,255,.55); }
+html[data-theme="light"] .vn-splash .vns-tile.old b { background: rgba(0,0,0,.08); color: rgba(0,0,0,.45); }
+.vn-splash .vns-tile svg { position: absolute; left: -6px; top: -6px; width: 76px; height: 76px; overflow: visible; }
+.vn-splash .vns-tile rect { fill: none; stroke: #8B8FF7; stroke-width: 2; opacity: .7; stroke-dasharray: 100; stroke-dashoffset: 100;
+  animation: vns-ring 4s cubic-bezier(.2,.7,.3,1) .9s forwards; }
+.vn-splash .vns-solo .vns-tile rect { animation-delay: .4s; }
+.vn-splash.ready .vns-tile rect { animation: none; stroke-dashoffset: 0; transition: stroke-dashoffset .2s ease-out; }
+/* The old tile holds a beat so the project being left is seen, then leaves slowly. */
+.vn-splash .vns-tile.old { animation: vns-out .6s cubic-bezier(.5,0,.3,1) .3s forwards; }
+.vn-splash .vns-tile.new { opacity: 0; transform: translateX(90px) scale(.8); animation: vns-slide .55s cubic-bezier(.3,0,.2,1) .35s forwards; }
+.vn-splash .vns-solo .vns-tile.new { transform: scale(.85); animation: vns-pop .42s cubic-bezier(.34,1.4,.5,1) .04s forwards; }
+.vn-splash .vns-names { position: relative; width: 80vw; height: 32px; margin-top: 18px; user-select: none; }
+.vn-splash .vns-names span { position: absolute; left: 0; right: 0; text-align: center; font: 600 22px/32px 'Geist', 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vn-splash .vns-names .vns-was { opacity: .5; animation: vns-up-out .3s ease-in .35s forwards; }
+.vn-splash .vns-names .vns-now { opacity: 0; transform: translateY(8px); animation: vns-in .4s cubic-bezier(.22,1,.36,1) .5s forwards; }
+.vn-splash .vns-count { margin-top: 6px; font: 400 12px/1.4 'Inter', -apple-system, 'Segoe UI', sans-serif; opacity: 0; animation: vns-count .4s ease-out .6s forwards; }
+@keyframes vns-out { to { transform: translateX(-90px) scale(.8); opacity: 0; } }
+@keyframes vns-slide { to { transform: none; opacity: 1; } }
+@keyframes vns-pop { to { transform: none; opacity: 1; } }
+@keyframes vns-ring { to { stroke-dashoffset: 14; } }
+@keyframes vns-up-out { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes vns-in { to { opacity: .95; transform: none; } }
+@keyframes vns-count { to { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) {
+  .vn-splash .vns-tile, .vn-splash .vns-tile rect, .vn-splash .vns-names span, .vn-splash .vns-count { animation: none !important; }
+  .vn-splash .vns-tile.old, .vn-splash .vns-names .vns-was { display: none; }
+  .vn-splash .vns-tile.new, .vn-splash .vns-names .vns-now { opacity: 1; transform: none; }
+  .vn-splash .vns-tile rect { stroke-dashoffset: 14; } .vn-splash .vns-count { opacity: .5; }
+}
+
 </style>
 </head>
 <body>
-<div id="vn-splash" class="vn-splash" aria-hidden="true"><div class="vns-brand">VibeNode</div><div class="vns-track"><div class="vns-bar"></div></div></div>
+<div id="vn-splash" class="vn-splash" aria-hidden="true"><div class="vns-draw"><svg class="vns-mark" viewBox="0 0 181 142" aria-hidden="true"><path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/></svg><div class="vns-name"><span>DevelopNode<sup class="vns-tm">&trade;</sup></span></div></div></div>
 <script>
 // Loading splash.  Covers the page until the first session list has loaded (the
 // skeleton in #session-list is gone), with a short minimum so the reveal can
@@ -115,7 +174,8 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
   try { if (window.self !== window.top) { el.remove(); return; } } catch (e) { el.remove(); return; }
   var seen = false;
   try { seen = sessionStorage.getItem('vn_splash_seen') === '1'; } catch (e) {}
-  var minMs = seen ? 700 : 1400, t0 = performance.now(), done = false, timer = null;
+  if (seen) el.classList.add('vns-quick');   // the same motion at double speed on later reloads
+  var minMs = seen ? 750 : 1400, t0 = performance.now(), done = false, timer = null;
   function finish() {
     if (done) return;
     done = true;
@@ -144,9 +204,8 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
 
 <header>
   <div class="hdr-brand">
-    <img class="app-logo" src="/static/images/logo.png" alt="VibeNode" width="28" height="22" onclick="setViewMode('homepage')" style="cursor:pointer;">
     <div>
-      <h1 onclick="setViewMode('homepage')" style="cursor:pointer;">VibeNode</h1>
+      <h1 class="dn-lockup" onclick="setViewMode('homepage')" style="cursor:pointer;"><svg class="app-logo dn-mark" viewBox="0 0 181 142" aria-hidden="true"><path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/></svg>DevelopNode<span class="dn-tm">&trade;</span></h1>
     </div>
   </div>
   <div class="hdr-spacer"></div>
@@ -156,21 +215,22 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
       <button onclick="openModelSelector();closeHdrSys()">Model <span class="sys-item-value" id="sys-model-label">Default</span></button>
       <button onclick="openThinkingSelector();closeHdrSys()">Thinking <span class="sys-item-value" id="sys-thinking-label">Default</span></button>
       <button onclick="openPreferences();closeHdrSys()">Preferences</button>
+      <button onclick="openSyncSettings();closeHdrSys()" title="Updates to bring in and changes to publish">Sync <span class="sys-item-value" id="sys-sync-label"></span></button>
       <div class="sys-separator"></div>
       <button onclick="openPermissionPolicySelector();closeHdrSys()">Permission Policy</button>
       <button onclick="openPersistentStorage();closeHdrSys()">Persistent Storage <span class="sys-item-value" id="sys-storage-label">Local</span></button>
       <button onclick="openMobileCommand();closeHdrSys()">Mobile Command <span class="sys-item-value" id="sys-mobile-label">Off</span></button>
       <button onclick="openDurableJobs();closeHdrSys()" title="Long jobs that survive a restart: list and logs">Durable Jobs</button>
-      <button onclick="openVibeNodeOrgs();closeHdrSys()" title="People you can Phone a Friend with">VibeNode Orgs</button>
+      <button onclick="openVibeNodeOrgs();closeHdrSys()" title="People you can Phone a Friend with">DevelopNode Orgs</button>
       <div class="sys-separator"></div>
       <button onclick="openBulkOperations();closeHdrSys()">Bulk Operations</button>
       <button onclick="_showHelpModal();closeHdrSys()">Keyboard Shortcuts</button>
-      <button onclick="openPlaybooks();closeHdrSys()" title="Things VibeNode can run when you type their words">Playbooks</button>
+      <button onclick="openPlaybooks();closeHdrSys()" title="Things DevelopNode can run when you type their words">Playbooks</button>
       <div class="sys-separator"></div>
       <button onclick="openTrash();closeHdrSys()" title="View and restore recently deleted sessions">Recently Deleted</button>
       <button onclick="openRecoveryWatchdog();closeHdrSys()" title="The recovery and watchdog switches, read-only">Recovery &amp; Watchdog</button>
       <button onclick="openDiagnostics();closeHdrSys()" title="Tests, the security scan and clean-ups">Diagnostics <span class="sys-item-value" id="sys-phantom-badge"></span></button>
-      <button onclick="openServerTools();closeHdrSys()" title="Restart or turn off VibeNode">Server</button>
+      <button onclick="openServerTools();closeHdrSys()" title="Restart or turn off DevelopNode">Server</button>
     </div>
   </div>
   <button id="btn-git-update" onclick="openGitUpdate()"><span class="git-btn-txt">Update App</span> <span id="git-badge-pull"></span></button>
@@ -418,6 +478,14 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
       </div>
     </div>
     <div id="homepage-container" style="display:none;"></div>
+    <!-- Workflow mode's feed: one line per session, its newest summary card
+         behind it (js/feed.js).  Shown in place of #kanban-board when the
+         Feed half is chosen. -->
+    <div id="feed-view" style="display:none;"></div>
+    <!-- Workflow mode's priority queue of tasks (js/queue.js) and its agent
+         map (js/agents-map.js), shown in place of the columns when chosen. -->
+    <div id="queue-view" style="display:none;"></div>
+    <div id="agents-view" style="display:none;"></div>
     <div id="kanban-board" style="display:none;">
       <script>
       (function(){
@@ -832,6 +900,11 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
 <script src="{{ versioned_static('js/workspace.js') }}"></script>
 <script src="{{ versioned_static('js/time-utils.js') }}"></script>
 <script src="{{ versioned_static('js/kanban.js') }}"></script>
+<script src="{{ versioned_static('js/feed.js') }}"></script>   <!-- Workflow mode's feed of summary cards, one line per session -->
+<link rel="stylesheet" href="{{ versioned_static('css/feed.css') }}">
+<script src="{{ versioned_static('js/queue.js') }}"></script>   <!-- Workflow mode's priority queue of tasks -->
+<script src="{{ versioned_static('js/agents-map.js') }}"></script>   <!-- Workflow mode's agent map -->
+<link rel="stylesheet" href="{{ versioned_static('css/workflow-views.css') }}">
 <script type="module" src="{{ versioned_static('js/kanban-report.js') }}"></script>
 <script src="{{ versioned_static('js/compose.js') }}"></script>
 <script src="{{ versioned_static('js/sessions.js') }}"></script>
@@ -851,6 +924,16 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
 <script src="{{ versioned_static('js/invoke-workforce.js') }}"></script>
 <script src="{{ versioned_static('js/work-trail.js') }}"></script>   <!-- Smart termination: steps between messages as one line -->
 <link rel="stylesheet" href="{{ versioned_static('css/work-trail.css') }}">
+<link rel="stylesheet" href="{{ versioned_static('css/hairline.css') }}">   <!-- the desktop finish; ?finish=classic turns it off for one page -->
+<script src="{{ versioned_static('js/hairline-sync.js') }}" defer></script>   <!-- keeps the working animations in step -->
+<script src="{{ versioned_static('js/hairline-fit.js') }}" defer></script>   <!-- names the parts of a summary scrolled out of view at the chat's edges -->
+<link rel="stylesheet" href="{{ versioned_static('css/quiet-chat.css') }}">   <!-- quiet chat surfaces on the hairline finish -->
+<link rel="stylesheet" href="{{ versioned_static('css/mobile-hairline.css') }}">   <!-- the new look on a phone: status chips, two-column boxes, a tab bar (<=768px) -->
+<script src="{{ versioned_static('js/mobile-hairline.js') }}" defer></script>
+<link rel="stylesheet" href="{{ versioned_static('css/topbar.css') }}">   <!-- one top bar across the session list and the chat (desktop hairline) -->
+<link rel="stylesheet" href="{{ versioned_static('css/home.css') }}">   <!-- the Home screen: a project chooser (_buildHomepageContent in toolbar.js) -->
+<script src="{{ versioned_static('js/topbar.js') }}" defer></script>
+
 <script src="{{ versioned_static('js/live-panel.js') }}"></script>
 <script src="{{ versioned_static('js/mobile-preview.js') }}"></script>   <!-- mobile visual channel (after live-panel: hooks message render) -->
 <script src="{{ versioned_static('js/image-attach.js') }}"></script>   <!-- composer image paste/pick (after live-panel: observes its bar rows) -->
@@ -858,6 +941,11 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
 <script src="{{ versioned_static('js/search.js') }}"></script>
 <script type="module" src="{{ versioned_static('js/extract.js') }}"></script>
 <script type="module" src="{{ versioned_static('js/compare.js') }}"></script>
+<script>
+  /* SpeechNode is opt-in from System → Preferences only: the package's own
+     "try SpeechNode" pop-up is switched off before the package loads. */
+  try { var _snp = JSON.parse(localStorage.getItem('speechNodePromo') || '{}'); if (!_snp.dismissed) { _snp.dismissed = true; localStorage.setItem('speechNodePromo', JSON.stringify(_snp)); } } catch (e) {}
+</script>
 <script src="/speechnode/speechnode.js"></script>   <!-- SpeechNode package asset -->
 <script src="{{ versioned_static('js/speechnode-install.js') }}"></script>   <!-- VibeNode-owned install/enable UX (must load after the package) -->
 <script src="{{ versioned_static('js/voice-local.js') }}"></script>   <!-- transcribe on the device itself when the PC has no transcriber -->
@@ -871,8 +959,9 @@ html[data-theme="light"] .vn-splash .vns-track { background: rgba(0,0,0,.08); }
      flashing and the layered iOS/Android/desktop capability matrix. -->
 <script src="{{ versioned_static('js/notify.js') }}"></script>
 <script src="{{ versioned_static('js/socket.js') }}"></script>
-<script src="{{ versioned_static('js/phone-a-friend.js') }}"></script>   <!-- Phone a Friend (VibeNode Orgs) -->
+<script src="{{ versioned_static('js/phone-a-friend.js') }}"></script>   <!-- Phone a Friend (DevelopNode Orgs) -->
 <script src="{{ versioned_static('js/usage-pace.js') }}"></script>   <!-- weekly usage pace pop-ups; uses socket.js's socket -->
+<script src="{{ versioned_static('js/rebrand.js') }}"></script>   <!-- one-time DevelopNode rename of this computer's shortcuts -->
 <!-- Themed replacement for native OS tooltips. Fully delegated off document,
      so it covers every existing title="" and anything rendered later without
      touching call sites. Self-disables on touch-only devices. -->

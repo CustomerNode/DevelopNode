@@ -1,0 +1,251 @@
+/* Desktop layout of the session controls (js/topbar.js moves the app's own controls into place).
+   Desktop with the hairline finish only: html.vn-has-topbar is set while they are moved.
+   - Top bar across the list and the chat: the open session's title over the chat column, its ••• and close right.
+   - Project masthead at the top of the session list: the project as a large heading, Search, filter and
+     sort/display on its line, the session counts under it.
+   - New session: a dashed full-width row above the tiles.
+   Ids are in the selectors on purpose: the hairline finish styles these controls with ids and !important,
+   and this file must win wherever they are moved to. */
+
+/* One 12px inset everywhere: the rail's icons, the bar's ends, the masthead and the session tiles' edges. */
+html.vn-has-topbar { --vn-tb-h: 59px; --vn-tb-left: 56px; --vn-tb-inset: 12px; --vn-tb-title-x: 360px; }
+
+/* ── Top bar ── */
+html.vn-has-topbar .vn-topbar {
+  position: fixed; top: 0; left: var(--vn-tb-left); right: 0; height: var(--vn-tb-h); z-index: 60;
+  display: flex; align-items: center; gap: 6px; padding: 0 var(--vn-tb-right, var(--vn-tb-inset)) 0 var(--vn-tb-inset); box-sizing: border-box; font-family: var(--font-sans);
+}
+html:not(.vn-has-topbar) .vn-topbar { display: none; }
+/* The bar spans the chat panel only: the session list runs to the top, so the logo, the project name and the
+   session title share one centre line (29.5px, the rail logo's). */
+html.vn-has-topbar #main-panel { padding-top: var(--vn-tb-h); box-sizing: border-box; }
+
+/* the session strip's own items become the bar's (display: contents); an inline display: none still hides it */
+html.vn-has-topbar .vn-topbar #main-toolbar { display: contents; }
+html.vn-has-topbar .vn-topbar #main-toolbar > :is(.btn-group-label, .btn-group-divider, #btn-open-gui) { display: none !important; }
+html.vn-has-topbar .vn-topbar #main-title { order: 1; }
+html.vn-has-topbar .vn-topbar #grp-analyze { order: 2; margin-left: auto; position: relative; flex: none; }
+html.vn-has-topbar .vn-topbar .toolbar-close { order: 3; }
+
+/* the open session's title, on the chat column's left edge; a softer grey at regular weight so the chat leads */
+html.vn-has-topbar[data-finish] .vn-topbar #main-title {
+  flex: 0 1 auto !important; min-width: 0; margin-left: calc(var(--vn-tb-title-x) - var(--vn-tb-inset)) !important; line-height: 17px !important;
+  font-family: var(--font-sans) !important; font-size: 13.5px !important; font-weight: 500 !important;
+  line-height: 1.25 !important; color: var(--text-secondary) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* Centre the lowercase letters on the bar's middle, where the ••• and close icons sit, whatever font the system
+     falls back to (the line box alone puts Segoe UI's letters ~2px below the icons).  The trim keeps only x-height
+     to baseline; the padding gives ascenders and descenders room inside overflow: hidden. */
+  text-box: trim-both ex alphabetic; padding-block: 5.5px 4.5px !important;   /* half a pixel lower: the icons' ink centres at 30, the bar's middle is 29.5 */
+}
+/* a new session's greeting has no title yet (the strip hid itself there before) */
+html.vn-has-topbar:has(#live-log > .empty-state > .vibenode-greeting) .vn-topbar :is(#main-title, #grp-analyze) { visibility: hidden; }
+
+/* the session's ••• and close, square */
+html.vn-has-topbar[data-finish] .vn-topbar .main-toolbar .btn-group-label.toolbar-dots,
+html.vn-has-topbar[data-finish] .vn-topbar .main-toolbar .toolbar-close {
+  width: 32px; height: 32px; margin: 0; padding: 0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ── Project masthead ── */
+/* the sidebar header is empty once its controls are moved; it stays only for "Back to Sessions" */
+html.vn-has-topbar .sidebar-header:not(:has(#sidebar-nav:not([hidden]))) { display: none !important; }
+html.vn-has-topbar .sidebar { padding-top: 0 !important; position: relative; }
+html.vn-has-topbar .sidebar #workforce-grid.visible { padding-top: 0 !important; }
+
+/* Rhythm: the project line is 40px centred on 29.5 (9.5 to 49.5); the name's text ends at 40, and New Session
+   starts 16px under it (56), the same 16px as from the header line to the tiles; then 18px to the hairline. */
+html.vn-has-topbar .vn-mast { flex: none; padding: 9.5px var(--vn-tb-inset) 6.5px; box-sizing: border-box; }
+html:not(.vn-has-topbar) .vn-mast { display: none; }
+html.vn-has-topbar .vn-mast-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+html.vn-has-topbar .vn-mast-gap { flex: 1 1 auto; min-width: 8px; }
+
+/* the project: its initial in an outlined tile (no colour, like the left menu's own), the name as the list's heading.  The button's 8px padding hangs
+   into the inset, so the tile's left edge sits on the session tiles' left edge. */
+html.vn-has-topbar[data-finish] .vn-mast #btn-project {
+  flex: 0 1 auto !important; min-width: 0; width: auto !important; height: 40px !important; margin: 0 0 0 -8px; padding: 0 8px !important;
+  display: inline-flex; align-items: center; gap: 10px !important; border: 0 !important; border-radius: 10px !important;
+  background: transparent !important; cursor: pointer; opacity: 1 !important;
+}
+html.vn-has-topbar .vn-mast #btn-project > svg { display: none; }
+/* no letter tile: the name stands alone */
+html.vn-has-topbar[data-finish] .vn-mast #btn-project::before { display: none !important; content: none !important; }
+html.vn-has-topbar[data-finish] .vn-mast #btn-project #project-label {
+  font-family: var(--font-sans) !important; font-size: 19px !important; font-weight: 650 !important; letter-spacing: -.01em !important;
+  line-height: 1.1 !important; color: var(--text-heading) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html.vn-has-topbar .vn-mast #btn-project #project-label .sidebar-mini-label { display: none; }
+/* a down arrow after the name says it opens the project picker.  Hover only brightens the arrow: a hover
+   background would show the button's padding that hangs into the inset and throw off the edges. */
+html.vn-has-topbar[data-finish] .vn-mast #btn-project::after {
+  content: ''; flex: none; width: 15px; height: 15px; margin-left: -4px; background: var(--text-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: background .12s;
+}
+html.vn-has-topbar[data-finish] .vn-mast #btn-project:hover { background: transparent !important; }
+html.vn-has-topbar[data-finish] .vn-mast #btn-project:hover::after { background: var(--text-heading); }
+
+/* Search, filter and sort/display: the left menu's own 32px icon buttons (sort keeps its sliders mark) */
+html.vn-has-topbar .vn-mast :is(#sidebar-filter-wrap, .sidebar-menu-wrap) { position: relative; flex: none; }
+/* the last icon's 8px of padding hangs into the inset, so the sliders' right edge sits on the tiles' right edge,
+   as the project tile's left edge sits on their left edge */
+html.vn-has-topbar .vn-mast .vn-mast-top > :last-child { margin-right: -8px; }
+html.vn-has-topbar .vn-mast .sidebar-menu-dropdown { top: calc(100% + 6px); right: 0; left: auto; }
+html.vn-has-topbar[data-finish] .vn-mast .sidebar-search-btn { flex: 0 0 32px !important; width: 32px !important; height: 32px !important; padding: 0 !important; justify-content: center; }
+html.vn-has-topbar[data-finish] .vn-mast .sidebar-search-btn span { display: none !important; }
+/* views that hide the sidebar's Search (Workflow, Subsessions, Workforce) hide it here too */
+html.vn-has-topbar:has(.sidebar-search-row[style*="none"]) .vn-mast .sidebar-search-btn { display: none !important; }
+
+/* ── Session counts: a footer under the list, each status as the tiles' own icon (14px) and its number,
+   both centred on one 16px row; a hairline above it the tiles' width ── */
+html.vn-has-topbar .vn-foot-counts {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 var(--vn-tb-inset); padding: 12px 0 14px;
+  border-top: 1px solid var(--hl-line, rgba(255, 255, 255, .07)); font: 600 12.5px/14px var(--font-sans); font-variant-numeric: tabular-nums;
+  /* the row sits on the same centre line as the rail's bottom icon (theme), 30px above the window edge */
+  padding-bottom: 22px !important;
+}
+html:not(.vn-has-topbar) .vn-foot-counts { display: none; }
+html.vn-has-topbar .vn-foot-counts .vn-ct { display: inline-flex; align-items: center; gap: 5px; height: 16px; }
+html.vn-has-topbar .vn-foot-counts .vn-ct-ic { width: 14px; height: 14px; flex: none; display: inline-grid; place-items: center; }
+html.vn-has-topbar .vn-foot-counts .vn-ct-ic > * { width: 14px; height: 14px; display: block; }
+html.vn-has-topbar .vn-foot-counts b { font-weight: 600; line-height: 14px; }
+html.vn-has-topbar .vn-foot-counts .needs { color: #f59e0b; }
+html.vn-has-topbar .vn-foot-counts .working { color: var(--accent, #8b7cf6); }
+html.vn-has-topbar .vn-foot-counts .standby { color: rgb(40, 190, 175); }
+html[data-theme="light"].vn-has-topbar .vn-foot-counts .standby { color: rgb(10, 135, 125); }
+html.vn-has-topbar .vn-foot-counts .done { color: var(--text-secondary); }
+html.vn-has-topbar .vn-foot-counts .done .vn-ct-ic { color: var(--text-faint, var(--text-muted)); }
+
+/* ── New session: a dashed full-width row under the masthead, above the tiles (nothing covers a tile) ── */
+/* the header closes with a hairline the tiles' width, 18px under New Session, 16px above the first tiles */
+html.vn-has-topbar .vn-new-row { flex: none; margin: 0 var(--vn-tb-inset) 16px; padding: 0 0 18px; border-bottom: 1px solid var(--hl-line, rgba(255, 255, 255, .07)); }
+html:not(.vn-has-topbar) .vn-new-row { display: none; }
+html.vn-has-topbar[data-finish] .vn-new-row #btn-add-agent {
+  flex: none !important; width: 100% !important; height: 36px !important; padding: 0 14px !important; gap: 8px !important;
+  display: flex !important; align-items: center; justify-content: center; box-sizing: border-box;
+  border: 1px dashed rgba(124, 124, 255, .45) !important; border-radius: 10px !important; background: transparent !important;
+  color: var(--text-heading) !important; font: 500 13px/1 var(--font-sans) !important; white-space: nowrap; cursor: pointer; box-shadow: none !important;
+}
+html.vn-has-topbar[data-finish] .vn-new-row #btn-add-agent span { display: inline !important; font-size: 13px !important; }
+html.vn-has-topbar[data-finish] .vn-new-row #btn-add-agent svg { width: 15px !important; height: 15px !important; margin: 0 !important; color: var(--accent, #8b7cf6); flex: none; }
+html.vn-has-topbar[data-finish] .vn-new-row #btn-add-agent:hover { background: rgba(124, 124, 255, .08) !important; border-color: rgba(124, 124, 255, .7) !important; }
+html[data-theme="light"].vn-has-topbar[data-finish] .vn-new-row #btn-add-agent { border-color: rgba(80, 80, 200, .45) !important; }
+
+/* ── Phone (html.vn-tb-phone): the same left menu fills the screen; no top bar over the chat (the session keeps its
+   own strip), the masthead clears the status bar, and the rail's Sync, Settings and Appearance sit at the left of
+   the counts, where the rail's bottom icons sit on a desktop. ── */
+html.vn-tb-phone { --vn-tb-inset: 16px; }
+html.vn-tb-phone .vn-topbar { display: none !important; }
+html.vn-tb-phone #main-panel { padding-top: 0; }
+html.vn-tb-phone .vn-mast { padding-top: calc(env(safe-area-inset-top) + 8px); }
+html.vn-tb-phone .vn-mast .sidebar-search-row { display: contents; }
+html.vn-tb-phone .vn-foot-counts { justify-content: flex-end; padding-bottom: calc(var(--mh-sb, env(safe-area-inset-bottom, 0px)) + 14px) !important; }
+html.vn-tb-phone .vn-foot-rail { display: flex; gap: 2px; margin-right: auto; margin-left: -8px; }
+html.vn-tb-phone .vn-foot-rail button {
+  width: 36px; height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--text-muted);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+html.vn-tb-phone .vn-foot-rail svg { width: 18px; height: 18px; }
+html.vn-tb-phone[data-finish] .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn, .sidebar-menu-btn) { width: 40px !important; height: 40px !important; flex-basis: 40px !important; }
+html.vn-tb-phone .layout .sidebar #workforce-grid.visible { padding-bottom: 16px !important; }
+/* the masthead's icons as on a desktop: bare 16px marks with no fill, the last one's padding hanging into the inset */
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn, .sidebar-menu-btn) {
+  flex: 0 0 36px !important; width: 36px !important; height: 36px !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important;
+  background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 10px !important; color: var(--text-muted) !important;
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+}
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn) svg { width: 18px !important; height: 18px !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast .sidebar-search-btn :is(span, kbd) { display: none !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast .sidebar-menu-btn:not(.sidebar-filter-btn) svg { display: none !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast .sidebar-filter-btn::before { content: none !important; display: none !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast .sidebar-menu-btn:not(.sidebar-filter-btn)::before {
+  content: ''; display: block; width: 18px !important; height: 18px !important; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h9M18 7h2M4 17h2M11 17h9'/%3E%3Ccircle cx='15.5' cy='7' r='2.5'/%3E%3Ccircle cx='8.5' cy='17' r='2.5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h9M18 7h2M4 17h2M11 17h9'/%3E%3Ccircle cx='15.5' cy='7' r='2.5'/%3E%3Ccircle cx='8.5' cy='17' r='2.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+html.vn-tb-phone .vn-mast .vn-mast-top > :last-child { margin-right: -9px; }
+html.vn-tb-phone body .layout .sidebar .sidebar-footer { display: none !important; }
+html.vn-tb-phone body .layout .sidebar #workforce-grid { padding-top: 0 !important; }
+/* Phone sizes: every button is a 44px touch target with a 22px mark; New Session is 48px tall in 15px type */
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn, .sidebar-menu-btn) { flex-basis: 44px !important; width: 44px !important; height: 44px !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn) svg { width: 22px !important; height: 22px !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast .sidebar-menu-btn:not(.sidebar-filter-btn)::before { width: 22px !important; height: 22px !important; }
+html.vn-tb-phone .vn-mast .vn-mast-top > :last-child { margin-right: -11px; }
+html.vn-tb-phone[data-finish] .vn-mast #btn-project #project-label { font-size: 21px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent { height: 48px !important; font-size: 15px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent span { font-size: 15px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent svg { width: 18px !important; height: 18px !important; }
+html.vn-tb-phone .vn-foot-rail { gap: 4px; margin-left: -11px; }
+html.vn-tb-phone .vn-foot-rail button { width: 44px; height: 44px; }
+html.vn-tb-phone .vn-foot-rail svg { width: 22px; height: 22px; }
+html.vn-tb-phone .vn-foot-counts { font-size: 14px; gap: 16px; }
+html.vn-tb-phone .vn-foot-counts .vn-ct-ic, html.vn-tb-phone .vn-foot-counts .vn-ct-ic > * { width: 16px; height: 16px; }
+/* Phone sizes, one step larger again: 48px targets with 28px marks; New Session 56px tall in 17px type */
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn, .sidebar-menu-btn) { flex-basis: 48px !important; width: 48px !important; height: 48px !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, .sidebar-filter-btn) svg { width: 27px !important; height: 27px !important; }
+html.vn-tb-phone body .layout .sidebar .vn-mast .sidebar-menu-btn:not(.sidebar-filter-btn)::before { width: 27px !important; height: 27px !important; }
+html.vn-tb-phone .vn-mast .vn-mast-top > :last-child { margin-right: -10px; }
+html.vn-tb-phone[data-finish] .vn-mast #btn-project #project-label { font-size: 24px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent { height: 56px !important; font-size: 17px !important; border-radius: 14px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent span { font-size: 17px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent svg { width: 22px !important; height: 22px !important; }
+html.vn-tb-phone .vn-foot-rail { gap: 6px; margin-left: -10px; }
+html.vn-tb-phone .vn-foot-rail button { width: 48px; height: 48px; }
+html.vn-tb-phone .vn-foot-rail svg { width: 27px; height: 27px; }
+html.vn-tb-phone .vn-foot-counts { font-size: 16px; gap: 18px; }
+html.vn-tb-phone .vn-foot-counts .vn-ct-ic, html.vn-tb-phone .vn-foot-counts .vn-ct-ic > * { width: 18px; height: 18px; }
+html.vn-tb-phone .vn-foot-rail { gap: 0; }
+html.vn-tb-phone .vn-foot-counts { gap: 14px; }
+/* Phone bottom row: the counts summary small and quiet, so Sync, Settings and Appearance can be larger */
+html.vn-tb-phone .vn-foot-counts { font-size: 12.5px; gap: 10px; }
+html.vn-tb-phone .vn-foot-counts .vn-ct { gap: 4px; }
+html.vn-tb-phone .vn-foot-counts .vn-ct-ic, html.vn-tb-phone .vn-foot-counts .vn-ct-ic > * { width: 13px; height: 13px; }
+html.vn-tb-phone .vn-foot-rail { gap: 4px; margin-left: -12px; }
+html.vn-tb-phone .vn-foot-rail button { width: 56px; height: 56px; }
+html.vn-tb-phone .vn-foot-rail svg { width: 32px; height: 32px; }
+/* Phone bottom row: Sync, Settings and Appearance match the masthead's three icons exactly (48px, 27px marks, 2px apart, edge on the margin) */
+html.vn-tb-phone .vn-foot-rail { gap: 2px; margin-left: -10px; }
+html.vn-tb-phone .vn-foot-rail button { width: 48px; height: 48px; }
+html.vn-tb-phone .vn-foot-rail svg { width: 27px; height: 27px; }
+/* The cloud is wide and short, so at the others' size it draws shorter than the gear and sun: like the desktop
+   rail (hairline.css, 20px against 16px) it takes a box 1.25x the others' */
+html.vn-tb-phone .vn-foot-rail [data-rail="sync"] svg { width: 34px; height: 34px; }
+/* New Session on the phone: a 44px row in 15px type, quieter than the list it opens */
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent { height: 44px !important; font-size: 15px !important; border-radius: 12px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent span { font-size: 15px !important; }
+html.vn-tb-phone[data-finish] .vn-new-row #btn-add-agent svg { width: 17px !important; height: 17px !important; }
+
+/* ── Phone layout (owner's layout): project | New Session on top; the sessions; ••• menu | counts at the bottom ── */
+html.vn-tb-phone body .layout .sidebar .vn-mast :is(.sidebar-search-btn, #sidebar-filter-wrap, .sidebar-menu-wrap) { display: none !important; }
+html.vn-tb-phone .vn-mast { padding-bottom: 12px; border-bottom: 1px solid var(--hl-line, rgba(255, 255, 255, .07)); margin: 0 var(--vn-tb-inset) 12px; padding-left: 0; padding-right: 0; }
+html.vn-tb-phone .vn-mast .vn-mast-top > :last-child { margin-right: 0; }
+html.vn-tb-phone[data-finish] .vn-mast #btn-add-agent {
+  flex: none !important; width: auto !important; height: 38px !important; padding: 0 14px !important; gap: 7px !important; margin: 0 !important;
+  display: inline-flex !important; align-items: center; justify-content: center; box-sizing: border-box;
+  border: 1px dashed rgba(124, 124, 255, .45) !important; border-radius: 10px !important; background: transparent !important; box-shadow: none !important;
+  color: var(--text-heading) !important; font: 500 15px/1 var(--font-sans) !important; white-space: nowrap;
+}
+html[data-theme="light"].vn-tb-phone[data-finish] .vn-mast #btn-add-agent { border-color: rgba(80, 80, 200, .45) !important; }
+html.vn-tb-phone[data-finish] .vn-mast #btn-add-agent span { display: inline !important; font-size: 15px !important; }
+html.vn-tb-phone[data-finish] .vn-mast #btn-add-agent svg { width: 16px !important; height: 16px !important; margin: 0 !important; color: var(--accent, #8b7cf6); flex: none; }
+html.vn-tb-phone .vn-foot-counts { position: relative; }
+html.vn-tb-phone .vn-foot-rail { position: relative; margin-left: -10px; gap: 0; }
+html.vn-tb-phone .vn-foot-rail .vn-more-btn {
+  width: 48px; height: 48px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--text-muted);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+html.vn-tb-phone .vn-foot-rail .vn-more-btn svg { width: 27px; height: 27px; stroke-width: 2.6; }
+html.vn-tb-phone .vn-foot-rail.open .vn-more-btn { color: var(--text-heading); }
+html.vn-tb-phone .vn-more-pop {
+  position: absolute; left: 6px; bottom: calc(100% + 8px); z-index: 80; min-width: 220px; padding: 6px; border-radius: 14px;
+  background: var(--bg-elevated, #1c1c22); border: 1px solid var(--hl-line, rgba(255, 255, 255, .1)); box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+  display: none; flex-direction: column;
+}
+html[data-theme="light"].vn-tb-phone .vn-more-pop { background: #fff; box-shadow: 0 12px 40px rgba(0, 0, 0, .14); }
+html.vn-tb-phone .vn-foot-rail.open .vn-more-pop { display: flex; }
+html.vn-tb-phone .vn-more-pop button {
+  height: 46px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; text-align: left; cursor: pointer;
+  font: 400 16px/1 var(--font-sans); color: var(--text-heading);
+}
+html.vn-tb-phone .vn-more-pop button[hidden] { display: none; }
+html.vn-tb-phone .vn-more-pop button:active { background: rgba(127, 127, 127, .12); }

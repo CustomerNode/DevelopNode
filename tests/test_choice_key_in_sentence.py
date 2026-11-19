@@ -34,6 +34,9 @@ CASES = [
     ("what is q?", False),
     ("do p or q?", False),                     # a question naming two
     ("use the q one later maybe", False),
+    ("q but make the title smaller", True),   # the key opens the message
+    ("r, and drop the border", True),
+    ("p seems off to me", False),   # runs on: not a pick
 ]
 
 SCRIPT = r"""

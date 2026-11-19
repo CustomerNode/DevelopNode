@@ -123,7 +123,7 @@ class Rules:
             if (len(n) >= 8 and n.lower() in blob.lower()) or (nn and nn in low):
                 return f"reached {label}"
         if _SESSION_ROUTES.search(blob):
-            return "called VibeNode's own routes (the session list is a side door)"
+            return "called DevelopNode's own routes (the session list is a side door)"
         if tool in COMMAND_TOOLS and _PERMISSION.search(blob):
             return "ran a permission or ownership command"
         allowed = self.allowed_roots or Rules.default_allowed()

@@ -19,6 +19,14 @@ from pathlib import Path as _Path
 _ROOT = _Path(__file__).resolve().parents[2]      # the repo root (logs, data, .cache live here)
 if str(_ROOT / "src") not in _sys.path:
     _sys.path.insert(0, str(_ROOT / "src"))
+# Cap glibc malloc arenas before ANY thread exists: glibc fixes the limit the
+# first time a thread needs an arena, and threads start at import time below.
+# Stdlib-only, so it is safe ahead of _early_boot.  See launcher/memory_tuning.py.
+try:
+    from launcher import memory_tuning as _memory_tuning
+    _memory_tuning.cap_arenas()
+except Exception:
+    pass
 from launcher import _early_boot
 _early_boot.arm_hang_dump(120, "web-boot")
 
@@ -459,7 +467,7 @@ if not _TEST_PORT:
         # exit rather than co-bind, leaving the running instance and its
         # sessions untouched.
         if port_has_listener(_WEB_PORT):
-            print("  VibeNode is already running on port %d -- "
+            print("  DevelopNode is already running on port %d -- "
                   "not starting a second copy." % _WEB_PORT, flush=True)
             _update_boot_status("DONE")
             sys.exit(0)
@@ -1314,6 +1322,15 @@ if __name__ == "__main__":
     except Exception:
         pass
 
+    # Give freed memory back to the OS (Linux/glibc).  Must run before the
+    # server starts its threads.  See launcher/memory_tuning.py: without it the
+    # web server's RSS only ever ratchets up on Linux.  Never raises.
+    try:
+        from launcher import memory_tuning
+        memory_tuning.apply(log_path=str(_ROOT / "logs" / "memory_trim.log"))
+    except Exception:
+        pass
+
     # Log web server startup to file so we can diagnose launch failures
     # (console output is lost when launch.bat runs minimized)
     _web_log_path = _ROOT / "logs" / "web_server.log"
@@ -1451,12 +1468,12 @@ if __name__ == "__main__":
         # program" message before exiting, which tells the user nothing about
         # what actually happened.  Say it plainly instead.
         print("  Could not take port %d -- something else is holding it and "
-              "did not respond to a yield request.  VibeNode is not starting. "
+              "did not respond to a yield request.  DevelopNode is not starting. "
               "Run 'netstat -ano | findstr :%d' to see what has it."
               % (_port, _port), flush=True)
         _update_boot_status(
             "ERROR:Port %d is held by another program that would not release "
-            "it. VibeNode could not start." % _port)
+            "it. DevelopNode could not start." % _port)
         sys.exit(1)
 
     socketio.run(app, host="127.0.0.1", port=_port, debug=False,

@@ -1,8 +1,8 @@
-# Boot Access — reach VibeNode from your phone after a reboot, before anyone logs in
+# Boot Access — reach DevelopNode from your phone after a reboot, before anyone logs in
 
 ## The problem this solves
 
-Mobile Command's reviver guarantees your phone always sees a **Start VibeNode**
+Mobile Command's reviver guarantees your phone always sees a **Start DevelopNode**
 page while the computer is up. But there is one window it cannot cover on its
 own: **the machine rebooted and nobody has logged in yet.**
 
@@ -19,7 +19,7 @@ close that window.
 ## What "fixed" looks like
 
 Power the machine off and on. **Without touching it**, your phone shows either
-the familiar **Start VibeNode** page (tap → running app) or, on Linux with an
+the familiar **Start DevelopNode** page (tap → running app) or, on Linux with an
 encrypted home, an **Unlock & start** page (type your login password → running
 app). One-handed, from anywhere on your tailnet.
 
@@ -51,7 +51,7 @@ to grant that — the script prompts via a standard credential dialog and hands
 it straight to the Task Scheduler; **nothing is written to disk**.
 
 After a reboot the reviver is up pre-login, your phone gets the Start page,
-and one tap boots VibeNode (which then runs headless until you log in — your
+and one tap boots DevelopNode (which then runs headless until you log in — your
 sessions are fully usable from the phone in the meantime).
 
 Gotchas the script handles or warns about:
@@ -90,10 +90,10 @@ linger.
 under your home (including the reviver and its unit file) is ciphertext. The
 script offers to install `prelogin_unlock.py` as a small **system** service
 under `/opt/vibenode-prelogin/` (one-time sudo). Pre-login it serves an
-**"Unlock & start VibeNode"** page on port 5050: you type your login password
+**"Unlock & start DevelopNode"** page on port 5050: you type your login password
 on the phone, it unlocks the home via the same stock ecryptfs helpers a
 console login uses, pokes your user manager so the reviver loads, launches
-VibeNode, and gets out of the way. The moment the home is mounted by any
+DevelopNode, and gets out of the way. The moment the home is mounted by any
 means, it releases the port and goes dormant.
 
 Security posture of the pre-login page:
@@ -123,7 +123,7 @@ your checkout any earlier. Practical options:
 1. **Enable automatic login** (System Settings → Users & Groups) — requires
    FileVault off. The machine boots straight to your session and the reviver's
    LaunchAgent covers everything.
-2. Accept the window: after an unattended reboot, VibeNode is reachable again
+2. Accept the window: after an unattended reboot, DevelopNode is reachable again
    at your next physical login.
 
 ## How this composes with the reviver

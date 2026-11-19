@@ -1,0 +1,662 @@
+/* Hairline finish for the main window.  index.html sets html[data-finish="hairline"] on desktop widths by default;
+   ?finish=classic on the address leaves it off for that page; at phone widths js/mobile-hairline.js sets it so only the rules outside the desktop-width blocks apply.
+   Boxes: transparent, one 1px line colour, one radius (--hl-r), no shadow, no backdrop blur. */
+
+html[data-finish="hairline"] {
+  --hl-base: #0d0d11;
+  --hl-glow: rgba(99, 102, 241, .08);
+  --hl-line: rgba(255, 255, 255, .07);
+  --hl-accent-line: rgba(124, 124, 255, .30);
+  --hl-focus: rgba(124, 124, 255, .60);
+  --hl-ring: rgba(124, 124, 255, .12);
+  --hl-needs: rgba(255, 149, 0, .42);
+  --hl-r: 14px;
+}
+/* Light: a white page with no glow (the open session and the focused text box are marked by a dark outline below,
+   since a white pane no longer stands out on it) */
+html[data-finish="hairline"][data-theme="light"] {
+  --hl-base: #ffffff;
+  --hl-glow: transparent;
+  --hl-line: rgba(20, 20, 50, .06);
+  --hl-needs: rgba(225, 125, 0, .55);
+  --bg-body: #fff; --bg-sidebar: #fff;
+}
+/* The phone layout (css/mobile-hairline.css) keeps its own light palette: the same white page and outline */
+html.vn-mhl[data-finish][data-theme="light"] { --mh-base: #fff; }
+html.vn-mhl[data-finish][data-theme="light"] .vn-mh-bar,
+html.vn-mhl[data-finish][data-theme="light"] body.mob-drilled .main-toolbar { background: rgba(255, 255, 255, .9) !important; }
+html.vn-mhl[data-finish][data-theme="light"] body .layout .sidebar .wf-card.wf-selected { border-color: rgba(20, 20, 50, .55) !important; }
+/* Light: the main buttons are black ink (home New session, the composer's main button, Send while typing), with a
+   neutral shadow so no purple glow is left under a black button.  Secondary buttons keep the theme's pale grey. */
+html[data-finish="hairline"][data-theme="light"] .dx-new,
+html[data-finish="hairline"][data-theme="light"] .live-send-btn.vn-primary,
+html[data-finish="hairline"][data-theme="light"] .live-send-btn-send {
+  background: #111 !important; background-image: none !important; border-color: transparent !important;
+  color: #fff !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .18) !important;
+}
+html[data-finish="hairline"][data-theme="light"] .dx-new:hover,
+html[data-finish="hairline"][data-theme="light"] .live-send-btn.vn-primary:hover,
+html[data-finish="hairline"][data-theme="light"] .live-send-btn-send:hover { background: #2a2a2a !important; }
+/* Popups dim the white page with a medium neutral grey and no blur: a dark or blurred wash read as dirt on white */
+html[data-finish="hairline"][data-theme="light"] { --overlay: rgba(15, 15, 20, .16); }
+html[data-finish="hairline"][data-theme="light"] .modal-overlay,
+html[data-finish="hairline"][data-theme="light"] #project-overlay,
+html[data-finish="hairline"][data-theme="light"] #pm-overlay,
+html[data-finish="hairline"][data-theme="light"] #deep-search-overlay,
+html[data-finish="hairline"][data-theme="light"] .invoke-overlay.show,
+html.vn-mhl[data-finish][data-theme="light"] #project-overlay,
+html.vn-mhl[data-finish][data-theme="light"] #deep-search-overlay {
+  background: rgba(15, 15, 20, .16) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+/* New Session in the session list stays quiet on the white page: a light grey dashed line, dark grey label and plus */
+html[data-finish="hairline"][data-theme="light"].vn-has-topbar .sidebar .vn-new-row #btn-add-agent,
+html[data-finish="hairline"][data-theme="light"].vn-tb-phone .sidebar .vn-mast #btn-add-agent,
+html[data-finish="hairline"][data-theme="light"] #btn-add-agent { border-color: rgba(20, 20, 50, .2) !important; color: #3a3a44 !important; }
+html[data-finish="hairline"][data-theme="light"].vn-has-topbar .sidebar .vn-new-row #btn-add-agent svg,
+html[data-finish="hairline"][data-theme="light"].vn-tb-phone .sidebar .vn-mast #btn-add-agent svg,
+html[data-finish="hairline"][data-theme="light"] #btn-add-agent svg { color: #3a3a44 !important; stroke: currentColor; }
+html[data-finish="hairline"][data-theme="light"].vn-has-topbar .sidebar .vn-new-row #btn-add-agent:hover,
+html[data-finish="hairline"][data-theme="light"].vn-tb-phone .sidebar .vn-mast #btn-add-agent:hover,
+html[data-finish="hairline"][data-theme="light"] #btn-add-agent:hover { background: rgba(0, 0, 0, .03) !important; border-color: rgba(20, 20, 50, .35) !important; }
+/* Dark: the main buttons carry no purple.  Home New session, the composer's main button and Send while typing are
+   white ink (the mirror of light's black buttons); the session list's New Session is a grey dashed line with a light
+   grey label and plus. */
+html[data-finish="hairline"][data-theme="dark"] .dx-new,
+html[data-finish="hairline"][data-theme="dark"] .live-send-btn.vn-primary:not(.waiting):not(.recording),
+html[data-finish="hairline"][data-theme="dark"] .live-send-btn-send:not(.waiting) {
+  background: #fff !important; background-image: none !important; border-color: transparent !important;
+  color: #111 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .3) !important;
+}
+html[data-finish="hairline"][data-theme="dark"] .dx-new:hover,
+html[data-finish="hairline"][data-theme="dark"] .live-send-btn.vn-primary:not(.waiting):not(.recording):hover,
+html[data-finish="hairline"][data-theme="dark"] .live-send-btn-send:not(.waiting):hover { background: #e6e6e6 !important; color: #111 !important; filter: none !important; }
+html[data-finish="hairline"][data-theme="dark"].vn-has-topbar .sidebar .vn-new-row #btn-add-agent,
+html[data-finish="hairline"][data-theme="dark"].vn-tb-phone .sidebar .vn-mast #btn-add-agent,
+html[data-finish="hairline"][data-theme="dark"] #btn-add-agent { border-color: rgba(255, 255, 255, .22) !important; color: #e8e8e8 !important; }
+html[data-finish="hairline"][data-theme="dark"].vn-has-topbar .sidebar .vn-new-row #btn-add-agent svg,
+html[data-finish="hairline"][data-theme="dark"].vn-tb-phone .sidebar .vn-mast #btn-add-agent svg,
+html[data-finish="hairline"][data-theme="dark"] #btn-add-agent svg { color: #e8e8e8 !important; stroke: currentColor; }
+html[data-finish="hairline"][data-theme="dark"].vn-has-topbar .sidebar .vn-new-row #btn-add-agent:hover,
+html[data-finish="hairline"][data-theme="dark"].vn-tb-phone .sidebar .vn-mast #btn-add-agent:hover,
+html[data-finish="hairline"][data-theme="dark"] #btn-add-agent:hover { background: rgba(255, 255, 255, .05) !important; border-color: rgba(255, 255, 255, .4) !important; }
+
+/* Backdrop: base colour with a radial indigo glow anchored at the top centre */
+html[data-finish="hairline"],
+html[data-finish="hairline"] body {
+  background: radial-gradient(ellipse 70% 55% at 50% 0%, var(--hl-glow), transparent 70%) var(--hl-base) fixed;
+}
+
+/* Layout regions carry no surface: content sits on the backdrop */
+html[data-finish="hairline"] header,
+html[data-finish="hairline"] .layout,
+html[data-finish="hairline"] .sidebar,
+html[data-finish="hairline"] .sidebar-header,
+html[data-finish="hairline"] .main,
+html[data-finish="hairline"] #main-panel,
+html[data-finish="hairline"] .main-toolbar,
+html[data-finish="hairline"] #main-body,
+html[data-finish="hairline"] .live-panel,
+html[data-finish="hairline"] #live-log,
+html[data-finish="hairline"] #live-input-bar {
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html[data-finish="hairline"] header::before, html[data-finish="hairline"] header::after,
+html[data-finish="hairline"] .main::before, html[data-finish="hairline"] .main::after,
+html[data-finish="hairline"] .sidebar::before, html[data-finish="hairline"] .sidebar::after { display: none; }
+
+/* Wordmark in the body sans, a quiet Publish button, no project caption, no copyright line */
+html[data-finish="hairline"] header h1,
+html[data-finish="hairline"] header h1.dn-lockup {
+  font-family: var(--font-sans); font-size: 16px; font-weight: 650; letter-spacing: -.01em;
+}
+html[data-finish="hairline"] #btn-git-publish { color: var(--text); font-weight: 500; }
+html[data-finish="hairline"] #btn-git-publish .git-btn-txt { color: inherit; font-weight: 500; }
+html[data-finish="hairline"] .sidebar-mini-label { display: none; }
+html[data-finish="hairline"] .sidebar-footer > span:not(.sidebar-footer-tip) { display: none; }
+
+/* The one box treatment */
+html[data-finish="hairline"] .wf-card,
+html[data-finish="hairline"] .wf-card:hover,
+html[data-finish="hairline"] .wf-card.wf-selected,
+html[data-finish="hairline"] .conversation .msg.assistant:not(:has(.lm)) .msg-body,
+html[data-finish="hairline"] .conversation .msg.user .msg-body,
+html[data-finish="hairline"] .vt-bar,
+html[data-finish="hairline"] .lm,
+html[data-finish="hairline"] .lm.skim,
+html[data-finish="hairline"] .vn-sent-back,
+html[data-finish="hairline"] .vn-sb-group,
+html[data-finish="hairline"] .live-input-bar .vn-card,
+html[data-finish="hairline"] .live-input-bar .live-textarea:not(.vn-card .live-textarea) {
+  background: transparent; border: 1px solid var(--hl-line); border-radius: var(--hl-r);
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+
+/* An assistant message is a box unless it holds a summary card, which is already one */
+html[data-finish="hairline"] .conversation .msg.assistant:not(:has(.lm)) .msg-body { padding: 12px 16px; }
+
+/* Step lines and sent-back notices: the outline replaces the left rail and the hover fill */
+html[data-finish="hairline"] .vt-bar:hover,
+html[data-finish="hairline"] .vn-sb-head:hover { background: transparent; }
+html[data-finish="hairline"] .vn-sent-back { margin-left: 0; }
+html[data-finish="hairline"] .vn-trail { border-left: 0; margin-left: 0; }
+html[data-finish="hairline"] .vn-trail.vt-live::before { display: none; }
+
+/* Session boxes keep grid and status colour (icon and word); the label chip loses its fill.
+   style.css and session-status.css give each status and the selected card its own fill, border and ring
+   (.wf-working, .vs-working, .wf-question.wf-selected...), so the surface is overridden with !important
+   and the outline colour is set by two rules only: the same line on every status, the accent on the open one.
+   A box that needs you shows it in its icon and word, not its outline. */
+html[data-finish="hairline"] .sidebar .wf-card,
+html[data-finish="hairline"] .wf-card {
+  background: transparent !important; box-shadow: none !important; transform: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  border: 1px solid var(--hl-line) !important; border-radius: var(--hl-r) !important;
+}
+html[data-finish="hairline"] .wf-card::before, html[data-finish="hairline"] .wf-card::after { display: none; }
+html[data-finish="hairline"] .wf-card .wf-status-label { background: transparent !important; }
+html[data-finish="hairline"] .sidebar .wf-card.wf-selected,
+html[data-finish="hairline"] .wf-card.wf-selected { border-color: var(--hl-accent-line) !important; }
+
+/* The pinned "you asked" bar at the top of the thread is a copy of the person's message: accent line,
+   and a solid base-colour cover because the thread scrolls under it */
+html[data-finish="hairline"] .sticky-user-bar {
+  background: var(--hl-base); border: 1px solid var(--hl-accent-line); border-radius: var(--hl-r);
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+
+/* The person's own messages take the accent line */
+html[data-finish="hairline"] .conversation .msg.user .msg-body { border-color: var(--hl-accent-line); }
+
+/* Composer: the inner textarea draws nothing; focus is an accent line plus a 3px soft ring */
+html[data-finish="hairline"] .live-input-bar .vn-card .live-textarea,
+html[data-finish="hairline"] .live-input-bar .vn-card .live-textarea:focus { background: transparent; border: 0; box-shadow: none; }
+html[data-finish="hairline"] .live-input-bar .vn-card:focus-within,
+html[data-finish="hairline"] .live-input-bar .live-textarea:not(.vn-card .live-textarea):focus {
+  background: transparent; border-color: var(--hl-focus); box-shadow: 0 0 0 3px var(--hl-ring);
+}
+
+/* Sticky summary title: a solid cover in the base colour, since the card behind it is transparent */
+html[data-finish="hairline"] .lm-stick > .in,
+html[data-finish="hairline"][data-theme="light"] .lm-stick > .in {
+  background: var(--hl-base); border-color: var(--hl-line); box-shadow: 0 -15px 0 var(--hl-base);
+}
+
+/* ── Header as a left rail: a narrow column of icons carries the logo mark and the header controls ──
+   The header leaves the page flow (position: fixed) and becomes a 56px column; the layout shifts right by its
+   width, so the sidebar and the chat run the full window height.  The header box ignores the pointer, its
+   controls do not.  Desktop only: the phone layout (mobile.css, <=768px) keeps its own header. */
+@media (min-width: 769px) {
+  html[data-finish="hairline"] header {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60; width: 56px; box-sizing: border-box;
+    padding: 18px 0 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+  }
+  html[data-finish="hairline"] header > * { pointer-events: auto; }
+  html[data-finish="hairline"] header .hdr-spacer { display: none; }
+  html[data-finish="hairline"] header .hdr-brand { order: 0; margin-bottom: auto; }
+  html[data-finish="hairline"] header #btn-git-update,
+  html[data-finish="hairline"] header #btn-git-publish,
+  html[data-finish="hairline"] header #btn-git-sync { order: 1; width: 38px; padding: 0; margin: 0; justify-content: center; }
+  html[data-finish="hairline"] header .git-btn-txt { display: none; }
+  html[data-finish="hairline"] header .hdr-sys { order: 2; margin: 0; position: relative; }
+  html[data-finish="hairline"] header #btn-theme { order: 3; }
+  /* Logo mark only: the wordmark text and TM do not fit a 56px column */
+  html[data-finish="hairline"] header h1.dn-lockup { font-size: 0; line-height: 0; }
+  html[data-finish="hairline"] header h1.dn-lockup .dn-mark { width: 22px; height: 17px; margin: 0; }
+  html[data-finish="hairline"] header h1.dn-lockup .dn-tm { display: none; }
+  html[data-finish="hairline"] header .hdr-sys-dropdown {
+    top: auto; bottom: 0; right: auto; left: calc(100% + 8px); transform-origin: bottom left;
+  }
+  html[data-finish="hairline"] .layout { margin-left: 56px; }
+  html[data-finish="hairline"] .sidebar { padding-top: 8px; }
+  html[data-finish="hairline"] .sidebar.collapsed { padding: 0; }
+  /* The chat's title line would otherwise touch the window edge */
+  html[data-finish="hairline"] .main { padding-top: 16px; box-sizing: border-box; }
+}
+/* The expand button beside a collapsed sidebar: no strip of its own on the backdrop */
+html[data-finish="hairline"] .sidebar-expand-btn { background: transparent; border: 0; box-shadow: none; }
+/* The sidebar's drag handle draws no strip on the backdrop, also when the sidebar is collapsed */
+html[data-finish="hairline"] .resize-handle:not(:hover):not(.dragging) { background: transparent; }
+
+
+/* ── Left side (data-side="compact", set by index.html with the hairline finish): the rail logo, project name
+   and chat title on one centre line (30px), a one-row header (project name, then icon buttons), so the
+   sessions start 48px from the top. */
+@media (min-width: 769px) {
+  html[data-finish="hairline"][data-side] header { padding-top: 21px; }
+  html[data-finish="hairline"][data-side] .sidebar { padding-top: 0; }
+  html[data-finish="hairline"][data-side] .sidebar-header {
+    flex-direction: row; align-items: center; gap: 2px; padding: 12px 12px 0; height: 48px; box-sizing: border-box;
+  }
+  html[data-finish="hairline"][data-side] #btn-project { flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 10px; gap: 10px; }
+  html[data-finish="hairline"][data-side] #btn-project #project-label { font-size: 15px; font-weight: 650; }
+  html[data-finish="hairline"][data-side] #btn-add-agent,
+  html[data-finish="hairline"][data-side] .sidebar-search-btn {
+    flex: 0 0 34px; width: 34px; height: 34px; padding: 0; justify-content: center; font-size: 0; gap: 0; border-radius: 10px;
+  }
+  html[data-finish="hairline"][data-side] #btn-add-agent span,
+  html[data-finish="hairline"][data-side] .sidebar-search-btn span { display: none; }
+  html[data-finish="hairline"][data-side] #btn-add-agent svg,
+  html[data-finish="hairline"][data-side] .sidebar-search-btn svg { width: 16px; height: 16px; margin: 0; }
+  html[data-finish="hairline"][data-side] .sidebar-search-row { flex: 0 0 auto; width: auto; height: 36px; gap: 2px; align-items: center; }
+  html[data-finish="hairline"][data-side] .sidebar #workforce-grid.visible { padding-top: 12px; }
+
+  /* compact: shorter boxes that read left to right: icon and status on top, title under it,
+     the time at the top right.  Roughly half the height, so about twice as many sessions fit. */
+  /* The grid scrolls inside a fixed height, so auto rows would stop at each box's minimum: size rows to content */
+  html[data-finish="hairline"][data-side="compact"] .sidebar #workforce-grid.visible { grid-auto-rows: max-content; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-card {
+    height: auto; min-height: 0; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; align-content: flex-start;
+    justify-content: flex-start; column-gap: 7px; row-gap: 5px; text-align: left; padding: 11px 12px 11px;
+  }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-avatar { flex: 0 0 16px; height: 16px; width: 16px; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-avatar img,
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-avatar svg { width: 16px; height: 16px; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-status-label {
+    flex: 1 1 0; min-width: 0; margin: 0; padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .06em; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-name { flex: 0 0 100%; text-align: left; font-size: 12.5px; line-height: 1.35; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-meta { flex: 0 0 100%; margin: 0; font-size: 10px; white-space: nowrap; color: var(--text-faint); text-align: left; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-card .vn-pin { display: none; }
+  html[data-finish="hairline"][data-side="compact"] .sidebar .wf-card .vn-pin[aria-pressed="true"] { display: grid; top: 6px; right: 6px; }
+
+
+}
+
+/* ── One control unit (data-unify="quiet"): every control in the rail and the sidebar header is the same 32px unit with a 16px icon, one colour,
+   one 10px radius; the project name and the boxes' contents start on the same inner edge (12px in). */
+@media (min-width: 769px) {
+  html[data-finish="hairline"][data-unify] header .hdr-sys-btn,
+  html[data-finish="hairline"][data-unify] header #btn-theme,
+  html[data-finish="hairline"][data-unify] header #btn-git-update,
+  html[data-finish="hairline"][data-unify] header #btn-git-publish,
+  html[data-finish="hairline"][data-unify] header #btn-git-sync,
+  html[data-finish="hairline"][data-unify] #btn-add-agent,
+  html[data-finish="hairline"][data-unify] .sidebar-search-btn,
+  html[data-finish="hairline"][data-unify] .sidebar .sidebar-filter-btn,
+  html[data-finish="hairline"][data-unify] .sidebar .sidebar-menu-btn {
+    width: 32px !important; height: 32px !important; flex: 0 0 32px; padding: 0 !important; border-radius: 10px !important;
+    display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted) !important;
+    border: 1px solid transparent; background: transparent; box-sizing: border-box;
+  }
+  html[data-finish="hairline"][data-unify] header .hdr-sys-btn svg,
+  html[data-finish="hairline"][data-unify] header #btn-theme svg,
+  html[data-finish="hairline"][data-unify] header #btn-git-sync svg,
+  html[data-finish="hairline"][data-unify] #btn-add-agent svg,
+  html[data-finish="hairline"][data-unify] .sidebar-search-btn svg,
+  html[data-finish="hairline"][data-unify] .sidebar .sidebar-filter-btn svg { width: 16px; height: 16px; }
+  html[data-finish="hairline"][data-unify] .sidebar .sidebar-menu-btn::before { width: 16px; height: 16px; }
+  html[data-finish="hairline"][data-unify] header :is(.hdr-sys-btn, #btn-theme, #btn-git-update, #btn-git-publish, #btn-git-sync):hover,
+  html[data-finish="hairline"][data-unify] .sidebar :is(#btn-add-agent, .sidebar-search-btn, .sidebar-filter-btn, .sidebar-menu-btn):hover {
+    color: var(--text-heading) !important; background: transparent;
+  }
+  html[data-finish="hairline"][data-unify] header { gap: 8px; }
+  html[data-finish="hairline"][data-unify] .sidebar-header { gap: 4px; }
+  html[data-finish="hairline"][data-unify] .sidebar-search-row { gap: 4px; }
+  html[data-finish="hairline"][data-unify] #btn-project { padding: 0 12px; }
+
+
+}
+
+/* ── Project name (data-proj="title"): in the app's sans like the rest of the left side (it was the only text in
+   Space Grotesk), sized and weighted like an open session's title ── */
+html[data-finish="hairline"][data-proj] #project-label { font-family: var(--font-sans) !important; letter-spacing: normal !important; }
+/* title: like a session box's title when it is the open one */
+html[data-finish="hairline"][data-proj="title"] #project-label { font-size: 12.5px !important; font-weight: 600 !important; color: var(--text-heading) !important; }
+
+/* ── Stacked left header (data-stack="split", set by index.html with the hairline finish): the project on its own
+   row, a toolbar row under it (a labelled New Session button left, Search, filter and sort as icons right), then
+   the sessions ── */
+@media (min-width: 769px) {
+  html[data-finish="hairline"][data-stack] .sidebar-header { flex-wrap: wrap; height: auto; row-gap: 8px; padding-bottom: 0; }
+  html[data-finish="hairline"][data-stack] #btn-project { flex: 0 0 100%; }
+  html[data-finish="hairline"][data-stack] .sidebar-search-row { flex: 1 1 auto; justify-content: flex-start; }
+  html[data-finish="hairline"][data-stack="split"] #btn-add-agent {
+    flex: 0 0 auto !important; width: auto !important; gap: 8px !important; padding: 0 12px !important; font-size: 12.5px !important;
+    border: 1px solid var(--hl-line) !important; border-radius: 10px !important; color: var(--text-secondary) !important;
+  }
+  html[data-finish="hairline"][data-stack="split"] #btn-add-agent span { display: inline; font-size: 12.5px; }
+  html[data-finish="hairline"][data-stack="split"] .sidebar-search-row { justify-content: flex-end; }
+}
+
+
+/* ── Session box trials (?cards=…): the boxes keep their tall, centred order (icon, status, title, time) ──
+   refined is the shared base: one 8px gap between boxes, more air inside, a quieter status word, the title one
+   step stronger, the time in even-width figures. */
+@media (min-width: 769px) {
+  html[data-finish="hairline"][data-cards] .sidebar #workforce-grid.visible { gap: 8px; }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-card { padding: 16px 12px 12px; gap: 6px; }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-avatar { height: 26px; }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-avatar img { width: 22px; height: 22px; }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-status-label { font-size: 8.5px; font-weight: 600; letter-spacing: .12em; margin-bottom: 0; }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-name { font-size: 12.5px; font-weight: 500; line-height: 1.35; color: var(--text-primary); }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-card.vs-done:not(.wf-selected) .wf-name { color: var(--text-secondary); }
+  html[data-finish="hairline"][data-cards] .sidebar .wf-meta { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+  /* badge: the icon sits in a small hairline ring, like an avatar */
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-avatar {
+    width: 36px; height: 36px; border: 1px solid var(--hl-line); border-radius: 50%; margin-bottom: 2px;
+  }
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-avatar img { width: 18px; height: 18px; }
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-card.vs-needs .wf-avatar,
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-card.vs-working .wf-avatar { border-color: rgba(var(--vs, 124, 124, 255), .45); }
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-card { height: 144px; }
+
+  /* line: a short line in the status colour along the box's foot carries the state; the word stays */
+  html[data-finish="hairline"][data-cards="line"] .sidebar .wf-card::after {
+    display: block !important; content: ''; position: absolute; left: 50%; bottom: 0; width: 28px; height: 2px;
+    transform: translateX(-50%); border-radius: 2px 2px 0 0; background: rgb(var(--vs, 140, 145, 160)); opacity: .9;
+  }
+  html[data-finish="hairline"][data-cards="line"] .sidebar .wf-card.vs-working::after { background: #7c7cff; }
+  html[data-finish="hairline"][data-cards="line"] .sidebar .wf-card.vs-done::after { opacity: .35; }
+
+  /* large: square-feeling tiles with a bigger icon and title and more air, still two columns */
+  html[data-finish="hairline"][data-cards="large"] .sidebar #workforce-grid.visible { gap: 10px; }
+  html[data-finish="hairline"][data-cards="large"] .sidebar .wf-card { height: 164px; padding: 22px 14px 14px; gap: 8px; }
+  html[data-finish="hairline"][data-cards="large"] .sidebar .wf-avatar { height: 34px; }
+  html[data-finish="hairline"][data-cards="large"] .sidebar .wf-avatar img { width: 30px; height: 30px; }
+  html[data-finish="hairline"][data-cards="large"] .sidebar .wf-name { font-size: 13.5px; }
+}
+
+/* ── The rail's Update / Publish / Sync buttons show only when there is something to pull or publish, so they take
+   the Needs you colour (session-status.css .vs-needs) instead of the rail's quiet grey.  The :not() adds
+   one class of weight so these beat the unify block's grey (color !important, also on hover). ── */
+@media (min-width: 769px) {
+  html[data-finish="hairline"] header :is(#btn-git-update, #btn-git-publish, #btn-git-sync):not(._vn),
+  html[data-finish="hairline"] header :is(#btn-git-update, #btn-git-publish, #btn-git-sync):not(._vn):hover {
+    color: rgb(255, 149, 0) !important;
+  }
+  html[data-finish="hairline"][data-theme="light"] header :is(#btn-git-update, #btn-git-publish, #btn-git-sync):not(._vn),
+  html[data-finish="hairline"][data-theme="light"] header :is(#btn-git-update, #btn-git-publish, #btn-git-sync):not(._vn):hover {
+    color: rgb(210, 120, 0) !important;
+  }
+  html[data-finish="hairline"] header :is(#btn-git-update, #btn-git-publish, #btn-git-sync):not(._vn):hover {
+    background: rgba(255, 149, 0, .12) !important;
+  }
+  /* The icon and the count carry their own accent colour (style.css): let them follow the button */
+  html[data-finish="hairline"] header :is(#git-badge-pull, #git-badge-push, #git-badge-sync),
+  html[data-finish="hairline"] header :is(#btn-git-update, #btn-git-publish)[data-count]::after { color: inherit !important; }
+}
+@media (min-width: 769px) {
+  /* badge: the ring is the circle, so every status icon drops its own circle and shows only its mark
+     (the pickaxe never had one), drawn a little larger to fill the ring */
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-avatar svg.vs-ic circle { display: none; }
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-avatar svg.vs-ic { width: 20px; height: 20px; stroke-width: 1.5; transform: scale(1.6); }
+  html[data-finish="hairline"][data-cards="badge"] .sidebar .wf-card.vs-standby .wf-avatar { border-color: rgba(var(--vs), .45); }
+}
+
+/* ── Status icons in the session boxes are bare marks, like the working pickaxe: the needs-you, done, standby
+   (and any other) icon drops its own circle, drawn larger so the mark matches the pickaxe's weight ── */
+html[data-finish="hairline"] .sidebar .wf-avatar svg.vs-ic circle { display: none; }
+html[data-finish="hairline"] .sidebar .wf-avatar svg.vs-ic { stroke-width: 1.5; transform: scale(1.5); }
+
+/* ── Focus without colour: the open session box sits on a lighter pane with a clearer outline; the other boxes stay at full
+   strength (dimming them read as noise).  The text box and the search field take the same pane when
+   focused, with a brighter neutral line.  No purple, no shadow. ── */
+html[data-finish="hairline"] { --lf-line: rgba(255, 255, 255, .26); --lf-fill: rgba(255, 255, 255, .035); }
+html[data-finish="hairline"][data-theme="light"] { --lf-line: rgba(20, 20, 50, .55); --lf-fill: #fff; }
+html[data-finish="hairline"] .sidebar .wf-card.wf-selected {
+  border-color: rgba(255, 255, 255, .16) !important; box-shadow: none !important; background: rgba(255, 255, 255, .075) !important;
+}
+html[data-finish="hairline"][data-theme="light"] .sidebar .wf-card.wf-selected {
+  border-color: rgba(20, 20, 50, .55) !important; border-width: 1.5px !important; box-shadow: none !important; background: #fff !important;
+}
+html[data-finish="hairline"] .sidebar .session-item.active,
+html[data-finish="hairline"][data-theme="light"] .sidebar .session-item.active { box-shadow: inset 0 0 0 1px var(--hl-line); background: var(--lf-fill); }
+html[data-finish="hairline"] .live-input-bar .vn-card:focus-within,
+html[data-finish="hairline"] .live-input-bar .live-textarea:not(.vn-card .live-textarea):focus,
+html[data-finish="hairline"] #ds-input:focus {
+  border-color: var(--lf-line) !important; box-shadow: none !important; background: var(--lf-fill) !important;
+}
+html[data-finish="hairline"] .sidebar :is(#btn-add-agent, .sidebar-search-btn, .sidebar-filter-btn, .sidebar-menu-btn):focus-visible {
+  outline: none; box-shadow: none; border-color: var(--lf-line) !important;
+}
+
+/* ── The rail's Update / Publish / Sync buttons ping a sonar line under themselves that grows in clear steps the
+   longer they have been waiting (header[data-git-nudge], set by git-sync.js _gitNudgeStep): faint for the first
+   10 minutes, clearer after, clearer still after an hour, strongest after 4 hours. ── */
+@media (min-width: 769px) {
+  html[data-finish="hairline"] header { --gn-spread: 1.2; --gn-thick: 1.5px; --gn-peak: .4; }
+  html[data-finish="hairline"] header[data-git-nudge="1"] { --gn-spread: 1.6; --gn-thick: 2px; --gn-peak: .65; }
+  html[data-finish="hairline"] header[data-git-nudge="2"] { --gn-spread: 2; --gn-thick: 2.5px; --gn-peak: .85; }
+  html[data-finish="hairline"] header[data-git-nudge="3"] { --gn-spread: 2.4; --gn-thick: 3px; --gn-peak: 1; }
+  html[data-finish="hairline"] header[data-git-nudge] :is(#btn-git-update, #btn-git-publish, #btn-git-sync) { position: relative; overflow: visible; }
+  html[data-finish="hairline"] header[data-git-nudge] :is(#btn-git-update, #btn-git-publish, #btn-git-sync)::before {
+    content: ''; position: absolute; left: 50%; bottom: 1px; width: 22px; height: var(--gn-thick); margin-left: -11px;
+    border-radius: 2px; background: currentColor; pointer-events: none; animation: vnGitSonar 2.8s ease-out infinite;
+  }
+  @keyframes vnGitSonar { 0% { transform: scaleX(.3); opacity: var(--gn-peak); } 70%, 100% { transform: scaleX(var(--gn-spread)); opacity: 0; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-finish="hairline"] header[data-git-nudge] :is(#btn-git-update, #btn-git-publish, #btn-git-sync)::before { animation: none; opacity: var(--gn-peak); }
+}
+
+/* ── The cloud icons on the rail's Update / Publish / Sync buttons are wide and short, so at the rail's 16px they drew
+   shorter than the gear and moon beside them.  All three take a 20px box: their height then matches the others. ── */
+@media (min-width: 769px) {
+  html[data-finish="hairline"] header :is(#git-badge-pull, #git-badge-push, #git-badge-sync):not(._vn) svg { width: 20px !important; height: 20px !important; }
+}
+
+
+/* ── Status colour on the session boxes (data-tint="both", set by index.html with the hairline finish): a faint
+   outline and a soft disc behind the icon, both in the box's status colour (the status styles' --vs; working has
+   none there, so the accent stands in) ── */
+html[data-finish="hairline"][data-tint] .sidebar .wf-card { --tint: var(--vs, 124, 124, 255); }
+html[data-finish="hairline"][data-tint="both"] .sidebar .wf-card { border-color: rgba(var(--tint), .2) !important; }
+html[data-finish="hairline"][data-tint="both"] .sidebar .wf-avatar {
+  width: 40px; height: 40px; border-radius: 50%; background: rgba(var(--tint), .1); margin-bottom: 2px;
+}
+html[data-finish="hairline"][data-tint="both"] .sidebar .wf-avatar img { width: 20px; height: 20px; }
+html[data-finish="hairline"][data-tint="both"] .sidebar .wf-avatar svg.vs-ic { transform: scale(1.15); }
+html[data-finish="hairline"][data-tint="both"] .sidebar .wf-card { height: 146px; }
+
+/* ── No status bar above the text box: the row with the state, timer and status picker is gone.  Its buttons (Stop
+   while working, any retry or cancel a state offers) stay, pinned inside the box's top-right corner, and the text
+   keeps clear of them.  The status picker's actions remain in the session box's right-click menu. ── */
+html[data-finish="hairline"] #live-input-bar .vn-card > .vn-st {
+  position: absolute; top: 8px; right: 8px; z-index: 2; min-height: 0; padding: 0; border: 0; gap: 6px; pointer-events: none;
+}
+html[data-finish="hairline"] #live-input-bar .vn-card > .vn-st > :not(button) { display: none; }
+html[data-finish="hairline"] #live-input-bar .vn-card > .vn-st > button { pointer-events: auto; }
+html[data-finish="hairline"] #live-input-bar .vn-card > .vn-st-fx { display: none; }
+html[data-finish="hairline"] #live-input-bar .vn-card:has(> .vn-st > button) .live-textarea { padding-right: 84px; }
+
+/* ── The working pickaxe swings in the session boxes and list rows, and chips fly off it on each strike.  The pick is
+   held at its handle (lower right), so it winds back clockwise and strikes counter-clockwise, head down to the left;
+   the chips leave the head at the strike (36% of the 1.6s cycle, the same beat the old status bar used). ── */
+@keyframes hl-swing {
+  0%   { transform: rotate(10deg);  animation-timing-function: ease-in-out; }
+  26%  { transform: rotate(24deg);  animation-timing-function: cubic-bezier(.7,0,.9,.4); }
+  36%  { transform: rotate(-18deg); animation-timing-function: ease-out; }
+  44%  { transform: rotate(-12deg); animation-timing-function: ease-in-out; }
+  100% { transform: rotate(10deg); }
+}
+@keyframes hl-chips {
+  0%, 36%   { transform: scale(.15); opacity: 0; }
+  37%       { opacity: .45; animation-timing-function: cubic-bezier(.1,.7,.3,1); }
+  62%       { transform: scale(.85); opacity: .35; }
+  78%, 100% { transform: scale(1.05); opacity: 0; }
+}
+html[data-finish="hairline"] .sidebar .wf-card.vs-working .wf-avatar img,
+html[data-finish="hairline"] .sidebar .session-item img.state-icon[src*="pickaxe"] {
+  transform-origin: 80% 80%; animation: hl-swing 1.6s linear infinite;
+}
+html[data-finish="hairline"] .sidebar .wf-card.vs-working .wf-avatar { position: relative; overflow: visible; }
+html[data-finish="hairline"] .sidebar .wf-card.vs-working .wf-avatar::after {
+  content: ''; position: absolute; left: 12px; top: 24px; width: 3px; height: 3px; border-radius: 50%;
+  color: var(--accent, #7c7cff); background: currentColor; pointer-events: none; opacity: 0;
+  box-shadow: -10px -9px 0 0 currentColor, -15px -2px 0 -.5px currentColor, -6px -13px 0 -.5px currentColor, -16px -11px 0 0 currentColor;
+  animation: hl-chips 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-finish="hairline"] .sidebar .wf-card.vs-working .wf-avatar img,
+  html[data-finish="hairline"] .sidebar .session-item img.state-icon[src*="pickaxe"] { animation: none; }
+  html[data-finish="hairline"] .sidebar .wf-card.vs-working .wf-avatar::after { animation: none; display: none; }
+}
+
+/* ── A summary is always a whole bubble, and what is out of view stays in reach.
+   When scrolling cuts a summary off at the top or bottom of the chat, the cut is closed with the bubble's own rounded
+   edge: the pinned title becomes the bubble's top and a cap closes the bottom.  Inside these edges, one row stands in
+   for each part that is out of view:
+     Summary          - with its Short / Plain words / Full switch, so a level can be picked from the edge;
+     Details          - its name;
+     Review & respond - with the answer it waits for (Decide's button, or the verdict chips), shown while that
+                        action itself is out of view, so it can always be pressed from the edge.
+   Tapping a row's name scrolls to the part.  js/hairline-fit.js builds the rows when a summary is drawn.
+   The browser decides which rows show, in step with the scroll: each row is a scroll-driven animation on the view
+   timeline of the thing it stands for, so no script runs while scrolling.  The summary's own sheet switches every
+   animation inside it off (.lm.skim * { animation: none !important }), so these longhands carry !important.
+   Nothing is drawn on a solid fill: every cover paints the page's own backdrop (fixed to the window like the page's),
+   content fades out over 22px before an edge, and each edge is a square cover 1px wider than the bubble with its
+   rounded outline drawn on top, so the summary's side lines and amber rail never show past a corner.  The bottom
+   pieces show only while stuck (a scroll-state query), so they never cover what follows a summary. ── */
+html[data-finish="hairline"] { --hl-glass: radial-gradient(ellipse 70% 55% at 50% 0%, var(--hl-glow), transparent 70%); }
+/* timelines (longhands: the view-timeline shorthand would reset the insets set below) */
+html[data-finish="hairline"] #live-log .lm.skim { timeline-scope: --hl-a, --hl-d1, --hl-d2, --hl-m, --hl-mv; }
+html[data-finish="hairline"] #live-log .lm.skim > .lm-answer { view-timeline-name: --hl-a; view-timeline-axis: block; }
+html[data-finish="hairline"] #live-log .lm.skim > .hl-d1 { view-timeline-name: --hl-d1; view-timeline-axis: block; }
+html[data-finish="hairline"] #live-log .lm.skim > .hl-d2 { view-timeline-name: --hl-d2; view-timeline-axis: block; }
+html[data-finish="hairline"] #live-log .lm.skim .hl-act { view-timeline-name: --hl-m; view-timeline-axis: block; }
+html[data-finish="hairline"] #live-log .lm.skim > .lm-move:not(.hl-act) { view-timeline-name: --hl-mv; view-timeline-axis: block; }
+html[data-finish="hairline"] #live-log .lm.skim > .lm-move.hl-act { view-timeline-name: --hl-m, --hl-mv; view-timeline-axis: block, block; }   /* no answer button: the section is both */
+/* insets: the top keeps clear of the pinned "you asked" bar and the title (42px); the bottom of the fade above the
+   text box (44px) plus the chat's 10px bottom padding, where the bottom cap sits */
+html[data-finish="hairline"] #live-log .lm.skim :is(.lm-answer, .hl-d1, .hl-d2, .hl-act, .lm-move) { view-timeline-inset: calc(var(--vn-stick-top, 0px) + 56px) 54px; }
+/* a part counts as scrolled under once its top reaches the bottom of the rows stacked above it: the title (42px) plus
+   one 34px row for each part before it, so its own name takes over exactly where its heading disappears */
+html[data-finish="hairline"] #live-log .lm.skim > .lm-answer { view-timeline-inset: calc(var(--vn-stick-top, 0px) + 50px) 54px; }
+html[data-finish="hairline"] #live-log .lm.skim > :is(.hl-d1, .hl-d2) { view-timeline-inset: calc(var(--vn-stick-top, 0px) + 84px) 54px; }
+html[data-finish="hairline"] #live-log .lm.skim > .lm-move { view-timeline-inset: calc(var(--vn-stick-top, 0px) + 118px) 54px; }
+
+/* covers */
+html[data-finish="hairline"] body #live-log .lm.skim > .lm-stick > .in,
+html[data-finish="hairline"] body #live-log .lm.skim > .hl-edge :is(.hl-row, .hl-fade, .hl-cap),
+html[data-finish="hairline"] body #live-log .lm.skim > .hl-edge .hl-cap::before {
+  background: var(--hl-glass) fixed, var(--hl-base); background-attachment: fixed;
+}
+/* top edge: the pinned title, a square cover with the rounded outline over it */
+html[data-finish="hairline"] body #live-log .lm.skim > .lm-stick > .in,
+html[data-finish="hairline"][data-theme="light"] body #live-log .lm.skim > .lm-stick > .in {
+  left: -2px; right: -2px; height: 42px; padding: 0 14px 0 18px; border: 0; border-radius: 0; box-shadow: none;
+}
+html[data-finish="hairline"] body #live-log .lm.skim > .lm-stick > .in::after {
+  content: ''; position: absolute; inset: 0 1px; pointer-events: none;
+  border: 1px solid var(--hl-line); border-bottom: 0; border-radius: var(--hl-r) var(--hl-r) 0 0;
+}
+html[data-finish="hairline"] body #live-log .lm.skim > .lm-stick > .in::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 16px; pointer-events: none;
+  background: var(--hl-glass) fixed, var(--hl-base); background-attachment: fixed;
+}
+/* the strips */
+html[data-finish="hairline"] #live-log .lm > .hl-edge { position: sticky; height: 0; z-index: 4; pointer-events: none; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.top { top: calc(var(--vn-stick-top, 0px) + 42px); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.bot { bottom: 44px; container-type: scroll-state; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge > .in { position: absolute; left: -2px; right: -2px; display: flex; flex-direction: column; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.top > .in { top: 0; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.bot > .in { bottom: 0; }
+/* rows, fades and cap carry the bubble's side lines, 1px in from their cover */
+html[data-finish="hairline"] #live-log .lm > .hl-edge :is(.hl-row, .hl-fade, .hl-cap) { position: relative; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge :is(.hl-row, .hl-fade)::after {
+  content: ''; position: absolute; inset: 0 1px; pointer-events: none; border: 1px solid var(--hl-line); border-top: 0; border-bottom: 0;
+}
+/* a row: the part's name on the left, what can be done with it on the right */
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-row {
+  box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px 0 18px; overflow: hidden;
+  pointer-events: auto;
+  animation-duration: 1ms !important; animation-timing-function: step-end !important; animation-fill-mode: both !important;
+  animation-delay: 0s !important; animation-iteration-count: 1 !important; animation-play-state: running !important;
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-go {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-go:hover { color: var(--text-heading); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-go svg { width: 11px; height: 11px; color: var(--text-faint); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-acts { margin-left: auto; display: flex; align-items: center; gap: 4px; min-width: 0; }
+/* the Summary switch: the summary's own tabs, small, the open one underlined */
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-tab {
+  all: unset; cursor: pointer; padding: 4px 7px; font-size: 12.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-tab:hover { color: var(--text-heading); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-tab.on { color: var(--text-heading); box-shadow: inset 0 -1.5px 0 currentColor; }
+/* the answer Review & respond waits for: the main action keeps its amber outline, verdict chips the plain line */
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-do {
+  all: unset; cursor: pointer; padding: 4px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--hl-line);
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-do:hover { color: var(--text-heading); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-do.main { color: rgb(240, 166, 40); background: rgba(240, 166, 40, .12); box-shadow: inset 0 0 0 1px rgba(240, 166, 40, .55); }
+html[data-finish="hairline"][data-theme="light"] #live-log .lm > .hl-edge .hl-do.main { color: rgb(190, 115, 0); }
+/* hidden = no height, no border, invisible.  An element with display:none runs no animation, so rows stay
+   displayed and the keyframes fold them away. */
+@keyframes hl-show-below { from { visibility: visible; } to { visibility: hidden; height: 0; padding: 0; margin: 0; } }
+@keyframes hl-show-above { from { visibility: hidden; height: 0; padding: 0; margin: 0; } to { visibility: visible; } }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.bot .hl-row { animation-name: hl-show-below !important; animation-range: entry 0% entry 0.01% !important; }
+/* top rows show from the moment their part's top edge slides under the bubble's top edge: the part you are reading
+   keeps its name pinned there (a sticky title), and parts you have passed stay above it */
+html[data-finish="hairline"] #live-log .lm > .hl-edge.top .hl-row { animation-name: hl-show-above !important; animation-range: exit-crossing 0% exit-crossing 0.01% !important; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-row[data-g="a"] { animation-timeline: --hl-a !important; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.bot .hl-row[data-g="d"] { animation-timeline: --hl-d1 !important; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.top .hl-row[data-g="d"] { animation-timeline: --hl-d1 !important; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.bot .hl-row[data-g="m"] { animation-timeline: --hl-m !important; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.top .hl-row[data-g="m"] { animation-timeline: --hl-mv !important; }
+/* fades: the backdrop masked from opaque (at the edge) to clear (toward the content) */
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-fade { display: none; height: 22px; pointer-events: none; }
+html[data-finish="hairline"] #live-log .lm.stuck > .hl-edge.top .hl-fade { display: block; -webkit-mask: linear-gradient(#000, transparent); mask: linear-gradient(#000, transparent); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge.bot .hl-fade { -webkit-mask: linear-gradient(transparent, #000); mask: linear-gradient(transparent, #000); }
+/* the bottom cap: a square cover 14px tall, its rounded outline, and a cover below it to the chat's bottom */
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-cap { display: none; height: 14px; pointer-events: none; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-cap::after {
+  content: ''; position: absolute; inset: 0 1px; border: 1px solid var(--hl-line); border-top: 0; border-radius: 0 0 var(--hl-r) var(--hl-r);
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-cap::before { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 54px; }
+@container scroll-state(stuck: bottom) {
+  html[data-finish="hairline"] #live-log .lm > .hl-edge.bot :is(.hl-fade, .hl-cap) { display: block; }
+}
+
+/* ── The Respond button in an edge row opens the verdict answers as a small menu on the page's backdrop ── */
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-do[aria-haspopup] { display: inline-flex; align-items: center; gap: 5px; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-do[aria-haspopup] svg { width: 11px; height: 11px; color: var(--text-faint); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu {
+  position: absolute; right: 12px; z-index: 6; pointer-events: auto; min-width: 170px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  border: 1px solid var(--hl-line); border-radius: 12px; background: var(--hl-glass) fixed, var(--hl-base); background-attachment: fixed;
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu.bot { bottom: calc(100% + 6px); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu.top { top: calc(100% + 6px); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu button {
+  all: unset; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 7px 12px 7px 10px; border-radius: 8px;
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu .hl-mi { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none; font-style: normal; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu .hl-mi svg { width: 16px; height: 16px; }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu button:hover { background: rgba(128, 128, 128, .1); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu b { font-size: 13px; font-weight: 600; color: var(--text-heading); }
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu span { font-size: 11.5px; color: var(--text-muted); }
+
+/* ── The working line above the text box: while a session works (or compacts), its state, timer and agents read as one
+   quiet line just above the box, outside it, and Stop is a red word at that line's right end.  It replaces the Stop
+   pinned in the box's corner for the working state only (#live-st-card); the other states keep the rule above. ── */
+html[data-finish="hairline"] #live-input-bar #live-st-card { margin-top: 30px; }
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st {
+  top: auto; bottom: calc(100% + 6px); left: 0; right: 0; padding: 0 0 0 6px; gap: 8px; min-height: 24px;
+  font-size: 12px; color: var(--text-muted); pointer-events: auto;
+}
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > :not(button) { display: revert; }
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-st-ico { display: inline-flex; color: var(--accent); }
+/* The card's own chip layer is hidden in this finish (the line sits above the box), so the chips fly off the icon:
+   from where the pick's head lands (lower left), up and to the left, on the strike (hl-chips, the sidebar's beat). */
+html[data-finish="hairline"] #live-input-bar #live-st-card[data-st="working"] > .vn-st > .vn-st-ico { position: relative; overflow: visible; }
+html[data-finish="hairline"] #live-input-bar #live-st-card[data-st="working"] > .vn-st > .vn-st-ico::after {
+  content: ''; position: absolute; left: 1px; top: 12px; width: 3px; height: 3px; border-radius: 50%;
+  background: currentColor; pointer-events: none; opacity: 0;
+  box-shadow: -7px -7px 0 0 currentColor, -10px -1px 0 -.5px currentColor, -3px -10px 0 -.5px currentColor, -11px -8px 0 0 currentColor;
+  animation: hl-chips var(--vn-cycle, 1.6s) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-finish="hairline"] #live-input-bar #live-st-card[data-st="working"] > .vn-st > .vn-st-ico::after { animation: none; display: none; }
+}
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-st-lbl { color: var(--text-secondary); }
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-st-hint { color: var(--text-muted); }
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-st-grow { display: block; flex: 1; }
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-stop { background: transparent; font-size: 12px; padding: 3px 8px; border-radius: 7px; }
+html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-stop:hover { background: rgba(220, 38, 38, .12); color: #f26d6d; }
+html[data-finish="hairline"][data-theme="light"] #live-input-bar #live-st-card > .vn-st > .vn-stop:hover { color: #dc2626; }
+html[data-finish="hairline"] #live-input-bar #live-st-card .live-textarea { padding-right: 16px; }

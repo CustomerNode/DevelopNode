@@ -235,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument("--json", action="store_true")
     imp.set_defaults(fn=_job_import)
 
-    auto = sub.add_parser("autostart", help="start VibeNode at sign-in")
+    auto = sub.add_parser("autostart", help="start DevelopNode at sign-in")
     auto.add_argument("action", choices=("install", "remove", "status"))
     auto.set_defaults(fn=_autostart)
     return p

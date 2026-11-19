@@ -115,9 +115,12 @@ def test_the_dialog_has_the_summary_field_and_honest_mode_labels(page):
     # The picked option is the grey raised segment, never the purple main button.
     assert page.locator("#gs-gate .pm-btn-primary").count() == 0
     assert page.locator("#gs-gate .on").get_attribute("data-gate") == "skip"
-    assert [b.strip() for b in page.locator("#gs-gate button").all_text_contents()] == ["Fast", "Full", "Skip"]
+    assert [b.strip() for b in page.locator("#gs-gate button b").all_text_contents()] == ["Fast", "Full", "Skip"]
+    # Each choice says what it runs, from the same honest label.
+    assert page.locator("#gs-gate [data-gate=fast] small").text_content() == "unit + browser tests, 60s timeout"
+    assert page.locator("#gs-gate [data-gate=full] small").text_content() == "unit + browser tests, 120s timeout"
     labels = [b.strip() for b in page.locator("#git-sync-actions button").all_text_contents()]
-    assert labels == ["Cancel", "Publish"]
+    assert labels == ["Later", "Publish"]
 
 
 def test_skip_and_publish_sends_the_summary_and_a_skipped_gate(page):
@@ -295,3 +298,78 @@ def test_publishing_shows_the_work_as_it_happens(page):
 def test_the_publish_dialog_code_refreshes_in_an_open_tab():
     src = (ROOT / "src" / "web" / "static" / "js" / "live-assets.js").read_text(encoding="utf-8")
     assert "'js/git-sync.js'" in src
+
+
+# ── The release notes sheet (the real card markup from index.html) ──
+
+CHANGES = {"incoming": {"files": 6, "notes": [], "areas": [
+               {"name": "Session list", "what": "the sidebar and its statuses", "files": 4},
+               {"name": "Tests", "what": "checks that guard the app", "files": 2}]},
+           "outgoing": {"files": 9, "notes": ["Make the Sleep button stick"], "areas": [
+               {"name": "Chat", "what": "the conversation and the text box", "files": 5},
+               {"name": "Web server", "what": "the services behind the app", "files": 2},
+               {"name": "Start and stop", "what": "launching, starting at sign-in and recovery", "files": 1},
+               {"name": "Tests", "what": "checks that guard the app", "files": 1}]}}
+
+
+def _sheet_html() -> str:
+    """The test page with the dialog's real card from index.html and /api/git-changes answered."""
+    html = _page_html()
+    tpl = (ROOT / "src" / "web" / "templates" / "index.html").read_text(encoding="utf-8")
+    a = tpl.index('<div class="overlay" id="git-sync-overlay">')
+    b = tpl.index("<!-- Minimized git sync floating indicator -->")
+    start = html.index('<div class="overlay" id="git-sync-overlay">')
+    end = html.index('<div id="git-sync-mini">')
+    html = html[:start] + tpl[a:b] + html[end:]
+    return html.replace("else if (url === '/api/git-status')",
+                        "else if (url === '/api/git-changes') body = " + json.dumps(CHANGES) + ";\n    else if (url === '/api/git-status')")
+
+
+@pytest.fixture
+def sheet(browser):
+    pg = browser.new_page(viewport={"width": 1100, "height": 800})
+    pg.clock.install()
+    pg.set_content(_sheet_html())
+    yield pg
+    pg.close()
+
+
+def test_publish_draws_as_a_sheet_with_what_goes_out(sheet):
+    sheet.evaluate("() => openGitPublish()")
+    _until(sheet, "() => document.querySelector('#gs-notes-box .gs-notes')")
+    assert sheet.locator("#git-sync-card.gs-sheet").count() == 1
+    notes = [t.strip() for t in sheet.locator("#gs-notes-box .gs-notes li > span:last-child").all_inner_texts()]
+    # A title someone wrote comes first, then the biggest areas; the rest fold into one row.
+    assert notes[0] == "Make the Sleep button stick"
+    assert notes[1].startswith("Chat") and "5 files" in notes[1]
+    assert notes[-1].startswith("2 more areas")
+    assert len(notes) == 4
+    assert sheet.locator("#git-sync-side .gs-side-num").first.text_content() == "9"
+    assert sheet.locator("#git-sync-side .gs-side-lbl").first.text_content() == "files"
+    assert "gs-bar run" not in (sheet.get_attribute("#git-sync-bar", "class") or "")
+
+
+def test_the_sheets_number_and_bar_follow_the_run(sheet):
+    sheet.evaluate("""() => { const enc = new TextEncoder();
+      window.__stream = new ReadableStream({start(c) { window.__push = l => c.enqueue(enc.encode(JSON.stringify(l) + String.fromCharCode(10))); window.__end = () => c.close(); }}); }""")
+    sheet.evaluate("() => { executeGitAction('push', 'btn-git-publish', 'Publish App Update'); }")
+    _until(sheet, "() => window.__push && window.__posts.length === 1")
+    sheet.evaluate("""() => { __push({type: 'steps', steps: [{key: 'scan', label: 'Checking'}, {key: 'up', label: 'Uploading'}]});
+      __push({type: 'step', key: 'up'}); __push({type: 'detail', key: 'up', text: 'Uploading', pct: 50}); }""")
+    _until(sheet, "() => document.getElementById('gs-side-big') && document.getElementById('gs-side-big').textContent === '75%'")
+    assert sheet.get_attribute("#git-sync-bar", "class") == "gs-bar run"
+    width = sheet.evaluate("() => document.querySelector('#git-sync-bar > i').style.width")
+    assert width == "75%"
+    labels = [b.strip() for b in sheet.locator("#git-sync-actions button").all_text_contents()]
+    assert labels == ["Keep working, I’ll tell you"]
+    sheet.evaluate("""() => { __push({type: 'done', result: {ok: true, messages: ['Pushed.'],
+      git_status: {ahead: 0, behind: 0, uncommitted: false}}}); __end(); }""")
+    _until(sheet, "() => document.getElementById('git-sync-title').textContent === 'Published'")
+    assert sheet.get_attribute("#git-sync-side", "class") == "gs-side ok"
+    assert sheet.get_attribute("#git-sync-bar", "class") == "gs-bar ok"
+
+
+def test_other_users_of_the_dialog_keep_the_plain_card(sheet):
+    sheet.evaluate("() => { openGitUpdate(); closeGitSyncModal(); showGitSyncModal('Security scan', '<p>x</p>', [{label: 'OK', onclick: closeGitSyncModal}]); }")
+    assert sheet.locator("#git-sync-card.gs-sheet").count() == 0
+

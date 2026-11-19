@@ -848,26 +848,44 @@ function _pinSlide(units, before) {
     const a = before.get(u);
     if (!a) return;
     // Where it is now without any slide still running (a is where it showed).
+    // Moved with `translate`, not `transform`: the hairline finish pins cards
+    // to `transform: none !important`, which froze every slide and the lift.
     u.style.transition = 'none';
-    u.style.transform = '';
+    u.style.translate = '';
     const b = u.getBoundingClientRect();
     const dx = a.left - b.left, dy = a.top - b.top;
     if (!dx && !dy) { u.style.transition = ''; return; }
-    u.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    u.style.translate = dx + 'px ' + dy + 'px';
     void u.offsetWidth;   // apply the start position before animating from it
-    u.style.transition = 'transform ' + _PIN_SLIDE_MS + 'ms cubic-bezier(.2,.8,.2,1)';
-    u.style.transform = '';
+    u.style.transition = 'translate ' + _PIN_SLIDE_MS + 'ms cubic-bezier(.2,.8,.2,1)';
+    u.style.translate = '';
     clearTimeout(u._pinSlideT);
     u._pinSlideT = setTimeout(() => { u.style.transition = ''; }, _PIN_SLIDE_MS + 20);
   });
 }
 
+/** Where a unit rests: its box without the slide it is in the middle of. */
+function _pinRestRect(u) {
+  const r = u.getBoundingClientRect();
+  const t = getComputedStyle(u).translate;
+  if (!t || t === 'none') return r;
+  const [tx, ty] = t.split(' ').map(v => parseFloat(v) || 0);
+  return {left: r.left - tx, right: r.right - tx, top: r.top - (ty || 0), bottom: r.bottom - (ty || 0)};
+}
+
 /** Keep the lifted unit under the mouse, wherever its slot now is. */
 function _pinFollow(x, y) {
   const d = _pinDrag, u = d.unit;
-  u.style.transform = 'none';
+  // Measure the slot with the slide off but the size left alone: resetting
+  // the size here restarted its grow on every mouse move, so it popped.
+  // Scaling keeps the centre, so the slot's corner is centre minus half the
+  // unscaled size.
+  u.style.translate = 'none';
   const r = u.getBoundingClientRect();
-  u.style.transform = 'translate(' + (x - d.gx - r.left) + 'px,' + (y - d.gy - r.top) + 'px) scale(1.04)';
+  const left = (r.left + r.right) / 2 - u.offsetWidth / 2;
+  const top = (r.top + r.bottom) / 2 - u.offsetHeight / 2;
+  u.style.translate = (x - d.gx - left) + 'px ' + (y - d.gy - top) + 'px';
+  if (u.style.scale !== '1.04') u.style.scale = '1.04';
 }
 
 function _pinDragDown(e) {
@@ -914,9 +932,11 @@ function _pinDragMove(e) {
   for (let i = 0; i < units.length; i++) {
     const u = units[i];
     if (u === d.unit) continue;
-    const r = u.getBoundingClientRect();
+    // Judge by the slot a unit rests in, never where its slide shows it: a
+    // unit sliding away passed under the mouse again and swapped straight
+    // back, which jerked the others backwards mid-slide.
+    const r = _pinRestRect(u);
     if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue;
-    // A unit sliding away can pass under the mouse again; wait for it to land.
     if (u === d.lockOn && now < d.lockUntil) break;
     const before = new Map(units.map(x => [x, x.getBoundingClientRect()]));
     if (i > from) u.after(d.unit); else u.before(d.unit);
@@ -944,7 +964,8 @@ function _pinDragEnd(keep) {
   u.classList.remove('vn-pin-lifted');
   u.classList.add('vn-pin-settling');
   u.style.transition = '';
-  u.style.transform = '';
+  u.style.translate = '';
+  u.style.scale = '';
   setTimeout(() => {
     u.classList.remove('vn-pin-settling');
     if (moved) {
@@ -1266,9 +1287,10 @@ function renderList(sessions) {
           rows += _renderSessionRow(s, '');
         }
       }
-      el.innerHTML = header + rows;
-      initColResize();
-      attachTooltipListeners();
+      if (typeof _vnWriteRows !== 'function' ? (el.innerHTML = header + rows, true) : _vnWriteRows(el, header + rows)) {
+        initColResize();
+        attachTooltipListeners();
+      }
       // Re-render the multi-select badge after the list re-render destroys
       // it (innerHTML = ...) so the count stays visible across sort/filter
       // updates.  Pruning also handles cases where a selected session was
@@ -1318,9 +1340,11 @@ function renderList(sessions) {
     }
   }
 
-  el.innerHTML = header + rows;
-  initColResize();
-  attachTooltipListeners();
+  // Unchanged markup in the same order keeps the rows (app.js _vnWriteRows).
+  if (typeof _vnWriteRows !== 'function' ? (el.innerHTML = header + rows, true) : _vnWriteRows(el, header + rows)) {
+    initColResize();
+    attachTooltipListeners();
+  }
   // See note above — keep the badge visible across re-renders.
   _renderMultiSelectionBadge();
 }

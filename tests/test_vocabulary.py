@@ -34,6 +34,10 @@ BANNED = {
     "Kanban label": re.compile(r">\s*Kanban\s*<"),
     # "Your move" is retired: the card band is named for what it asks: Decide, Approve, To do, or Next.
     "your move": re.compile(r"\b(?:your|its|my)\s+move\b", re.I),
+    # The product is DevelopNode. Names code looks up keep the old word (paths,
+    # file and lock names, identifiers such as openVibeNodeOrgs, the engine's
+    # "[VibeNode ...]" message prefixes), so only the bare word is retired.
+    "VibeNode (now DevelopNode)": re.compile(r"(?<![\w/\\\[.\-])VibeNode(?![\w\-./\\])"),
 }
 
 # (file name, substring of the line, reason).  Keep this short.
@@ -73,7 +77,8 @@ def test_no_retired_user_facing_terms():
     ("asleep: 'Sleeping'", "live-panel.js"),
     ("Welcome to your Workflow", "kanban.js"),
     ("<span>New task</span>", "kanban.js"),
-    ("'No subsessions yet'", "toolbar.js"),
+    ("compose: 'Subsessions'", "all-projects.js"),
+    ("Allotted to DevelopNode", "invoke-workforce.js"),
 ])
 def test_the_new_forms_are_in_place(phrase, where):
     src = (ROOT / "src" / "web" / "static" / "js" / where).read_text(encoding="utf-8")
@@ -91,6 +96,7 @@ def test_the_scan_catches_a_planted_form(tmp_path):
         "<span>Add to Board</span>",
         "'<div class=\"kanban-sidebar-label\">Kanban</div>'",
         "h += band('Your move', x, 'lm-sec lm-needs');",
+        "showToast('Could not reach VibeNode');",
     ]
     for line in old:
         assert any(rx.search(line) for rx in BANNED.values()), line

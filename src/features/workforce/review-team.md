@@ -3,7 +3,7 @@ id: review-team
 name: Review Team
 department: compose
 source: vibenode
-version: 1.6.1
+version: 1.6.2
 depends_on: [compose-test-engineer, compose-quality-engineer, compose-product-manager, compose-senior-engineer, compose-expert-user]
 type: prompt-template
 ---
@@ -27,7 +27,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 ## The Prompt
 
-Run the review team: Test Engineer, Quality Engineer, Product Manager, Senior Software Engineer, Expert User. All have full knowledge of the product spec and VibeNode architecture.
+Run the review team: Test Engineer, Quality Engineer, Product Manager, Senior Software Engineer, Expert User. All have full knowledge of the product spec and DevelopNode architecture.
 
 Review the scope named in the kickoff. You are a checker, not the builder: run as a fresh subagent whose kickoff gives you the request, the scope (files or git range) and the run directory, not the builder's reasoning. Judge from the code and the diff (`git diff` on the scope), not from the builder's account of what it meant. Write your own findings down BEFORE you read any builder or earlier stage report; then read those reports to follow up on what they raise. If you are running inside the same conversation that wrote the code, say so in the report under "What was not validated". Run the review as a team, not four independent reports. Each agent reviews from their lane, but findings feed into a shared picture. If one agent's finding affects another's area, they coordinate.
 

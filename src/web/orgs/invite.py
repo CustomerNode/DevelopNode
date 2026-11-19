@@ -29,7 +29,7 @@ def build_prompt(*, url: str, key: str, code: str, org_name: str, inviter: str,
     return (
         f"{inviter} invited you to the VibeNode org \"{org_name}\" so you can Phone a Friend: "
         "open a session to each other when one of you is stuck.\n\n"
-        "To the VibeNode session reading this: ask me which username I want in the org "
+        "To the DevelopNode session reading this: ask me which username I want in the org "
         "(letters, numbers, spaces, dots, dashes; up to 32), then join by running exactly:\n\n"
         "curl -s -X POST http://127.0.0.1:5050/api/orgs/join -H 'Content-Type: application/json' "
         "-d '{\"username\": \"<the name I chose>\", \"invite\": <the JSON block below>}'\n\n"

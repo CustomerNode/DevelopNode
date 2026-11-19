@@ -245,7 +245,7 @@ function _mcOsLabel(os) {
 
 function _mcStepError() {
   return `<div style="text-align:center;padding:26px 0;">
-      <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Couldn’t reach VibeNode</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Couldn’t reach DevelopNode</div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">It’ll retry automatically…</div>
       <button class="pm-btn pm-btn-secondary" onclick="_mcRender()">Check again now</button>
     </div>`;
@@ -256,7 +256,7 @@ function _mcStepInstall(st) {
   const os = st.host_os || '';
   const url = _mcEsc(st.install_url || 'https://tailscale.com/download');
   return `
-    <div class="mc-lead">VibeNode reaches your phone privately through <strong>Tailscale</strong> — a free,
+    <div class="mc-lead">DevelopNode reaches your phone privately through <strong>Tailscale</strong> — a free,
       secure connector. First, install it on <strong>${_mcOsLabel(os)}</strong>. It’s a one-time thing.</div>
     <div class="mc-cta-row">
       <a class="mc-cta mc-cta-primary" href="${url}" target="_blank" rel="noopener">⬇︎&nbsp; Download Tailscale for ${_mcOsLabel(os)}</a>
@@ -287,7 +287,7 @@ function _mcStepIntro(st) {
   const acct = st.account ? `<div class="mc-acct-note">Signed in as <strong>${_mcEsc(st.account)}</strong></div>` : '';
   return `
     <div class="mc-lead">You’re signed in. Flip on phone access — do this once and it stays on every time
-      VibeNode runs. Your sessions never leave this machine; this only opens a private door for your own devices.</div>
+      DevelopNode runs. Your sessions never leave this machine; this only opens a private door for your own devices.</div>
     ${acct}
     <div class="mc-cta-row">
       <button class="mc-cta mc-cta-primary" onclick="_mcEnableClicked()">Turn on phone access</button>
@@ -326,7 +326,7 @@ function _mcStepBridge(st) {
 function _mcStepPhone(st) {
   const url = _mcEsc(st.url || '');
   const acct = _mcEsc(st.account || '');
-  const dev = _mcEsc(st.device_name || 'VibeNode');
+  const dev = _mcEsc(st.device_name || 'DevelopNode');
 
   // The unambiguous positive signal: has a phone joined this tailnet yet?
   const phoneLine = st.phone_connected
@@ -345,7 +345,7 @@ function _mcStepPhone(st) {
 
   return `
     <div class="mc-live-banner">
-      <span class="mc-live-dot">●</span> On — your phone can reach VibeNode
+      <span class="mc-live-dot">●</span> On — your phone can reach DevelopNode
       <button class="pm-btn pm-btn-secondary mc-turnoff" onclick="_mcDisableClicked()">Turn off</button>
     </div>
 
@@ -361,7 +361,7 @@ function _mcStepPhone(st) {
         <div class="mc-col-note">Scan with the phone camera → install <strong>Tailscale</strong> → sign in → tap <strong>Allow</strong> for VPN.</div>
       </div>
       <div class="mc-phone-col">
-        <div class="mc-col-title">② Open VibeNode</div>
+        <div class="mc-col-title">② Open DevelopNode</div>
         <div id="mc-qr-open" class="mc-qr"></div>
         <div class="mc-cta-row">
           <button class="pm-btn pm-btn-secondary mc-copy" onclick="_mcCopy('${url.replace(/'/g, "\\'")}', this)">📋 Copy link</button>
@@ -394,7 +394,7 @@ function _mcPairingBox(st) {
   if (!st || st.auth_enabled === false) {
     return `<div class="mc-acct-box" style="border-color:rgba(210,153,34,0.35);background:rgba(210,153,34,0.08);">
       <div class="mc-acct-label">Pairing is <strong>off</strong> (<code>mobile_command_auth: false</code> in kanban_config.json):
-        every device on your tailnet can use VibeNode without a code.</div></div>`;
+        every device on your tailnet can use DevelopNode without a code.</div></div>`;
   }
   if (!st.pair_code) return '';
   const code = _mcEsc(st.pair_code_display || st.pair_code);

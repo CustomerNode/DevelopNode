@@ -160,7 +160,7 @@ function _probeInternet() {
 registerHealthCheck('wifi', {
     label: 'No Internet Connection',
     icon: '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
-    message: 'VibeNode requires an active internet connection to communicate with Claude. Please check your WiFi or network settings.',
+    message: 'DevelopNode requires an active internet connection to communicate with Claude. Please check your WiFi or network settings.',
     test: function() {
         // If our own server is reachable, we have internet by definition.
         // This suppresses false-positive wifi overlays during Tailscale
@@ -336,9 +336,9 @@ function _probeServer() {
 }
 
 registerHealthCheck('server-reachable', {
-    label: 'VibeNode Server Unreachable',
+    label: 'DevelopNode Server Unreachable',
     icon: '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="2" y1="9" x2="22" y2="9"/></svg>',
-    message: 'The VibeNode web server is not responding. Your running sessions are likely safe in the Session Engine — relaunch VibeNode from your desktop shortcut or launcher to reconnect. If this overlay persists after relaunch, check logs/_server.log.',
+    message: 'The DevelopNode web server is not responding. Your running sessions are likely safe in the Session Engine — relaunch DevelopNode from your desktop shortcut or launcher to reconnect. If this overlay persists after relaunch, check logs/_server.log.',
     test: function() { return _serverReachable; }
 });
 
@@ -451,7 +451,7 @@ registerHealthCheck('daemon-reachable', {
     message: 'The Session Engine that runs your sessions has stopped. Tap Restart to bring it back — your session history is safe.',
     test: function() { return _daemonReachable; },
     action: {
-        text: 'Restart VibeNode',
+        text: 'Restart DevelopNode',
         onClick: function() {
             var btn = document.querySelector('#health-blocker .hb-btn');
             if (btn) { btn.disabled = true; btn.textContent = 'Restarting…'; }
@@ -519,7 +519,7 @@ var _claudeLoggedIn = true; // assume ok until first poll says otherwise
 registerHealthCheck('claude-auth', {
     label: 'Not Logged In to Claude',
     icon: '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="16" x2="12" y2="19"/></svg>',
-    message: 'VibeNode requires an active Claude Code login. Click below to open the login flow, then come back here — it will reconnect automatically.',
+    message: 'DevelopNode requires an active Claude Code login. Click below to open the login flow, then come back here — it will reconnect automatically.',
     test: function() { return _claudeLoggedIn; },
     action: {
         text: 'Log In to Claude',

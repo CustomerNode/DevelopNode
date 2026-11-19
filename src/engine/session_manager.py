@@ -357,7 +357,7 @@ def _ttft_flush(info, session_id: str, status: str = "ok") -> None:
 INTERCEPT_ASK_USER_QUESTION = True
 ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
 ASK_USER_QUESTION_REDIRECT_MESSAGE = (
-    "This tool is unavailable — VibeNode has no interactive question UI, so it "
+    "This tool is unavailable — DevelopNode has no interactive question UI, so it "
     "can never be answered. You do not have the right to ask the user a question "
     "until you have produced work. Resolve your question yourself, based on which "
     "kind it is:\n"
@@ -5600,12 +5600,12 @@ class SessionManager:
 
     @staticmethod
     def _smart_termination_on() -> bool:
-        """The ``smart_termination`` preference (System → Preferences), opt-in:
-        on only when set to true.  Read through the cached config (CLAUDE.md
+        """The ``smart_termination`` preference (System → Preferences), on by
+        default: off only when set to false.  Read through the cached config (CLAUDE.md
         PERF-CRITICAL #11)."""
         try:
             from shared.config import get_kanban_config
-            return get_kanban_config().get("smart_termination", False) is True
+            return get_kanban_config().get("smart_termination", True) is not False
         except Exception:
             return False
 
@@ -5865,7 +5865,7 @@ class SessionManager:
                     _aq_entry = LogEntry(
                         kind="permission",
                         text=(
-                            "AskUserQuestion intercepted — VibeNode doesn't ask "
+                            "AskUserQuestion intercepted — DevelopNode doesn't ask "
                             "mid-task questions. The agent was told to decide "
                             "implementation details itself (any reversible "
                             "choice) and, if the question was about what to do "

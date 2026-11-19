@@ -1,6 +1,6 @@
 # Agent Authoring Best Practices
 
-This file is the standard for every prompt-template agent in `src/features/workforce/`. When you create a new agent here, or edit an existing one, your output MUST follow these rules. They are derived from real subagent failure modes documented by the Claude Code team and adapted to VibeNode's workforce mechanism (catalog-injected prompts via `/api/workforce/assets`).
+This file is the standard for every prompt-template agent in `src/features/workforce/`. When you create a new agent here, or edit an existing one, your output MUST follow these rules. They are derived from real subagent failure modes documented by the Claude Code team and adapted to DevelopNode's workforce mechanism (catalog-injected prompts via `/api/workforce/assets`).
 
 Read this file before touching any `src/features/workforce/*.md` file. If a rule conflicts with a specific agent's needs, document the divergence in that agent's file with a clear "Why this agent diverges" note — do not silently violate the standard.
 
@@ -134,7 +134,7 @@ This rule is enforced explicitly in Test Team. Any new agent that runs diagnosti
 The "expert persona" anti-pattern (e.g. "you are a Python expert") adds no value. Claude already has the knowledge. What an agent CAN add is a **distinct frame** that changes the questions being asked.
 
 **Bad:** "You are an expert in performance optimization."
-**Good:** "You evaluate every change from the perspective of someone who uses VibeNode 8 hours a day." (Compose Expert User does this — different lens, different questions.)
+**Good:** "You evaluate every change from the perspective of someone who uses DevelopNode 8 hours a day." (Compose Expert User does this — different lens, different questions.)
 
 Agents with multiple internal roles ("Run the Plan Team: Spec Analyst, Product Strategist, Architect…") are fine. Those are **role frames within one agent**, not separate subagents. The anti-pattern is spawning a subagent whose only differentiator is "expert."
 
@@ -164,7 +164,7 @@ docs/plans/runs/<YYYY-MM-DD-HHMM>-<short-slug>-<4 hex>/
 
 ## Rule 7: Tool restrictions are encoded in prose
 
-The VibeNode workforce mechanism does not have a YAML `tools:` field, so any restriction on what a subagent should touch must be written explicitly in The Prompt. Examples:
+The DevelopNode workforce mechanism does not have a YAML `tools:` field, so any restriction on what a subagent should touch must be written explicitly in The Prompt. Examples:
 
 - Read-only agents: "Do not modify code files. Read and analyze only."
 - Plan-stage agents: "Write to `docs/plans/` only. Do not modify source code."
@@ -218,13 +218,13 @@ A new pipeline that drops any of these is not a pipeline. What it may change is 
 
 ---
 
-## Rule 12: Playbooks meet the Playbook Standard, and VibeNode checks it
+## Rule 12: Playbooks meet the Playbook Standard, and DevelopNode checks it
 
 A playbook is an entry with `playbook: true`; it is listed in Settings → Playbooks and started by its words. Its required parts (identity, purpose, inputs, execution, outputs, verification, safety) are defined once, in code: `src/shared/playbook_standard.py`. They scale with `playbook_risk`: `low` (talks only) needs the first five, `medium` (creates things or runs commands) adds Standing Criteria, an escalation section and the two closing output sections, `high` (changes code, runs experiments, sends anything out) must also say in its prompt what it must not touch.
 
 Every playbook also declares `playbook_capabilities`; `delete`, `publish`, `send_out`, `modify_code` and `run_experiments` need `high` (`read_only_sessions`, sessions that can only read, needs `medium`), and the check refuses a capability its instructions show but it does not declare. Ids, names and the words that start a playbook must be unique across the library, and replacing a playbook must raise its version. A session runs a playbook only from `--show` / `/api/playbooks/<id>`, which checks it at that moment; a failing one is never served.
 
-VibeNode enforces it on every path: `/api/workforce/write-asset` refuses a failing playbook, `/api/workforce/assets` leaves one out of the Playbooks list (with `playbook_problems`), and `tests/test_playbook_standard.py` fails the suite. Check a file with `python -m shared.playbook_standard src/features/workforce/<id>.md`; print the rules with `--explain`. The **Playbook Builder** playbook creates and fixes playbooks against it. Change a rule in the module, never in a playbook's prose.
+DevelopNode enforces it on every path: `/api/workforce/write-asset` refuses a failing playbook, `/api/workforce/assets` leaves one out of the Playbooks list (with `playbook_problems`), and `tests/test_playbook_standard.py` fails the suite. Check a file with `python -m shared.playbook_standard src/features/workforce/<id>.md`; print the rules with `--explain`. The **Playbook Builder** playbook creates and fixes playbooks against it. Change a rule in the module, never in a playbook's prose.
 
 ---
 

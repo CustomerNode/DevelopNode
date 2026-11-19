@@ -201,7 +201,7 @@ def summarize_staged(paths) -> str:
     """'Update web/routes, web/static, tests (14 files)' from staged paths."""
     paths = [p for p in paths if p and p.strip()]
     if not paths:
-        return "Update VibeNode"
+        return "Update DevelopNode"
     areas = []
     for p in paths:
         a = _area_of(p.strip())
@@ -319,12 +319,12 @@ def _adopt_republished_history(proj, default: str) -> dict:
             subprocess.run(["git", "-C", str(proj), "stash", "pop"],
                            capture_output=True, creationflags=_NO_WINDOW)
         return {"ok": False, "messages": [
-            "Could not move onto the republished VibeNode: "
+            "Could not move onto the republished DevelopNode: "
             + (sw.stderr.strip() or sw.stdout.strip()),
             "Nothing changed; your copy is as it was."]}
     subprocess.run(["git", "-C", str(proj), "reset", "--hard", "origin/" + default],
                    capture_output=True, text=True, creationflags=_NO_WINDOW)
-    msgs = ["Your VibeNode was rebuilt from the republished version (its history was "
+    msgs = ["Your DevelopNode was rebuilt from the republished version (its history was "
             "rewritten). Your old copy is saved on branch '" + backup + "'."]
     if stashed:
         pop = subprocess.run(["git", "-C", str(proj), "stash", "pop"],
@@ -500,7 +500,7 @@ def do_git_sync(action: str, confirm_branch: bool = False,
     """
     proj = _VIBENODE_DIR
     if not (proj / ".git").is_dir():
-        return {"ok": False, "messages": ["VibeNode has no git repo."]}
+        return {"ok": False, "messages": ["DevelopNode has no git repo."]}
 
     # ── Branch guard (short-circuit before any git operation) ──
     if not confirm_branch:
@@ -658,9 +658,9 @@ def do_git_sync(action: str, confirm_branch: bool = False,
                         "Nothing was published. Your changes are kept (git stash); resolve the clash, then Update again.",
                     ], "conflicts": clashed}
             if "Already up to date" in out:
-                messages.append("VibeNode is already up to date.")
+                messages.append("DevelopNode is already up to date.")
             else:
-                messages.append("Pulled latest VibeNode updates from remote.")
+                messages.append("Pulled latest DevelopNode updates from remote.")
             step("finish")
             detail("Checking for new dependencies and data updates", force=True)
             # The update changed requirements.txt: install what it asks for, with
@@ -781,7 +781,7 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             ok = False
             messages.append("Could not push: " + (push.stderr.strip() or push.stdout.strip()))
         else:
-            messages.append("Your VibeNode changes have been pushed to remote.")
+            messages.append("Your DevelopNode changes have been pushed to remote.")
 
     # Update git cache immediately. After a successful push we know ahead=0
     # and uncommitted=False — don't re-check status --porcelain because a

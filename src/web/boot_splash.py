@@ -40,6 +40,25 @@ except ImportError:
     _has_pil = False
 
 # ── Configuration ─────────────────────────────────────────────────────
+# The ring design: the logo inside a ring that fills as the app starts.
+RING_CX, RING_CY, RING_R = 180, 153, 68    # window is 360 wide (W below); the
+# ring, name and status sit as one block centred in the window, as in the picked design
+MARK_FRAMES, MARK_W, MARK_H = 8, 66, 54      # static/images/mark-splash.png
+PLAIN = {"cache": "Clearing caches", "loading": "Loading modules",
+         "ports": "Releasing ports", "deps": "Checking dependencies",
+         "daemon": "Starting the Session Engine", "server": "Starting the server",
+         "browser": "Opening the browser"}
+
+# The status line is a picture too (static/images/status-splash.png, one 18 px
+# row per text, drawn in the app's Geist like the name above it): in Tk it fell
+# back to another typeface and size, and clashed with the name.
+STATUS_ROWS = ["start", "cache", "loading", "ports", "deps", "daemon",
+               "server", "browser", "ready", "failed"]
+STATUS_W, STATUS_H = 300, 18
+# The percentage under the status line: one picture row per value, 0% to 100%
+# (static/images/percent-splash.png), for the same reason as the status.
+PCT_W, PCT_H = 80, 18
+
 STEPS = [
     ("cache",   "Clearing caches"),
     ("loading", "Loading modules"),
@@ -50,9 +69,37 @@ STEPS = [
     ("browser", "Opening browser"),
 ]
 
-W, H = 480, 490
+W, H = 360, 400
+S = 1.0              # set from the screen in BootSplash.__init__ (_fit_screen)
+
+
+def _fit_screen(screen_h: int) -> float:
+    """How much to enlarge the splash: the design is drawn for a 900 px tall
+    screen, so a 1800 px screen at 100% scaling gets 2x (1.5x still looked
+    small, seen through a remote desktop that shrinks the whole screen).
+    One of 1, 1.5 or 2: the logo and name ship as pictures made for exactly
+    those sizes (``<name>@1.5x.png``, ``<name>@2x.png``), because Tk can only
+    resize a picture by whole steps and Pillow's Tk support is often missing."""
+    want = screen_h / 900
+    return 2.0 if want >= 1.85 else 1.5 if want >= 1.35 else 1.0
+
+
+def _scale_layout(scale: float) -> None:
+    global S, W, H, RING_CX, RING_CY, RING_R, MARK_W, MARK_H
+    S = scale
+    W, H = round(360 * S), round(400 * S)
+    RING_CX, RING_CY, RING_R = round(180 * S), round(153 * S), round(68 * S)
+    MARK_W, MARK_H = round(66 * S), round(54 * S)
+    global STATUS_W, STATUS_H
+    STATUS_W, STATUS_H = round(300 * S), round(18 * S)
+    global PCT_W, PCT_H
+    PCT_W, PCT_H = round(80 * S), round(18 * S)
+
+
+def _px(n: float) -> int:
+    return round(n * S)
 FRAME_MS = 16        # ~60 fps
-NUM_PARTICLES = 35
+NUM_PARTICLES = 0     # the ring design has no particles
 
 # VibeNode app palette (matches src/web/static/style.css dark theme)
 C = dict(
@@ -173,13 +220,14 @@ class BootSplash:
                         break
             except Exception:
                 pass
-        self.root.title("VibeNode")
+        self.root.title("DevelopNode")
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
         self.root.attributes("-alpha", 0.0)          # start invisible
 
         sx = self.root.winfo_screenwidth()
         sy = self.root.winfo_screenheight()
+        _scale_layout(_fit_screen(sy))
         self.root.geometry(f"{W}x{H}+{(sx - W) // 2}+{(sy - H) // 2}")
 
         # ── Canvas ────────────────────────────────────────────────────
@@ -206,12 +254,15 @@ class BootSplash:
 
     # ── Background (static gradient, drawn once) ──────────────────────
     def _draw_background(self):
-        for y in range(H):
-            t = y / H
-            curve = 0.5 - 0.5 * math.cos(t * math.pi)
-            color = lerp_color(C["crust"], C["base"], curve * 0.8 + 0.1)
-            self.cv.create_line(0, y, W, y, fill=color)
-        # Static border frame
+        # A soft glow behind the ring, fading to the window's dark edge.
+        self.cv.create_rectangle(0, 0, W, H, fill="#0c0c10", outline="")
+        steps = 46
+        for i in range(steps):
+            t = i / (steps - 1)
+            r = (250 * (1 - t) + 4) * S
+            col = lerp_color("#0c0c10", "#1a1a26", t ** 1.6)
+            self.cv.create_oval(RING_CX - r, RING_CY - r, RING_CX + r, RING_CY + r,
+                                fill=col, outline="")
         for edge in [(0, 0, W, 0), (0, H - 1, W, H - 1),
                      (0, 0, 0, H), (W - 1, 0, W - 1, H)]:
             self.cv.create_line(*edge, fill=C["surface0"])
@@ -241,7 +292,7 @@ class BootSplash:
 
         # Close button
         self._close = self.cv.create_text(
-            W - 22, 18, text="\u2715", font=(self._ff, 12),
+            W - _px(22), _px(18), text="\u2715", font=(self._ff, _px(12)),
             fill=C["overlay"], tags="close")
         self.cv.tag_bind("close", "<Button-1>", lambda _: self._destroy())
         self.cv.tag_bind("close", "<Enter>",
@@ -251,144 +302,108 @@ class BootSplash:
                          lambda _: self.cv.itemconfigure(self._close,
                                                          fill=C["overlay"]))
 
-        # Logo
-        self._logo_img = None
-        _app_dir = os.path.dirname(os.path.abspath(__file__))
-        logo_path = os.path.join(_app_dir, "static", "images", "logo-dark.png")
-        if os.path.exists(logo_path):
-            try:
-                if _has_pil:
-                    img = Image.open(logo_path).convert("RGBA")
-                    scale = 36 / img.height
-                    img = img.resize((int(img.width * scale), 36),
-                                     Image.LANCZOS)
-                    self._logo_img = ImageTk.PhotoImage(img)
-                else:
-                    raw = tk.PhotoImage(file=logo_path)
-                    factor = max(1, raw.height() // 36)
-                    self._logo_img = raw.subsample(factor, factor)
-            except Exception:
-                pass
-
-        brand_y = 50
-
-        if self._logo_img:
-            # Measure title text width to center logo + title as a group
-            logo_w = self._logo_img.width()
-            gap = 14
-            _probe = self.cv.create_text(0, -100, text="VibeNode",
-                                         font=(self._tf, 32, "bold"))
-            tb = self.cv.bbox(_probe)
-            title_w = tb[2] - tb[0] if tb else 190
-            self.cv.delete(_probe)
-
-            total = logo_w + gap + title_w
-            group_left = (W - total) // 2
-
-            # Anchor logo center-left; nudge up 2px to visually align
-            # with text baseline (logo has bottom-right handshake circle)
-            self.cv.create_image(group_left, brand_y + 8,
-                                 image=self._logo_img, anchor="w")
-            title_x = group_left + logo_w + gap + title_w // 2
+        # The ring design (picked from four): the logo mark alone inside a
+        # ring that fills as the app starts, the name small underneath, the
+        # current step under it.  Logo and name are pictures rendered from
+        # the app's own font (static/images/mark-splash.png, a strip of
+        # frames in which the dot breathes, and name-splash.png): Tk cannot
+        # space letters and most computers lack that font.
+        _img = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "images")
+        self._mark_frames = []
+        try:
+            strip = self._picture(_img, "mark-splash", (MARK_W * MARK_FRAMES, MARK_H))
+            for i in range(MARK_FRAMES):
+                f = tk.PhotoImage(width=MARK_W, height=MARK_H)
+                f.tk.call(f, "copy", strip, "-from",
+                          i * MARK_W, 0, (i + 1) * MARK_W, MARK_H)
+                self._mark_frames.append(f)
+            self._mark_strip = strip
+        except Exception:
+            self._mark_frames = []
+        if self._mark_frames:
+            self._mark = self.cv.create_image(RING_CX, RING_CY, image=self._mark_frames[0])
         else:
-            title_x = cx
-
-        # Title glow layers (3 under-layers for bloom)
+            self._mark = self.cv.create_text(RING_CX, RING_CY, text=">.",
+                                             font=(self._tf, _px(34), "bold"), fill=C["text"])
+        self._logo_img = None
+        try:
+            self._name_img = self._picture(_img, "name-splash", None)
+            self.cv.create_image(cx, RING_CY + _px(111), image=self._name_img)
+        except Exception:
+            self.cv.create_text(cx, RING_CY + _px(111), text="DevelopNode\u2122",
+                                font=(self._tf, _px(13), "bold"), fill="#bbbbbb")
+        # The title glow and title are kept (the finish code tints them) but empty.
         self._tglow = []
-        for _ in range(3):
-            self._tglow.append(self.cv.create_text(
-                cx if not self._logo_img else title_x,
-                brand_y, text="VibeNode",
-                font=(self._tf, 32, "bold"), fill=C["blue"]))
-        self._title = self.cv.create_text(
-            cx if not self._logo_img else title_x,
-            brand_y, text="VibeNode",
-            font=(self._tf, 32, "bold"), fill=C["text"])
+        self._title = self.cv.create_text(-100, -100, text="")
 
-        # Subtitle
+        # Current step, in plain words
         self._sub = self.cv.create_text(
-            cx, brand_y + 34, text="Starting up\u2026",
-            font=(self._ff, 10), fill=C["overlay"])
-
-        # CTA — tagline + underlined link on separate lines
-        self.cv.create_text(
-            cx, H - 120,
-            text="Building something complex? Need to sell it?",
-            font=(self._ff, 9), fill=C["subtext"])
-        self._cta = self.cv.create_text(
-            cx, H - 102,
-            text="customernode.com",
-            font=(self._ff, 10, "bold underline"), fill=C["lavender"],
-            tags="cta")
-        self.cv.tag_bind("cta", "<Button-1>",
-                         lambda _: __import__("webbrowser").open(
-                             "https://customernode.com"))
-        self.cv.tag_bind("cta", "<Enter>",
-                         lambda _: (self.cv.itemconfigure(self._cta,
-                                                          fill=C["text"]),
-                                    self.cv.configure(cursor="hand2")))
-        self.cv.tag_bind("cta", "<Leave>",
-                         lambda _: (self.cv.itemconfigure(self._cta,
-                                                          fill=C["lavender"]),
-                                    self.cv.configure(cursor="")))
-
-        # Single-line footer
-        self.cv.create_text(
-            cx, H - 18,
-            text="CustomerNode\u2122  \u2022  Claude Code  \u2022  \u00a9 2026 CustomerNode LLC",
-            font=(self._ff, 8), fill=C["surface1"])
+            cx, RING_CY + _px(137), text="Starting up\u2026",
+            font=(self._ff, _px(9)), fill="#777777")
+        self._status_frames = {}
+        try:
+            strip = self._picture(_img, "status-splash", None)
+            for i, key in enumerate(STATUS_ROWS):
+                f = tk.PhotoImage(width=STATUS_W, height=STATUS_H)
+                f.tk.call(f, "copy", strip, "-from",
+                          0, i * STATUS_H, STATUS_W, (i + 1) * STATUS_H)
+                self._status_frames[key] = f
+            self._status_strip = strip
+            self._status_img = self.cv.create_image(cx, RING_CY + _px(137),
+                                                    image=self._status_frames["start"])
+            self.cv.itemconfigure(self._sub, text="")     # the picture says it
+        except Exception:
+            self._status_frames = {}
+        self._pct_frames = []
+        self._pct_shown = -1
+        try:
+            strip = self._picture(_img, "percent-splash", None)
+            for i in range(101):
+                f = tk.PhotoImage(width=PCT_W, height=PCT_H)
+                f.tk.call(f, "copy", strip, "-from", 0, i * PCT_H, PCT_W, (i + 1) * PCT_H)
+                self._pct_frames.append(f)
+            self._pct_strip = strip
+            self._pct_img = self.cv.create_image(cx, RING_CY + _px(160), image=self._pct_frames[0])
+        except Exception:
+            self._pct_frames = []
 
         # Error text + dismiss button (hidden until error)
         self._err = self.cv.create_text(
-            cx, H - 70, text="", font=(self._ff, 9),
-            fill=C["red"], width=360)
+            cx, H - _px(70), text="", font=(self._ff, _px(9)),
+            fill=C["red"], width=W)
         self._dismiss_bg = self.cv.create_rectangle(
-            cx - 50, H - 42, cx + 50, H - 18,
+            cx - _px(50), H - _px(42), cx + _px(50), H - _px(18),
             fill="", outline="", tags="dismiss")
         self._dismiss_txt = self.cv.create_text(
-            cx, H - 30, text="", font=(self._ff, 9),
+            cx, H - _px(30), text="", font=(self._ff, _px(9)),
             fill="", tags="dismiss")
         self.cv.tag_bind("dismiss", "<Button-1>", lambda _: self._destroy())
 
+    def _show_status(self, key) -> bool:
+        """Show the status picture for ``key``; False when there is none."""
+        f = self._status_frames.get(key)
+        if f is None:
+            return False
+        self.cv.itemconfigure(self._status_img, image=f)
+        return True
+
+    def _picture(self, folder, name, size):
+        """The splash picture made for the current size (see _fit_screen)."""
+        tag = "" if S == 1.0 else "@%gx" % S
+        return tk.PhotoImage(file=os.path.join(folder, name + tag + ".png"))
+
     # ── Progress bar ──────────────────────────────────────────────────
     def _create_progress_bar(self):
-        cx = W // 2
-        self._bx, self._by = 50, 114
-        self._bw, self._bh = W - 100, 6
-
-        # Track background
-        self.cv.create_rectangle(
-            self._bx, self._by,
-            self._bx + self._bw, self._by + self._bh,
-            fill=C["surface0"], outline="")
-
-        # Glow (behind fill, slightly taller)
-        self._bglow = self.cv.create_rectangle(
-            self._bx, self._by - 2, self._bx, self._by + self._bh + 2,
-            fill="", outline="")
-
-        # Fill
-        self._bfill = self.cv.create_rectangle(
-            self._bx, self._by, self._bx, self._by + self._bh,
-            fill=C["blue"], outline="")
-
-        # Shimmer highlight
-        self._bshim = self.cv.create_rectangle(
-            0, self._by, 0, self._by + self._bh,
-            fill="", outline="")
-
-        # Percentage (big, bold, center)
-        self._pct = self.cv.create_text(
-            cx, 138, text="0%",
-            font=(self._ff, 18, "bold"), fill=C["blue"])
-
-        # Elapsed (left) / Remaining (right) — ultra-subtle, flanking bar
-        self._time_elapsed = self.cv.create_text(
-            self._bx, self._by + self._bh + 10, text="",
-            font=(self._ff, 7), fill=C["surface1"], anchor="w")
-        self._time_remaining = self.cv.create_text(
-            self._bx + self._bw, self._by + self._bh + 10, text="",
-            font=(self._ff, 7), fill=C["surface1"], anchor="e")
+        x0, y0 = RING_CX - RING_R, RING_CY - RING_R
+        x1, y1 = RING_CX + RING_R, RING_CY + RING_R
+        self.cv.create_oval(x0, y0, x1, y1, outline="#24242c", width=_px(3))
+        # extent 0 draws nothing; the arc grows clockwise from the top
+        self._ring = self.cv.create_arc(x0, y0, x1, y1, start=90, extent=0,
+                                        style="arc", outline="#8B8FF7", width=_px(3))
+        # Kept for the shared finish and timer code, never shown.
+        self._pct = self.cv.create_text(-100, -100, text="")
+        self._time_elapsed = self.cv.create_text(-100, -100, text="")
+        self._time_remaining = self.cv.create_text(-100, -100, text="")
 
     # ── Steps — 3D cylinder carousel (shows ~3 at a time) ────────────
     def _create_steps(self):
@@ -449,12 +464,9 @@ class BootSplash:
             if abs(diff) < 0.002:
                 self._current_progress = self._target_progress
 
-            self._r_particles()
             self._r_progress()
             self._r_title()
-            self._r_steps()
-            self._r_time()
-            self._r_border()
+            self._r_mark()
         except Exception:
             pass
 
@@ -476,65 +488,25 @@ class BootSplash:
     # ── Progress bar, shimmer, percentage ─────────────────────────────
     def _r_progress(self):
         prog = self._current_progress
-        fill_w = prog * self._bw
-        bx, by, bh = self._bx, self._by, self._bh
-
-        # Resize fill + glow
-        self.cv.coords(self._bfill, bx, by, bx + fill_w, by + bh)
-        self.cv.coords(self._bglow, bx, by - 2, bx + fill_w, by + bh + 2)
-
-        # Color shifts blue -> sapphire -> teal as progress grows
-        if prog < 0.5:
-            base = lerp_color(C["blue"], C["sapphire"], prog * 2)
-        else:
-            base = lerp_color(C["sapphire"], C["teal"], (prog - 0.5) * 2)
-
-        # Gentle brightness pulse
-        pulse = 0.5 + 0.5 * math.sin(self._frame * 0.06)
-        bar_col = lerp_color(base, C["lavender"], pulse * 0.12)
-
-        # On completion, flash white -> green
-        if self.done:
+        col = "#8B8FF7"
+        if self.done and self._finish_time:
             age = self._frame - self._finish_frame
-            if age < 20:
-                bar_col = lerp_color("#ffffff", C["green"],
-                                     ease_out_cubic(age / 20))
-            else:
-                bar_col = C["green"]
+            col = lerp_color("#ffffff", C["green"], ease_out_cubic(min(1.0, age / 20)))
+        self.cv.itemconfigure(self._ring, extent=-359.9 * max(0.0, min(1.0, prog)), outline=col)
+        if self._pct_frames:
+            n = 100 if (self.done and self._finish_time) else int(max(0.0, min(1.0, prog)) * 100 + 1e-6)
+            if n != self._pct_shown:
+                self._pct_shown = n
+                self.cv.itemconfigure(self._pct_img, image=self._pct_frames[n])
 
-        self.cv.itemconfigure(self._bfill, fill=bar_col)
-        self.cv.itemconfigure(self._bglow,
-                              fill=lerp_color(C["base"], bar_col, 0.12))
-
-        # Shimmer sweep
-        if prog > 0.01 and not self.done:
-            self._shimmer_x += 0.018
-            if self._shimmer_x > 1.4:
-                self._shimmer_x = -0.4
-            sc = bx + self._shimmer_x * fill_w
-            sw = 35
-            sx1, sx2 = max(bx, sc - sw), min(bx + fill_w, sc + sw)
-            if sx2 > sx1:
-                self.cv.coords(self._bshim, sx1, by, sx2, by + bh)
-                self.cv.itemconfigure(
-                    self._bshim,
-                    fill=lerp_color(bar_col, "#ffffff", 0.3))
-            else:
-                self.cv.itemconfigure(self._bshim, fill="")
-        else:
-            self.cv.itemconfigure(self._bshim, fill="")
-
-        # Percentage text
-        pct = int(prog * 100)
-        pct_col = bar_col
-        if self.done:
-            age = self._frame - self._finish_frame
-            if age < 15:
-                pct_col = lerp_color("#ffffff", C["green"],
-                                     ease_out_cubic(age / 15))
-            else:
-                pct_col = C["green"]
-        self.cv.itemconfigure(self._pct, text=f"{pct}%", fill=pct_col)
+    def _r_mark(self):
+        # The dot breathes while starting; still once finished.
+        if self._mark_frames:
+            i = 0 if self.done else (self._frame // 6) % MARK_FRAMES
+            self.cv.itemconfigure(self._mark, image=self._mark_frames[i])
+        if not self.done and self.current_step:
+            if not self._show_status(self.current_step):
+                self.cv.itemconfigure(self._sub, text=PLAIN.get(self.current_step, self.current_step) + "\u2026")
 
     # ── Title glow breathing ──────────────────────────────────────────
     def _r_title(self):
@@ -787,12 +759,16 @@ class BootSplash:
             if sid not in self.completed:
                 self.completed.add(sid)
                 self._completion_flash[sid] = self._frame + i * 4
-        self.cv.itemconfigure(self._sub, text="Ready!", fill=C["green"])
+        if not self._show_status("ready"):
+            self.cv.itemconfigure(self._sub, text="Ready", fill=C["green"])
 
     def _finish_error(self, msg):
         self.done = True
         self._finish_time = None                     # don't auto-close
-        self.cv.itemconfigure(self._sub, text="Startup failed",
+        self._show_status("failed")
+        if self._pct_frames:
+            self.cv.itemconfigure(self._pct_img, state="hidden")   # room for the error
+        self.cv.itemconfigure(self._sub, text="" if self._status_frames else "Startup failed",
                               fill=C["red"])
         self.cv.itemconfigure(self._err, text=msg)
         self.cv.itemconfigure(self._dismiss_bg,

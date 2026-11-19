@@ -3341,7 +3341,7 @@ async function openSessionSpawner(taskId) {
     '<div class="live-panel" id="live-panel">' +
     '<div class="conversation live-log" id="live-log">' +
     '<div class="empty-state" style="padding:60px 0;text-align:center;">' +
-    '<svg class="vibenode-mark" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' +
+    '<svg class="vibenode-mark dn-mark" width="30" height="24" viewBox="0 0 181 142" aria-hidden="true"><path d="M0 0h36.5l70 71-70 71H0l70-71z"/><circle cx="154.5" cy="116" r="26"/></svg>' +
     '<div class="vibenode-greeting">What are we building today?</div>' +
     (typeof _renderTemplateGrid === 'function' ? _renderTemplateGrid(newId) : '') +
     '</div></div>' +
@@ -5393,7 +5393,7 @@ function renderMigrationDecision(preflight) {
       <div style="padding:14px;border:1px solid var(--border);border-radius:8px;">
         <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Both sides are empty</div>
         <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
-          Nothing to copy. Just point VibeNode at Supabase as the active backend.
+          Nothing to copy. Just point DevelopNode at Supabase as the active backend.
         </div>
         <button class="kanban-settings-btn-accent" onclick="switchEmptyToCloud()" id="kb-switch-empty-btn"
                 style="padding:9px 20px;font-size:13px;font-weight:600;">
@@ -5713,6 +5713,14 @@ function renderKanbanSidebar() {
   // ── Actions ──
   html += '<div class="kanban-sidebar-section">';
   html += '<div class="kanban-sidebar-label">Workflow</div>';
+  // The views of Workflow mode: the feed of summary cards (feed.js), the
+  // priority queue of tasks (queue.js), the agent map (agents-map.js), or
+  // the task columns.
+  html += '<div class="kanban-sidebar-seg" id="kanban-view-seg">' +
+    '<button type="button" data-wv="feed" onclick="window.VNFeed && VNFeed.setMode(\'feed\')">Feed</button>' +
+    '<button type="button" data-wv="queue" onclick="window.VNFeed && VNFeed.setMode(\'queue\')">Queue</button>' +
+    '<button type="button" data-wv="agents" onclick="window.VNFeed && VNFeed.setMode(\'agents\')">Agents</button>' +
+    '<button type="button" data-wv="tasks" onclick="window.VNFeed && VNFeed.setMode(\'tasks\')">Tasks</button></div>';
   html += '<button class="kanban-sidebar-btn" onclick="createTask(\'not_started\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New task</button>';
   html += '<button class="kanban-sidebar-btn" onclick="openReportsPanel()">' + KI.chart + ' Report</button>';
   html += '<button class="kanban-sidebar-btn" onclick="openKanbanSettings(\'columns\')">' + KI.gear + ' Settings</button>';
@@ -5741,6 +5749,7 @@ function renderKanbanSidebar() {
   html += '</div>';
 
   sidebar.innerHTML = html;
+  if (window.VNFeed) VNFeed.syncSwitch();
 
   _restoreTagPopup();
 

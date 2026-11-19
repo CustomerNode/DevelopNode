@@ -475,7 +475,7 @@ def scene_hook(dur):
         if t >= 0.0:
             ap = eob(min(t / 0.5, 1))
             y = 240 + int(100 * (1 - ap))
-            text = "VibeNode"
+            text = "DevelopNode"
             bb = d.textbbox((0, 0), text, font=F["hero"])
             tw = bb[2] - bb[0]
             tx = (W - tw) // 2
@@ -795,7 +795,7 @@ def scene_sessions(dur):
 
         # Dark theme + branding
         page.evaluate("document.documentElement.setAttribute('data-theme','dark')")
-        page.evaluate('() => { var pl=document.getElementById("project-label");if(pl)pl.textContent="VibeNode"; }')
+        page.evaluate('() => { var pl=document.getElementById("project-label");if(pl)pl.textContent="DevelopNode"; }')
 
         
         # Hide admin/sync/publish buttons from topnav
@@ -1025,7 +1025,7 @@ def scene_workflow(dur):
 
         # Dark theme + branding
         page.evaluate("document.documentElement.setAttribute('data-theme','dark')")
-        page.evaluate('() => { var pl=document.getElementById("project-label");if(pl)pl.textContent="VibeNode"; }')
+        page.evaluate('() => { var pl=document.getElementById("project-label");if(pl)pl.textContent="DevelopNode"; }')
 
         
         # Hide admin/sync/publish buttons from topnav
@@ -1278,7 +1278,7 @@ def scene_workforce(dur):
 
         # Dark theme + branding
         page.evaluate("document.documentElement.setAttribute('data-theme','dark')")
-        page.evaluate('() => { var pl=document.getElementById("project-label");if(pl)pl.textContent="VibeNode"; }')
+        page.evaluate('() => { var pl=document.getElementById("project-label");if(pl)pl.textContent="DevelopNode"; }')
 
         # Navigate to workplace view -- real app renders the real workforce UI
         page.evaluate("if(typeof setViewMode==='function')setViewMode('workplace')")
@@ -1424,7 +1424,7 @@ def scene_impact(dur):
 
 def scene_cta(dur):
     """Terminal box, GitHub glow, badges, closing logo."""
-    cmd_text = "Get me set up with https://github.com/CustomerNode/VibeNode"
+    cmd_text = "Get me set up with https://github.com/CustomerNode/DevelopNode"
     badges = [(7.56, "Open Source", ACCENT), (8.8, "Free Forever", ACCENT2), (10.0, "MIT License", ACCENT3)]
     def draw(img, t, p):
         gradient_bg(img, shift=t * 0.25)
@@ -1479,7 +1479,7 @@ def scene_cta(dur):
         if t >= 5.58:
             ap = eob(min((t - 5.58) / 0.4, 1))
             uy = 460 + int(25 * (1 - ap))
-            url = "github.com/CustomerNode/VibeNode"
+            url = "github.com/CustomerNode/DevelopNode"
             bb = d.textbbox((0, 0), url, font=F["h3"])
             utw = bb[2] - bb[0]
             gp = min((t - 5.58) / 1.0, 1)
@@ -1530,7 +1530,7 @@ def scene_cta(dur):
                 radial_glow(img, W // 2, ly + 40, int(250 * lp), ACCENT, min(0.25, 0.10 * lp * glow_boost))
                 d = ImageDraw.Draw(img)
             # Extra text glow layers — intensify during fade
-            text = "VibeNode"
+            text = "DevelopNode"
             bb = d.textbbox((0, 0), text, font=F["mega"])
             tw2 = bb[2] - bb[0]
             tx = (W - tw2) // 2
@@ -1593,7 +1593,7 @@ def build():
         pass
 
     print("=" * 60)
-    print("  VibeNode Explainer -- Premium Studio Edition")
+    print("  DevelopNode Explainer -- Premium Studio Edition")
     print("=" * 60)
 
     # Audio durations

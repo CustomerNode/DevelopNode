@@ -550,10 +550,20 @@ header {
    should still show it is the active control. The global :focus-visible
    ring layers on top for keyboard users. */
 #project-picker:focus { outline: none; border-color: var(--border-focus); color: var(--text-heading); }
-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: var(--fs-4xl); font-weight: 700; color: var(--text-heading); margin: 0; letter-spacing: -0.02em; }
+header h1 { font-family: var(--font-sans); font-size: var(--fs-4xl); font-weight: 700; color: var(--text-heading); margin: 0; letter-spacing: -0.02em; }
 .app-logo { flex-shrink: 0; }
 .hdr-brand { display: flex; align-items: center; gap: var(--sp-4); }
 .hdr-brand > div { display: flex; flex-direction: column; gap: 0px; }
+/* The DevelopNode lockup: the mark is drawn to Geist SemiBold's own measures,
+   so it is one piece with the letters: its height is the capital height
+   (.71em), its stroke the capital stem (.13em), its terminals cut flat on the
+   cap line and the baseline, and it sits on the baseline. */
+header h1.dn-lockup { font-family: 'Geist', 'Inter', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .1em; line-height: 1; white-space: nowrap; }
+header h1.dn-lockup .dn-mark { height: .71em; width: .905em; vertical-align: baseline; margin: 0 .5em 0 0; fill: currentColor; overflow: visible; }
+header h1.dn-lockup .dn-mark circle { fill: #8B8FF7; }
+header h1.dn-lockup .dn-tm { font-size: .42em; font-weight: 500; letter-spacing: 0; vertical-align: top; margin-left: .1em; }
+/* The mark stands on the baseline itself: undo the older logo picture's nudges (header .app-logo top: 1.5px, the phone's margin-top, the hover scale). */
+header h1.dn-lockup .app-logo { margin-top: 0; transform: none; position: static; top: auto; }
 .hdr-byline { font-size: var(--fs-2xs); color: var(--text-faint); letter-spacing: 0.03em; }
 .hdr-byline a { color: var(--text-faint); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--border); }
 .hdr-byline a:hover { color: var(--text-muted); text-decoration-color: var(--text-muted); }
@@ -1555,11 +1565,16 @@ body.unread-enabled .session-item .unread-dot {
    touchscreen + mouse, the first mouse movement flips the class and the pin
    is hoverable from then on. */
 html:not(.vn-has-hover) .vn-pin:not(.on) { display: none; }
-.vn-pin.on { opacity: 1; color: var(--accent); border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 18%, transparent); }
+/* A pinned pin has no dot behind it.  Dark theme: white, the colour of Send's
+   arrow.  Light: the Send button's colour, black ink on the hairline finish
+   (hairline.css), the accent otherwise. */
+.vn-pin.on { --pin-c: var(--accent); opacity: 1; color: var(--pin-c); border-radius: 50%;
+  background: transparent; }
+html[data-finish="hairline"][data-theme="light"] .vn-pin.on { --pin-c: #111; }
+html:not([data-theme="light"]) .vn-pin.on { --pin-c: #fff; }
 .vn-pin.on svg { transform: none; }
 .vn-pin.on svg path { fill: currentColor; }
-.vn-pin.on:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.vn-pin.on:hover { color: var(--pin-c); background: color-mix(in srgb, var(--pin-c) 10%, transparent); }
 .wf-card .vn-pin { position: absolute; top: 6px; right: 6px; z-index: 1; }
 /* Workplace card: hide-btn sits top-right, so the pin takes top-left. */
 .ws-card .vn-pin { position: absolute; top: 6px; left: 6px; z-index: 2; }
@@ -1575,12 +1590,18 @@ html.vn-has-hover .session-item > .session-col-name { position: relative; paddin
    and follows the mouse (its transform is set inline, so nothing may
    transition it); the others slide out of its way; letting go settles it. */
 body.vn-pin-dragging, body.vn-pin-dragging * { user-select: none !important; cursor: grabbing !important; }
-.vn-pin-lifted { position: relative; z-index: 30; transition: box-shadow .15s !important;
+.vn-pin-lifted { position: relative; z-index: 30; transition: box-shadow .15s, scale .15s cubic-bezier(.2,.8,.2,1) !important;
   box-shadow: 0 16px 32px -10px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.25) !important; }
 /* Solid while lifted: the card's own background is see-through. */
 .sidebar .wf-card.vn-pin-lifted, .session-item.vn-pin-lifted { background: var(--bg-card); }
+/* The hairline finish clears every card's shadow and background with
+   !important; the lifted one keeps both, or it floats see-through. */
+html[data-finish="hairline"] .sidebar .wf-card.vn-pin-lifted,
+html[data-finish="hairline"] .sidebar .wf-card.vn-pin-settling {
+  background: var(--bg-card) !important;
+  box-shadow: 0 16px 32px -10px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.25) !important; }
 .vn-pin-settling { position: relative; z-index: 30;
-  transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s !important; }
+  transition: translate .18s cubic-bezier(.2,.8,.2,1), scale .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s !important; }
 
 /* Reduced-motion users get the identical treatment (nothing here animates),
    but forced-colors mode needs an explicit non-accent fill or the dot vanishes. */
@@ -3011,6 +3032,14 @@ mark.search-hit { background:#7c7cff44; color:inherit; border-radius:2px; paddin
   box-sizing: border-box;
 }
 .toolbar-close:hover { color: var(--text-heading); border-color: var(--border-hover); }
+/* Cancel on a new, unsent session: under the suggested prompts (cancelNewSession). */
+.new-session-cancel {
+  display: inline-flex; align-items: center; height: 32px; margin-top: 22px; padding: 0 16px; box-sizing: border-box;
+  background: none; border: 1px solid color-mix(in srgb, var(--red) 55%, transparent); border-radius: 999px;
+  color: var(--red); font: 500 12.5px/1 var(--font-sans); cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.new-session-cancel:hover { color: var(--red); border-color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
 
 .btn-group { display:flex; align-items:center; flex-shrink:0; position:relative; }
 .btn-group-inner { display:none; }
@@ -3468,6 +3497,21 @@ mark.search-hit { background:#7c7cff44; color:inherit; border-radius:2px; paddin
 .vn-auto-msg.open .vn-auto-chev { transform: rotate(180deg); }
 .vn-auto-body { display: none; padding: 9px 12px; font-size: 13px; line-height: 1.5; color: var(--text-muted); white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; }
 .vn-auto-msg.open .vn-auto-body { display: block; }
+/* A message a summary's button sent (live-panel.js _markCardTap): drawn like an
+   automated message, full width, because the session wrote the words. */
+.msg.user.vn-tap-msg { --bt: 255,255,255; flex: none; align-items: stretch; border: 1px solid rgba(var(--bt), .1); border-radius: 10px; overflow: hidden; }
+[data-theme="light"] .msg.user.vn-tap-msg { --bt: 0,0,0; }
+.msg.user.vn-tap-msg > .msg-role { display: none; }
+.vn-tap-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: rgba(var(--bt), .035);
+  font-size: 12.5px; font-weight: 600; color: var(--text-secondary); font-family: var(--font-sans); }
+.vn-tap-ic { flex: none; opacity: .7; }
+.vn-tap-tag { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+  background: rgba(var(--bt), .07); padding: 2px 7px; border-radius: 5px; }
+.vn-tap-src { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text-faint); }
+/* Outranks every finish's user-bubble rule (hairline.css, quiet-chat.css). */
+.msg.user.vn-tap-msg .msg-body,
+html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; border: 0; box-shadow: none; max-width: none; border-radius: 0; padding: 10px 12px; }
+.msg.user.vn-tap-msg .vn-msg-footer { padding: 0 12px 6px; }
 @media (max-width: 600px) {
   .vn-auto-bar { flex-wrap: wrap; row-gap: 5px; }
   .vn-auto-src { white-space: normal; overflow: visible; flex: 1 1 auto; }
@@ -6579,7 +6623,7 @@ mark.search-hit { background:#7c7cff44; color:inherit; border-radius:2px; paddin
   font-weight: 700;
   color: var(--text-heading);
   margin-bottom: 10px;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
 }
 .hb-message {
   font-size: var(--fs-lg);
@@ -6618,7 +6662,7 @@ mark.search-hit { background:#7c7cff44; color:inherit; border-radius:2px; paddin
   border-radius: var(--r-md);
   font-size: var(--fs-lg);
   font-weight: 600;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: opacity 0.15s;
 }
@@ -11940,7 +11984,8 @@ body:has(.kanban-planner-panel.open:not(.minimized)) #live-input-bar { display: 
 /* The app's own state icons, drawn as masks so they take the text colour */
 .vn-st-mask { display: block; width: 16px; height: 16px; background: currentColor;
   -webkit-mask: var(--src) center / contain no-repeat; mask: var(--src) center / contain no-repeat; }
-.vn-st-pick { --src: url(svg/pickaxe.svg); transform-origin: 30% 75%; animation: vn-swing var(--vn-cycle) linear infinite; }
+/* The pick is held at its handle (lower right): it winds back clockwise and strikes counter-clockwise, head down to the left */
+.vn-st-pick { --src: url(svg/pickaxe.svg); transform-origin: 82% 82%; animation: vn-swing var(--vn-cycle) linear infinite; }
 .vn-st-sleep { --src: url(svg/sleeping.svg); color: var(--text-faint); }
 .vn-st-squeeze { animation: vn-squeeze var(--vn-cycle) linear infinite; }
 /* ONE clock (--vn-cycle) for the working animation.  The icon and the light
@@ -11950,11 +11995,11 @@ body:has(.kanban-planner-panel.open:not(.minimized)) #live-input-bar { display: 
    together = they cannot drift apart.  live-panel.js replaces BOTH elements in
    one tick when the state changes, for the same reason. */
 @keyframes vn-swing {
-  0%   { transform: rotate(-14deg); animation-timing-function: ease-in-out; }
-  26%  { transform: rotate(-26deg); animation-timing-function: cubic-bezier(.7,0,.9,.4); }
-  36%  { transform: rotate(16deg);  animation-timing-function: ease-out; }
-  44%  { transform: rotate(10deg);  animation-timing-function: ease-in-out; }
-  100% { transform: rotate(-14deg); }
+  0%   { transform: rotate(10deg);  animation-timing-function: ease-in-out; }
+  26%  { transform: rotate(24deg);  animation-timing-function: cubic-bezier(.7,0,.9,.4); }
+  36%  { transform: rotate(-18deg); animation-timing-function: ease-out; }
+  44%  { transform: rotate(-12deg); animation-timing-function: ease-in-out; }
+  100% { transform: rotate(10deg); }
 }
 @keyframes vn-squeeze {
   0%   { transform: scale(1); animation-timing-function: ease-in-out; }
@@ -11971,14 +12016,15 @@ body:has(.kanban-planner-panel.open:not(.minimized)) #live-input-bar { display: 
   96%     { transform: translateX(340%); opacity: 1; }
   100%    { transform: translateX(340%); opacity: 0; }
 }
-/* Working: chips fly off the pickaxe on each strike (same 36% beat as vn-swing) */
-.vn-st-sparks { position: absolute; left: 22px; top: 14px; width: 0; height: 0; pointer-events: none; }
+/* Working: chips fly off the rock where the pick's head lands (its lower left), up and away to the left, on each
+   strike (same 36% beat as vn-swing) */
+.vn-st-sparks { position: absolute; left: 17px; top: 24px; width: 0; height: 0; pointer-events: none; }
 .vn-st-sparks i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: 0;
   animation: vn-spark var(--vn-cycle) linear infinite; }
-.vn-st-sparks i:nth-child(1) { --dx: 16px; --dy: -13px; }
-.vn-st-sparks i:nth-child(2) { --dx: 24px; --dy: -4px; width: 2px; height: 2px; }
-.vn-st-sparks i:nth-child(3) { --dx: 11px; --dy: -19px; width: 2px; height: 2px; }
-.vn-st-sparks i:nth-child(4) { --dx: 27px; --dy: -15px; }
+.vn-st-sparks i:nth-child(1) { --dx: -9px;  --dy: -9px; }
+.vn-st-sparks i:nth-child(2) { --dx: -13px; --dy: -2px; width: 2px; height: 2px; }
+.vn-st-sparks i:nth-child(3) { --dx: -4px;  --dy: -13px; width: 2px; height: 2px; }
+.vn-st-sparks i:nth-child(4) { --dx: -14px; --dy: -10px; }
 @keyframes vn-spark {
   0%, 36%   { transform: translate(0, 0) scale(1); opacity: 0; }
   37%       { opacity: 1; animation-timing-function: cubic-bezier(.1,.7,.3,1); }
@@ -14126,7 +14172,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 #project-overlay .project-card { --bt: 255,255,255; width: 440px; border-radius: 16px; border-color: rgba(var(--bt), .10); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); }
 [data-theme="light"] #project-overlay .project-card { --bt: 0,0,0; }
 #project-overlay .project-header { padding: 18px 54px 8px 22px; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
-#project-overlay .project-header h2 { font-family: 'Space Grotesk', var(--font-sans); font-size: 17px; font-weight: 500; letter-spacing: -.01em; margin: 0; }
+#project-overlay .project-header h2 { font-family: var(--font-sans); font-size: 17px; font-weight: 500; letter-spacing: -.01em; margin: 0; }
 #project-overlay .project-sub { font-size: 12px; color: var(--text-faint); }
 #project-overlay .project-header p { flex-basis: 100%; font-size: 12px; line-height: 1.5; color: var(--text-muted); margin: 4px 0 0; }
 #project-overlay .project-header p[hidden], #project-overlay .project-sub[hidden] { display: none; }
@@ -14139,7 +14185,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 #project-overlay .project-item.active, #project-overlay .project-item.active:hover { background: rgba(var(--bt), .09); }
 #project-overlay .project-sep { height: 1px; background: rgba(var(--bt), .08); margin: 6px 12px; }
 .project-item-mark { --h: 240; flex: none; width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
-  font-family: 'Space Grotesk', var(--font-sans); font-size: 13px; font-weight: 700;
+  font-family: var(--font-sans); font-size: 13px; font-weight: 700;
   color: hsl(var(--h) 70% 78%); background: hsl(var(--h) 40% 50% / .18); }
 [data-theme="light"] .project-item-mark { color: hsl(var(--h) 55% 38%); background: hsl(var(--h) 60% 50% / .14); }
 .project-item-add .project-item-mark { background: none; border: 1px dashed var(--text-faint); color: var(--text-muted); font-weight: 500; font-size: 16px; }
@@ -14179,6 +14225,44 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
    space just left of the columns (reserved, so nothing shifts). */
 @media (hover: hover) {
   #project-overlay .ps-cols-on .project-item-actions { position: static; inset: auto; order: -1; margin-right: 6px; }
+}
+/* Compact panel (desktop): a window centred over a heavy blur that ends
+   after its last project, a small accent count over a bold title, one project per line with its
+   folder, the open one marked by an accent bar. The phone keeps its sheet
+   (mobile-hairline.css), so everything here is scoped away from it. */
+@media (min-width: 900px) {
+  html:not(.vn-mhl) #project-overlay { align-items: center; box-sizing: border-box;
+    background: rgba(0,0,0,.62); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  html:not(.vn-mhl)[data-theme="light"] #project-overlay { background: rgba(20,20,30,.28); }
+  html:not(.vn-mhl) #project-overlay .project-card { width: 500px; max-width: 92vw; height: auto; max-height: 70vh; border-radius: 14px;
+    border: 1px solid rgba(var(--bt),.14); box-shadow: 0 60px 140px -40px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06); }
+  html:not(.vn-mhl) #project-overlay .project-header { padding: 22px 54px 14px 24px; border-bottom: 1px solid rgba(var(--bt),.08);
+    flex-direction: column; align-items: flex-start; row-gap: 6px; }
+  html:not(.vn-mhl) #project-overlay .project-header h2 { order: 2; font-size: 21px; font-weight: 650; letter-spacing: -.02em; }
+  /* flex-basis back to auto: the 100% that wraps the hint under the title in a row would, in this column, size it to
+     the header's full height and push it into a second column beside the title, under the close button. */
+  html:not(.vn-mhl) #project-overlay .project-header p { order: 3; font-size: 13px; flex-basis: auto; }
+  html:not(.vn-mhl) #project-overlay .project-sub { order: 1; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  html:not(.vn-mhl) #project-overlay .overlay-close { top: 16px; right: 16px; width: 30px; height: 30px; border-radius: 99px;
+    border: 1px solid rgba(var(--bt),.12); font-size: 18px; }
+  html:not(.vn-mhl) #project-overlay .project-list { padding: 4px 14px 14px; }
+  html:not(.vn-mhl) #project-overlay .ps-head { padding: 8px 12px 6px 56px; grid-template-columns: 1fr repeat(3, 38px); height: auto; }
+  html:not(.vn-mhl) #project-overlay .ps-cols { grid-template-columns: repeat(3, 38px); }
+  html:not(.vn-mhl) #project-overlay .ps-n { font-size: 13px; }
+  html:not(.vn-mhl) #project-overlay .project-item { gap: 12px; padding: 10px 12px; border-radius: 0; border-bottom: 1px solid rgba(var(--bt),.06); }
+  html:not(.vn-mhl) #project-overlay .project-item-add { border-bottom: 0; }
+  html:not(.vn-mhl) #project-overlay .project-item.active,
+  html:not(.vn-mhl) #project-overlay .project-item.active:hover { background: none; border-radius: 12px; box-shadow: inset 3px 0 0 var(--accent); }
+  html:not(.vn-mhl) #project-overlay .project-item-mark { width: 32px; height: 32px; border-radius: 50%; font-size: 13px; }
+  html:not(.vn-mhl) #project-overlay .project-item-name { font-size: 14px; font-weight: 500; }
+  html:not(.vn-mhl) #project-overlay .project-item.active .project-item-name { font-weight: 600; }
+  html:not(.vn-mhl) #project-overlay .project-item-path,
+  html:not(.vn-mhl) #project-overlay .ps-cols-on .project-item-path { display: block; font-size: 11.5px; margin-top: 2px; }
+  html:not(.vn-mhl) #project-overlay .project-item-count { font-size: 13px; }
+  html:not(.vn-mhl) #project-overlay .project-sep { display: none; }
+}
+@media (min-width: 900px) and (hover: hover) {
+  html:not(.vn-mhl) #project-overlay .project-item:hover { background: rgba(var(--bt),.04); border-radius: 12px; }
 }
 
 /* ── Continuous shell (desktop) ──
@@ -14241,15 +14325,29 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   .resize-handle:hover::before, .resize-handle.dragging::before, .resize-handle:focus-visible::before { opacity: 1; }
   .resize-handle.dragging::before { height: 56px; margin-top: -28px; }
   .resize-handle:focus-visible { outline: none; }
+  /* Open panel: no mark on the divider at rest; when the pointer reaches the edge
+     (or it is dragged or focused) a thin accent line runs its full height.  The
+     short delay keeps the line from flickering as the pointer passes across.  The
+     full-height ::after stays the wider drag area.  The hidden panel's round
+     button below is unchanged. */
+  .sidebar:not(.collapsed) ~ .resize-handle::before { display: none; }
+  .sidebar:not(.collapsed) ~ .resize-handle { transition: background .12s .08s, box-shadow .12s .08s; }
+  .sidebar:not(.collapsed) ~ .resize-handle:is(:hover, .dragging, :focus-visible) { background: var(--accent); box-shadow: 1px 0 0 var(--accent); }
   /* Hidden panel: the strip must read as a control at a glance.  It used to be a
      faint 4px pill at 60% opacity, nearly invisible in light theme, so a hidden
-     panel looked like a broken UI.  Now a tinted strip with a chevron. */
-  .sidebar.collapsed ~ .resize-handle { width: 16px; cursor: pointer; background: rgba(128,128,140,.10); border-right: 1px solid var(--border); }
-  .sidebar.collapsed ~ .resize-handle::before { opacity: 1; width: 10px; height: 16px; margin: -8px 0 0 -5px; border-radius: 0; background: var(--text-muted);
+     panel looked like a broken UI.  A tinted 16px strip replaced it, and that read as
+     clutter; now a small round chevron button sits on the edge, faint until hovered.
+     The ::after (normally the wider drag hit area) is the circle, ::before the chevron;
+     both sit just right of the edge so the rail never covers half the circle. */
+  .sidebar.collapsed ~ .resize-handle { width: 8px; cursor: pointer; background: transparent; border-right: 0; }
+  .sidebar.collapsed ~ .resize-handle:hover, .sidebar.collapsed ~ .resize-handle.dragging { background: transparent; }
+  .sidebar.collapsed ~ .resize-handle::after { top: 50%; bottom: auto; left: 0; right: auto; width: 26px; height: 26px; margin: -13px 0 0 3px; box-sizing: border-box;
+    border-radius: 50%; border: 1px solid rgba(128,128,140,.35); background: rgba(128,128,140,.12); opacity: .8; transition: opacity .15s, border-color .15s; }
+  .sidebar.collapsed ~ .resize-handle:hover::after, .sidebar.collapsed ~ .resize-handle:focus-visible::after { opacity: 1; border-color: var(--text-faint); }
+  .sidebar.collapsed ~ .resize-handle::before { z-index: 2; opacity: 1; width: 7px; height: 11px; margin: -5.5px 0 0 8.5px; border-radius: 0; background: var(--text-muted);
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3l5 5-5 5'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3l5 5-5 5'/%3E%3C/svg%3E") center / contain no-repeat; }
-  .sidebar.collapsed ~ .resize-handle:hover { background: rgba(128,128,140,.20); }
-  .sidebar.collapsed ~ .resize-handle:hover::before, .sidebar.collapsed ~ .resize-handle.dragging::before { height: 16px; margin-top: -8px; background: var(--text-heading); }
+  .sidebar.collapsed ~ .resize-handle:hover::before, .sidebar.collapsed ~ .resize-handle.dragging::before { height: 11px; margin-top: -5.5px; background: var(--text-heading); }
 }
 
 /* ── Left panel refinements (desktop) ──
@@ -14308,6 +14406,11 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   .sidebar .session-item { border-bottom-color: rgba(var(--bt), .035); box-shadow: inset 2px 0 0 var(--rail); }
   .sidebar .session-col-date, .sidebar .session-col-size { font-variant-numeric: tabular-nums; }
   .sidebar .session-list { padding-left: 12px; padding-right: 2px; scrollbar-gutter: stable; scrollbar-width: thin; }
+  /* The list's scrollbar shows only while the pointer is over the panel, so it does
+     not sit beside the divider's round thumb all the time.  Its lane stays reserved
+     (scrollbar-gutter above), so nothing shifts when it appears. */
+  .sidebar :is(.session-list, #workforce-grid) { scrollbar-color: transparent transparent; }
+  .sidebar:hover :is(.session-list, #workforce-grid) { scrollbar-color: var(--scrollbar) transparent; }
   .sidebar .col-header:first-child { padding-left: 17px; }   /* NAME sits over the session titles (rows keep their own 17px lane for the unread dot) */
   .sidebar .col-header:last-child, .sidebar .session-item > .session-col-size { padding-right: 5px; }
 }
@@ -14320,12 +14423,15 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   .sidebar .wf-sleeping:not([class*=" vs-"]) .wf-status-label { background: none; padding-left: 0; padding-right: 0; }
   /* Dim sleeping cards: they step back so active and selected sessions stand out */
   .sidebar .wf-card.wf-sleeping:not(.wf-selected) { background: transparent; box-shadow: none; }
-  .sidebar .wf-card.wf-sleeping:not(.wf-selected) .wf-name { color: var(--text-muted); }
+  /* Names on boxes that are not open, of every status, sit one step under the open box's name (heading colour, 600):
+     near-white at 500.  Grey regular names made every other box read as disabled, not merely not open.
+     !important: the finish stylesheets colour the names per status with stronger selectors. */
+  .sidebar .wf-card:not(.wf-selected) .wf-name { color: var(--text-primary) !important; font-weight: 500 !important; }
   /* PROJECT / VIEW tags sit at the right edge of their rows */
   .sidebar #btn-project > span, .sidebar #sidebar-view-trigger > span { display: flex; flex: 1; align-items: baseline; }
   .sidebar #btn-project .sidebar-mini-label, .sidebar #sidebar-view-trigger .sidebar-mini-label { margin-left: auto; }
   /* The project name is the panel's heading: heading typeface, slightly larger */
-  .sidebar #project-label { font-family: 'Space Grotesk', var(--font-sans); font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--text-heading); }
+  .sidebar #project-label { font-family: var(--font-sans); font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--text-heading); }
   /* The row was drawn at 70% opacity, which greyed the heading; the heading is full strength and its icon stays quiet */
   .sidebar #btn-project { opacity: 1; }
   .sidebar #btn-project > svg { color: var(--text-muted); }
@@ -14365,7 +14471,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   .hp-project-trigger > svg:first-child { display: none; }
   .hp-project-label { order: -1; flex: 0 0 100%; font-size: 0; margin-bottom: 1px; }
   .hp-project-label::before { content: 'Project'; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); }
-  .hp-project-name { font-family: 'Space Grotesk', var(--font-sans); font-size: 40px; font-weight: 700; letter-spacing: -.02em; color: var(--text-heading); line-height: 1.15; }
+  .hp-project-name { font-family: var(--font-sans); font-size: 40px; font-weight: 700; letter-spacing: -.02em; color: var(--text-heading); line-height: 1.15; }
   .hp-project-trigger > svg:last-child { width: 16px; height: 16px; color: var(--text-faint); margin-top: 8px; }
 
   /* Layout: Sessions is featured (large, left, full height); the other three stack beside it as compact rows. */
@@ -14383,7 +14489,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   .homepage-card:not(.hp-sessions) .hp-cta svg { width: 14px; height: 14px; }
   /* Featured card content added by the preview script: big status numbers and a list of recent sessions */
   .hpx-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 4px 0 18px; }
-  .hpx-num b { display: block; font-family: 'Space Grotesk', var(--font-sans); font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: -.03em; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+  .hpx-num b { display: block; font-family: var(--font-sans); font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: -.03em; color: var(--text-heading); font-variant-numeric: tabular-nums; }
   .hpx-num span { display: block; margin-top: 6px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); }
   .hpx-num.zero b { color: var(--text-faint); }
   .hpx-num.work b { color: var(--accent-text, var(--accent)); }
@@ -14424,7 +14530,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
     width: auto; height: auto; justify-content: flex-start; margin-bottom: 14px; border-radius: 0; background: none; color: var(--text-muted); }
   .hp-icon-wrap svg { width: 20px; height: 20px; }
 
-  .homepage-card h3 { font-family: 'Space Grotesk', var(--font-sans); font-size: 18px; font-weight: 500; letter-spacing: -.015em; margin-bottom: 6px; }
+  .homepage-card h3 { font-family: var(--font-sans); font-size: 18px; font-weight: 500; letter-spacing: -.015em; margin-bottom: 6px; }
   .hp-desc { font-size: 12.5px; line-height: 1.55; color: var(--text-muted); margin-bottom: 22px; }
 
   /* Live visuals: neutral, with colour only where it means something (the sessions bar keeps working / idle) */
@@ -14471,7 +14577,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   #pm-overlay.sx .sx-nav { flex: 0 0 248px; height: var(--sx-h); box-sizing: border-box; overflow-y: auto; scrollbar-width: thin;
     padding: 26px 12px 16px; background: var(--bg-sidebar); border: 1px solid rgba(var(--bt), .1); border-right: 0;
     border-radius: 18px 0 0 18px; box-shadow: 0 24px 80px rgba(0,0,0,.4); }
-  #pm-overlay.sx .sx-nav-title { font: 600 20px/1.25 'Space Grotesk', var(--font-sans); letter-spacing: -.01em; color: var(--text-heading); padding: 0 10px 14px; }
+  #pm-overlay.sx .sx-nav-title { font: 600 20px/1.25 var(--font-sans); letter-spacing: -.01em; color: var(--text-heading); padding: 0 10px 14px; }
   #pm-overlay.sx .sx-group + .sx-group { margin-top: 14px; }
   #pm-overlay.sx .sx-group-label { font-size: 9.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint); padding: 0 10px 5px; }
   #pm-overlay.sx .sx-item { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px;
@@ -14483,12 +14589,19 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   #pm-overlay.sx .sx-item.active svg { color: var(--text-heading); }
   #pm-overlay.sx .sx-item-label { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #pm-overlay.sx .sx-item-value { flex: 0 1 auto; min-width: 0; max-width: 84px; font-size: 11.5px; font-weight: 400; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Settings > Sync: while something waits, its row carries the top bar's nudge: the count in amber and a pulsing dot (git-sync.js). */
+  #pm-overlay.sx .sx-item.sx-nudge .sx-item-value { color: #f5b544; }
+  #pm-overlay.sx .sx-item.sx-nudge svg { color: #f5b544; }
+  #pm-overlay.sx .sx-item.sx-nudge { position: relative; }
+  #pm-overlay.sx .sx-item.sx-nudge::after { content: ''; position: absolute; left: 20px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: #f5b544; animation: sxNudge 2.4s ease-out infinite; }
+  @keyframes sxNudge { 0% { box-shadow: 0 0 0 0 rgba(245,181,68,.7); } 70%, 100% { box-shadow: 0 0 0 7px rgba(245,181,68,0); } }
+  @media (prefers-reduced-motion: reduce) { #pm-overlay.sx .sx-item.sx-nudge::after { animation: none; } }
 
   /* The section's dialog becomes the right-hand pane: one fixed size, so switching sections never resizes the window */
   #pm-overlay.sx .pm-card { flex: 0 1 700px; min-width: 0; width: auto !important; max-width: none !important; height: var(--sx-h);
     max-height: none !important; box-sizing: border-box; padding: 26px 40px 28px; border-radius: 0 18px 18px 0;
     border-color: rgba(var(--bt), .1); transform: none !important; opacity: 1 !important; transition: none !important; scrollbar-width: thin; }
-  #pm-overlay.sx .pm-card > .pm-title:first-child, #pm-overlay.sx .pm-card .pm-title { font: 600 20px/1.25 'Space Grotesk', var(--font-sans); letter-spacing: -.01em; padding-right: 36px; }
+  #pm-overlay.sx .pm-card > .pm-title:first-child, #pm-overlay.sx .pm-card .pm-title { font: 600 20px/1.25 var(--font-sans); letter-spacing: -.01em; padding-right: 36px; }
   #pm-overlay.sx .sx-hidden { display: none !important; }
   #pm-overlay.sx .msel-list { max-height: none; overflow: visible; }   /* the pane scrolls, not a list inside it */
   #pm-overlay.sx .sx-x { flex: 0 0 0; width: 0; height: var(--sx-h); position: relative; }
@@ -14624,11 +14737,11 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   border-radius: 10px; cursor: pointer; color: var(--text-heading); }
 .dx-project:hover { background: rgba(var(--bt), .06); }
 .dx-project:focus-visible { box-shadow: 0 0 0 2px rgba(var(--bt), .25); }
-.dx-project-name { font: 600 34px/1.2 'Space Grotesk', var(--font-sans); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dx-project-name { font: 600 34px/1.2 var(--font-sans); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dx-project svg { flex: none; margin-top: 4px; color: var(--text-faint); }
 .dx-project:hover svg { color: var(--text-secondary); }
 .dx-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 22px 0; border-top: 1px solid rgba(var(--bt), .08); border-bottom: 1px solid rgba(var(--bt), .08); }
-.dx-num b { display: block; font-family: 'Space Grotesk', var(--font-sans); font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: -.03em; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+.dx-num b { display: block; font-family: var(--font-sans); font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: -.03em; color: var(--text-heading); font-variant-numeric: tabular-nums; }
 .dx-num span { display: block; margin-top: 8px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); }
 .dx-num.zero b { color: var(--text-faint); }
 .dx-num.work b { color: var(--accent-text, var(--accent)); }
@@ -14662,7 +14775,9 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 .live-log > .empty-state { --bt: 255,255,255; font-family: var(--font-sans); }
 [data-theme="light"] .live-log > .empty-state { --bt: 0,0,0; }
 .live-log > .empty-state > .vibenode-mark { display: block; margin: 0 auto 16px; color: var(--text-muted); }
-.vibenode-greeting { font: 600 26px/1.25 'Space Grotesk', var(--font-sans); letter-spacing: -.02em; color: var(--text-heading); margin: 0 0 22px; }
+.live-log > .empty-state > .vibenode-mark.dn-mark { fill: currentColor; color: var(--text-primary); overflow: visible; }
+.live-log > .empty-state > .vibenode-mark.dn-mark circle { fill: #8B8FF7; }
+.vibenode-greeting { font: 600 26px/1.25 var(--font-sans); letter-spacing: -.02em; color: var(--text-heading); margin: 0 0 22px; }
 .template-grid:not(.template-grid-workflow) { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 620px; margin: 0 auto; padding: 0; }
 .template-grid:not(.template-grid-workflow) .template-card { display: inline-flex; align-items: center; gap: 7px; width: auto; min-height: 0; height: 34px; padding: 0 13px 0 11px;
   border: 0; border-radius: 99px; background: rgba(var(--bt), .055); box-shadow: none; text-align: left; transform: none; transition: background .12s; }
@@ -14689,7 +14804,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   /* Nothing left in the session bar on a phone in this state, so it goes entirely */
   #main-panel:has(#live-log > .empty-state > .vibenode-greeting) .main-toolbar { display: none !important; }
   .live-log > .empty-state:has(> .vibenode-greeting) { padding: 16px 18px 6vh !important; }
-  .live-log > .empty-state > .vibenode-mark { width: 26px; height: 26px; margin-bottom: 12px; }
+  .live-log > .empty-state > .vibenode-mark { width: 26px; height: 21px; margin-bottom: 12px; }
   .vibenode-greeting { font-size: 22px; line-height: 1.2; margin-bottom: 18px; text-wrap: balance; }
   /* Templates: one swipeable row instead of five ragged wrapped rows; the right edge fades to show there is more */
   .template-grid:not(.template-grid-workflow) { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; align-self: stretch; width: auto; max-width: none;
@@ -14736,7 +14851,7 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 .vtf-icon { display: flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; opacity: 0;
   transform: scale(.4) rotate(-180deg); filter: blur(6px); animation: vtf-icon .45s cubic-bezier(.22,1,.36,1) .05s forwards; }
 .vtf-icon svg { width: 28px; height: 28px; }
-.vtf-label { font: 500 13px 'Space Grotesk', var(--font-sans); letter-spacing: 8px; text-transform: uppercase; margin-right: -4px; opacity: 0; filter: blur(4px);
+.vtf-label { font: 500 13px var(--font-sans); letter-spacing: 8px; text-transform: uppercase; margin-right: -4px; opacity: 0; filter: blur(4px);
   animation: vtf-label .4s cubic-bezier(.22,1,.36,1) .12s forwards; }
 .vtf-hint { font-size: 11px; letter-spacing: 1px; opacity: 0; filter: blur(3px); animation: vtf-hint .35s cubic-bezier(.22,1,.36,1) .22s forwards; }
 @keyframes vtf-icon { 0% { opacity: 0; transform: scale(.4) rotate(-180deg); filter: blur(6px); } 60% { opacity: 1; transform: scale(1.08) rotate(15deg); filter: blur(0); }
@@ -14878,3 +14993,124 @@ details.rw-internal > summary { cursor: pointer; }
 .sidebar-menu-dropdown .sidebar-menu-sub .val + .vn-ctx-arrow { margin-left: 8px; padding-left: 0; }
 .sidebar-menu-dropdown { min-width: 230px; }
 .sidebar-menu-dropdown .vn-ctx-flyout { top: -6px; cursor: default; }
+
+/* ── Update / Publish / Sync as a release notes sheet (git-sync.js _gsSheetFrame) ──
+   A side panel with the cloud, a big number and what it counts; on the right the title, a progress bar, the
+   screen's own body and its buttons.  Every screen of those flows keeps its markup and ids; this only frames it.
+   The rings stay in the page (the side's number and the bar read them) but are not drawn. */
+#git-sync-overlay .gs-card.gs-sheet {
+  --gs-amb: 255, 149, 0; --gs-ok: 52, 199, 89; --gs-bad: 239, 68, 68;
+  width: 600px; max-width: calc(100vw - 32px); padding: 0; display: grid; grid-template-columns: 156px minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr auto; text-align: left; overflow: hidden;
+}
+[data-theme="light"] #git-sync-overlay .gs-card.gs-sheet { --gs-amb: 210, 120, 0; --gs-ok: 30, 150, 70; --gs-bad: 210, 50, 50; }
+.gs-sheet > .gs-side {
+  grid-column: 1; grid-row: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 30px 10px; border-right: 1px solid var(--border); text-align: center;
+  background: linear-gradient(180deg, rgba(var(--gs-amb), .11), rgba(var(--gs-amb), .02));
+}
+.gs-sheet > .gs-side.ok { background: linear-gradient(180deg, rgba(var(--gs-ok), .13), rgba(var(--gs-ok), .02)); }
+.gs-sheet > .gs-side.bad { background: linear-gradient(180deg, rgba(var(--gs-bad), .12), rgba(var(--gs-bad), .02)); }
+.gs-side-ico { width: 64px; height: 64px; color: rgb(var(--gs-amb)); margin-bottom: 10px; }
+.gs-side.ok .gs-side-ico { color: rgb(var(--gs-ok)); }
+.gs-side.bad .gs-side-ico { color: rgb(var(--gs-bad)); }
+.gs-side-ico svg { width: 100%; height: 100%; display: block; }
+.gs-side-num { font-size: 30px; font-weight: 700; line-height: 1.05; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+.gs-side-num + .gs-side-lbl + .gs-side-num { margin-top: 12px; }
+.gs-side-lbl { font-size: 12px; color: var(--text-muted); }
+#git-sync-overlay .gs-sheet > .pm-title, #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-title {
+  grid-column: 2; margin: 0; padding: 26px 48px 0 26px; font-size: 17px; text-align: left;
+}
+.gs-sheet > .gs-bar { grid-column: 2; display: none; height: 6px; margin: 14px 26px 0; border-radius: 6px; background: rgba(128, 128, 140, .18); overflow: hidden; }
+.gs-sheet > .gs-bar.run, .gs-sheet > .gs-bar.ok, .gs-sheet > .gs-bar.bad { display: block; }
+.gs-sheet > .gs-bar > i { display: block; height: 100%; width: 0; border-radius: 6px; background: rgb(var(--gs-amb)); transition: width .3s; }
+.gs-sheet > .gs-bar.ok > i { background: rgb(var(--gs-ok)); }
+.gs-sheet > .gs-bar.bad > i { background: rgb(var(--gs-bad)); }
+#git-sync-overlay .gs-sheet > .pm-body { grid-column: 2; padding: 6px 26px 0; margin: 0; min-height: 0; max-height: 62vh; overflow-y: auto; }
+#git-sync-overlay .gs-sheet > .pm-actions, #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-actions {
+  grid-column: 2; padding: 16px 26px 22px; margin: 0; justify-content: flex-end; align-items: center;
+}
+.gs-sheet .gs-min { top: 22px; right: 18px; }
+.gs-sheet .pm-body > p { margin: 0 0 12px; }
+.gs-sheet .gs-sub { color: var(--text-muted); font-size: 12.5px; margin: 4px 0 16px !important; }
+.gs-sheet .gs-sect { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: .02em; margin: 6px 0 8px; }
+.gs-sheet .gs-notes { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.gs-sheet .gs-notes li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; font-size: 13px; color: var(--text); line-height: 1.4; }
+.gs-sheet .gs-notes small { display: block; color: var(--text-muted); font-size: 11.5px; }
+.gs-sheet .gs-notes .gs-more { color: var(--text-muted); }
+.gs-nm { width: 18px; height: 18px; display: grid; place-items: center; color: var(--text-muted); }
+.gs-nm i { width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--gs-amb)); }
+.gs-nm.ok { color: rgb(var(--gs-ok)); }
+.gs-nm svg { width: 14px; height: 14px; }
+.gs-sheet .pm-input { margin: 2px 0 12px; }
+.gs-sheet .gs-seg-desc { background: none; border: 0; padding: 0; gap: 6px; }
+.gs-sheet .gs-seg-desc button {
+  flex: 1; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); font-size: 11.5px; line-height: 1.3; box-shadow: none;
+}
+.gs-sheet .gs-seg-desc button b { display: block; color: var(--text-heading); font-size: 12.5px; font-weight: 600; }
+.gs-sheet .gs-seg-desc button small { display: block; font-size: 11px; }
+.gs-sheet .gs-seg-desc button.on { border-color: rgb(var(--gs-amb)); box-shadow: 0 0 0 3px rgba(var(--gs-amb), .13); background: transparent; }
+[data-theme="light"] .gs-sheet .gs-seg-desc button.on { background: transparent; box-shadow: 0 0 0 3px rgba(var(--gs-amb), .13); }
+.gs-sheet #gs-gate-hint { display: none; }
+.gs-sheet .gs-safe { font-size: 11.5px !important; color: var(--text-muted); margin: 14px 0 0 !important; line-height: 1.45; }
+.gs-seg:not(.gs-seg-desc) button small { display: none; }
+#git-sync-overlay .gs-sheet .pm-btn-primary { background: rgb(var(--gs-amb)); border-color: transparent; color: #1a1206; }
+#git-sync-overlay .gs-sheet .pm-btn-primary:hover { filter: brightness(1.08); }
+#git-sync-overlay .gs-sheet .gs-min-quiet { border-color: transparent; background: transparent; color: var(--text-muted); }
+/* The screen's own ring: read by the side and the bar, not drawn; its live line and steps sit on the left */
+.gs-sheet .trun { align-items: flex-start; padding: 0; text-align: left; }
+.gs-sheet .trun-ring, .gs-sheet .gs-ringwrap { display: none; }
+.gs-sheet .trun-pct { font-size: 18px; margin: 4px 0 0; }
+.gs-sheet .trun-pct#gs-big, .gs-sheet #test-progress-pct { display: none; }
+.gs-sheet .trun-desc { margin-top: 8px; font-size: 13px; color: var(--text-heading); }
+.gs-sheet .trun-counts, .gs-sheet .gs-file { text-align: left; max-width: none; margin-left: 0 !important; }
+.gs-sheet .gs-steps { margin: 16px 0 4px; max-width: none; }
+.gs-sheet .gs-lines { margin: 6px 0 14px; }
+.gs-sheet .gs-findings, .gs-sheet .gs-pre { text-align: left; }
+@media (max-width: 640px) {
+  #git-sync-overlay .gs-card.gs-sheet { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr auto; }
+  .gs-sheet > .gs-side { grid-row: 1; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 16px 20px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .gs-side-ico { width: 34px; height: 34px; margin: 0; }
+  .gs-side-num { font-size: 22px; }
+  .gs-side-num + .gs-side-lbl + .gs-side-num { margin-top: 0; }
+  #git-sync-overlay .gs-sheet > .pm-title, #git-sync-overlay .gs-sheet > .gs-bar,
+  #git-sync-overlay .gs-sheet > .pm-body, #git-sync-overlay .gs-sheet > .pm-actions { grid-column: 1; }
+  #git-sync-overlay .gs-sheet > .pm-title { padding: 18px 48px 0 20px; }
+  .gs-sheet > .gs-bar { margin: 12px 20px 0; }
+  #git-sync-overlay .gs-sheet > .pm-body { padding: 6px 20px 0; }
+  #git-sync-overlay .gs-sheet > .pm-actions { padding: 14px 20px 18px; }
+}
+.gs-sheet .gs-st.cur .gs-st-mark i { background: rgb(var(--gs-amb)); }
+#git-sync-overlay .gs-sheet .pm-btn-secondary { background: transparent; border-color: var(--border); color: var(--text); }
+[data-theme="light"] #git-sync-overlay .gs-sheet .pm-btn-primary { color: #fff; }
+@media (max-width: 640px) {
+  #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-title, #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-actions { grid-column: 1; }
+  #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-title { padding: 18px 48px 0 20px; }
+  #git-sync-overlay .gs-card.gs-sheet.gs-center .pm-actions { padding: 14px 20px 18px; }
+}
+
+/* Settings > Sync rows: icon, what is waiting, the button that does it (git-sync.js openSyncSettings). */
+.gsx-row { align-items: center; gap: 12px; }
+.gsx-ico { display: inline-flex; color: #f5b544; flex: none; }
+.gsx-ico svg { width: 22px; height: 22px; }
+.gsx-go { flex: none; white-space: nowrap; }
+
+/* "+" menu on phones: a native bottom sheet (openSheet() in image-attach.js). */
+@media (max-width: 768px) {
+  .vn-more-scrim { position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,.36); animation: vn-ms-fade .2s ease-out; }
+  .vn-more-menu.vn-more-sheet {
+    left: 0; right: 0; bottom: 0; top: auto; min-width: 0; max-height: 85vh; border-radius: 20px 20px 0 0;
+    border: 0; border-top: 1px solid var(--border-light); padding: 8px 10px calc(14px + env(safe-area-inset-bottom));
+    animation: vn-ms-up .26s cubic-bezier(.2,.9,.25,1); display: block;
+  }
+  .vn-ms-grab { width: 38px; height: 5px; border-radius: 3px; background: var(--border-input); margin: 2px auto 10px; }
+  .vn-more-sheet .vn-more-row { padding: 13px 12px; gap: 14px; border-radius: 12px; }
+  .vn-more-sheet .vn-more-ic { width: 36px; height: 36px; border-radius: 10px; }
+  .vn-more-sheet .vn-more-ic svg { width: 19px; height: 19px; }
+  .vn-more-sheet .vn-more-lbl { font-size: 16px; font-weight: 500; }
+  .vn-more-sheet .vn-more-sub { font-size: 13px; }
+  .vn-more-sheet .vn-more-row:active { background: var(--bg-hover); }
+}
+@keyframes vn-ms-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes vn-ms-fade { from { opacity: 0; } to { opacity: 1; } }

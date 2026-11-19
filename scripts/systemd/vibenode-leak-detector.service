@@ -1,5 +1,5 @@
 [Unit]
-Description=VibeNode leaked-process reaper (dead sessions only) + report-only sweep
+Description=DevelopNode leaked-process reaper (dead sessions only) + report-only sweep
 Documentation=file://__REPO_ROOT__/scripts/leak_detector.py
 
 [Service]

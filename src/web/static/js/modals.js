@@ -124,6 +124,7 @@ var _SX_ICONS = {
   'Model': '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/>',
   'Thinking': '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2h5c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3z"/>',
   'Preferences': '<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="8.5" cy="17" r="2.5"/>',
+  'Sync': '<path d="M7 17.5A4.5 4.5 0 0 1 6.6 8.6 6 6 0 0 1 18 9.5a3.8 3.8 0 0 1-.3 7.6"/><path d="M10 13v8"/><path d="m8 19 2 2 2-2"/><path d="M14.5 21v-8"/><path d="m12.5 15 2-2 2 2"/>',
   'Permission Policy': '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   'Persistent Storage': '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
   'Mobile Command': '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/>',
@@ -148,7 +149,7 @@ function _sxNavHtml() {
     if (!rows.length) return;
     html += '<div class="sx-group">' + (named ? '<div class="sx-group-label">' + _SX_GROUPS[gi] + '</div>' : '');
     rows.forEach(function(r) {
-      html += '<button class="sx-item' + (r.label === _sx.key ? ' active' : '') + '" data-key="' + _hdrSysEsc(r.label) + '">'
+      html += '<button class="sx-item' + (r.label === _sx.key ? ' active' : '') + (r.label === 'Sync' && r.value ? ' sx-nudge' : '') + '" data-key="' + _hdrSysEsc(r.label) + '">'
         + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         + (_SX_ICONS[r.label] || '<circle cx="12" cy="12" r="3"/>') + '</svg>'
         + '<span class="sx-item-label">' + _hdrSysEsc(r.label) + '</span>'
@@ -275,6 +276,12 @@ function openSettings(key) {
   overlay.classList.add('sx');
   _sxShow(want);
 }
+// A link can open the window on one section: /?settings=Sync
+window.addEventListener('load', function() {
+  var want = '';
+  try { want = new URLSearchParams(location.search).get('settings') || ''; } catch (e) {}
+  if (want && !_hdrSysIsMobile()) setTimeout(function() { openSettings(want); }, 300);
+});
 // --- Playbooks ---
 // Things VibeNode can run when you type their words (AI Compare, Code Pipeline…).
 // The list is the workforce entries whose frontmatter says `playbook: true`
@@ -432,7 +439,7 @@ function openRecoveryWatchdog() {
   if (!overlay) return;
   overlay.innerHTML = '<div class="pm-card pm-enter rw-card" style="width:620px;max-height:76vh;display:flex;flex-direction:column;">'
     + '<h2 class="pm-title">Recovery &amp; Watchdog</h2>'
-    + '<div class="pm-body rw-intro"><p>These are set with environment variables before VibeNode starts. '
+    + '<div class="pm-body rw-intro"><p>These are set with environment variables before DevelopNode starts. '
     + 'Changing one needs a restart of the part that reads it.</p></div>'
     + '<div id="rw-list" class="rw-list" style="overflow:auto;flex:1;min-height:60px">'
     + '<div class="rw-empty">Loading…</div></div>'
@@ -849,7 +856,7 @@ function shutdownServer() {
   overlay.innerHTML = `
     <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:24px 28px;min-width:340px;max-width:420px;color:var(--text-primary);font-family:inherit">
       <h3 style="margin:0 0 14px;font-size:16px;color:var(--text-heading)">Turn Off Server</h3>
-      <p style="margin:0 0 18px;font-size:13px;color:var(--text-muted)">This will kill both the web server (5050) and Session Engine (5051). All running sessions and agents will be terminated. You will need to manually restart VibeNode to use it again.</p>
+      <p style="margin:0 0 18px;font-size:13px;color:var(--text-muted)">This will kill both the web server (5050) and Session Engine (5051). All running sessions and agents will be terminated. You will need to manually restart DevelopNode to use it again.</p>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button id="shutdown-cancel" style="padding:8px 18px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-primary);cursor:pointer">Cancel</button>
         <button id="shutdown-confirm" style="padding:8px 18px;border-radius:6px;border:1px solid transparent;background:var(--danger,#e55);color:#fff;cursor:pointer;font-weight:600">Turn Off</button>
@@ -877,7 +884,7 @@ async function _doShutdown() {
   setTimeout(() => {
     document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-primary);color:var(--text-primary);font-family:inherit;flex-direction:column;gap:12px">'
       + '<h2 style="margin:0;color:var(--text-heading)">Server has been turned off</h2>'
-      + '<p style="margin:0;color:var(--text-muted);font-size:14px">Restart VibeNode manually to continue.</p></div>';
+      + '<p style="margin:0;color:var(--text-muted);font-size:14px">Restart DevelopNode manually to continue.</p></div>';
   }, 1500);
 }
 

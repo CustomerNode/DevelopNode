@@ -87,10 +87,17 @@ def card_line(card: dict) -> str:
     return str(ask or card.get("headline") or "")[:200]
 
 
-def next_step(text: str) -> Optional[dict]:
-    """``{"verb", "line"}`` for a session whose final message is *text*, or
-    None when that message carries no usable card or handoff."""
-    card = last_card(text)
+def next_step_of_card(card: Optional[dict]) -> Optional[dict]:
+    """``{"verb", "line"}`` for an already-parsed card, or None when it
+    carries no usable verb.  The Workflow feed (``src/web/feed.py``) keeps the
+    parsed card and derives the step from it; ``next_step`` is the same rule
+    on raw text, so the two never disagree."""
     verb = verb_from_card(card) if card is not None else None
     # Status comes from the card's type only; never guessed from free text.
     return {"verb": verb, "line": card_line(card)} if verb is not None else None
+
+
+def next_step(text: str) -> Optional[dict]:
+    """``{"verb", "line"}`` for a session whose final message is *text*, or
+    None when that message carries no usable card or handoff."""
+    return next_step_of_card(last_card(text))

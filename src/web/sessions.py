@@ -71,8 +71,9 @@ def _is_orphan_cached(path: Path, st: os.stat_result) -> bool:
     return verdict
 
 
-def _next_step_of(content) -> dict | None:
-    """``{"verb", "line"}`` from the final assistant message's handoff card."""
+def _card_of(content) -> dict | None:
+    """The handoff card in the final assistant message's content, parsed, or
+    None.  *content* is the raw message content (a string or text blocks)."""
     if content is None:
         return None
     if isinstance(content, list):
@@ -80,8 +81,44 @@ def _next_step_of(content) -> dict | None:
                             if isinstance(b, dict) and b.get("type") == "text")
     if "handoff" not in content:
         return None
-    from shared.handoff_status import next_step
-    return next_step(content)
+    from shared.handoff_status import last_card
+    return last_card(content)
+
+
+def _next_step_of(card: dict | None) -> dict | None:
+    """``{"verb", "line"}`` from the final assistant message's handoff card."""
+    from shared.handoff_status import next_step_of_card
+    return next_step_of_card(card)
+
+
+# The newest handoff card of each transcript, for the Workflow feed
+# (``src/web/feed.py``).  ``load_session_summary`` already reads every line
+# and parses the final card for ``next_step``; this keeps the parsed card
+# beside the summary instead of throwing it away, keyed by (project, session)
+# and stamped with the summary cache key it was read with, so a transcript
+# that grew since is never served its old card.  It lives apart from
+# ``_summary_cache`` so ``GET /api/sessions`` rows stay exactly as they were
+# (the sidebar never needs the card itself).
+_card_cache: dict = {}
+
+
+def session_card(project: str, sid: str) -> dict | None:
+    """The newest handoff card of session *sid* in *project*, or None when
+    the transcript has none, is missing, or its final message is the
+    user's (a newer turn began).  Served from ``_card_cache``; a cold or
+    stale entry is filled by ``load_session_summary``, which is itself cached
+    by file mtime and size."""
+    path = _sessions_dir(project) / f"{sid}.jsonl"
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key = _summary_cache_key(path, st)
+    hit = _card_cache.get((project, sid))
+    if hit is None or hit[0] != key:
+        load_session_summary(path, st)
+        hit = _card_cache.get((project, sid))
+    return hit[1] if hit and hit[0] == key else None
 
 
 def _summary_cache_key(path: Path, st: os.stat_result) -> tuple:
@@ -211,6 +248,7 @@ def load_session_summary(path: Path, st: os.stat_result | None = None,
     # access_ts overlay (see _overlay_access_ts) which is fed by
     # explicit UI hooks: click, send_message, rename, touch.
     effective_ts = last_activity_ts
+    card = _card_of(last_asst_content)
     result = {
         "id": path.stem,
         "custom_title": effective_title,
@@ -225,7 +263,7 @@ def load_session_summary(path: Path, st: os.stat_result | None = None,
         "size": _format_size(st.st_size),
         "preview": preview,
         "message_count": message_count,
-        "next_step": _next_step_of(last_asst_content),
+        "next_step": _next_step_of(card),
     }
     # Drop the key this path held before (previous mtime/size) so a transcript
     # that grows every turn keeps exactly ONE entry in the cache.
@@ -235,6 +273,8 @@ def load_session_summary(path: Path, st: os.stat_result | None = None,
         _summary_cache.pop(old_key, None)
     _summary_cache_index[path_str] = cache_key
     _summary_cache[cache_key] = result
+    # The card beside the summary, for the Workflow feed (see session_card).
+    _card_cache[(_proj, path.stem)] = (cache_key, card)
     # Copy for the same reason as the cache-hit path above: the caller must
     # never be able to mutate the cached summary.
     return dict(_overlay_access_ts(result, path, access_map))

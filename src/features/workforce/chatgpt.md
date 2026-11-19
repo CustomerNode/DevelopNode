@@ -3,7 +3,7 @@ id: chatgpt
 name: ChatGPT
 department: compose
 source: vibenode
-version: 1.0.2
+version: 1.0.3
 depends_on: []
 type: prompt-template
 ---
@@ -12,7 +12,7 @@ type: prompt-template
 
 Reusable prompt template. Invoke by typing: **chatgpt**
 
-**Unique value**: Round-trips a question through the user's logged-in ChatGPT (via the VibeNode Playwright bridge) so a Claude session can get a second-model opinion, cite its full response, and mark which parts to act on — without leaving the session.
+**Unique value**: Round-trips a question through the user's logged-in ChatGPT (via the DevelopNode Playwright bridge) so a Claude session can get a second-model opinion, cite its full response, and mark which parts to act on — without leaving the session.
 
 ## Invocation Contract
 
@@ -56,7 +56,7 @@ Do not paraphrase the question. Do not summarize away detail from the context. C
 
 ### Step 2 — Call the bridge
 
-POST to the VibeNode bridge:
+POST to the DevelopNode bridge:
 
 ```bash
 curl -s -X POST http://127.0.0.1:5050/api/chatgpt/ask \
@@ -86,7 +86,7 @@ The bridge responds with `{"ok": bool, "result": str, "chat_url": str, "error": 
 
 Read the full ChatGPT reply and produce a short "agree / disagree / needs verification" pass. You are not defending ChatGPT's answer; you are helping the parent Claude session decide what to keep.
 
-- **Agree** items: claims that match VibeNode's actual state, known conventions, or established best practice, and are worth acting on.
+- **Agree** items: claims that match DevelopNode's actual state, known conventions, or established best practice, and are worth acting on.
 - **Disagree** items: claims that are wrong, mis-scoped, contradict CLAUDE.md rules, break a PERF-CRITICAL invariant, or would regress a documented fix.
 - **Needs verification** items: claims that are plausible but you cannot confirm without running code or reading a file the parent session has and you do not.
 
@@ -102,7 +102,7 @@ Under no circumstances edit code, run tests, or run destructive commands based o
 - Never send content from `data/chatgpt-profile/`, `data/chrome-profile/`, or anything under `logs/` — those directories can contain session tokens and user prompt history.
 - If the `chat_url` is not an `https://chatgpt.com/...` URL, refuse (the bridge already validates this, but catch it early so the failure message is clean).
 - If ChatGPT's reply contains an obvious hallucinated file path (e.g. a path that doesn't exist in the repo the parent session is working on), flag it in the annotation — that class of error is why the annotation exists.
-- Preserve VibeNode's public-repo rule: never quote private user data back at ChatGPT in a way that would end up in a public transcript.
+- Preserve DevelopNode's public-repo rule: never quote private user data back at ChatGPT in a way that would end up in a public transcript.
 
 ## Fix Policy
 

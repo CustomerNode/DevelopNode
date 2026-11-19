@@ -1,6 +1,6 @@
-# VibeNode SocketIO Events Reference
+# DevelopNode SocketIO Events Reference
 
-VibeNode uses Flask-SocketIO for real-time bidirectional communication between the browser and the web server (port 5050). The web server proxies session operations to the session daemon (port 5051) via TCP IPC and re-emits push events as SocketIO events.
+DevelopNode uses Flask-SocketIO for real-time bidirectional communication between the browser and the web server (port 5050). The web server proxies session operations to the session daemon (port 5051) via TCP IPC and re-emits push events as SocketIO events.
 
 **Connection URL:** `ws://localhost:5050`
 

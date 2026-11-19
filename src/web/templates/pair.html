@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pair this device · {{ device_name|default('VibeNode', true) }}</title>
-<link rel="icon" href="/static/images/logo.png" type="image/png">
+<title>Pair this device · {{ device_name|default('DevelopNode', true) }}</title>
+<link rel="icon" href="/static/developnode.png" type="image/png">
 <meta name="theme-color" content="#0b0d10">
 <style>
   :root { color-scheme: dark; }
@@ -39,7 +39,7 @@
       <img src="/static/images/logo.png" alt="">
       <h1>Pair this device</h1>
     </div>
-    <p class="pair-sub">Enter the pairing code shown on <strong>{{ device_name|default('VibeNode', true) }}</strong>
+    <p class="pair-sub">Enter the pairing code shown on <strong>{{ device_name|default('DevelopNode', true) }}</strong>
       under System &rarr; Mobile Command. You only do this once per device.</p>
     <label for="code">Pairing code</label>
     <input id="code" name="code" inputmode="latin" autocapitalize="characters" autocorrect="off" spellcheck="false"
@@ -70,7 +70,7 @@
                          body: JSON.stringify({ code: code }), credentials: 'same-origin' })
       .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
       .then(function (res) {
-        if (res.body && res.body.ok) { say('Paired. Opening VibeNode…', 'ok'); window.location.replace('/'); return; }
+        if (res.body && res.body.ok) { say('Paired. Opening DevelopNode…', 'ok'); window.location.replace('/'); return; }
         if (res.status === 429) { say('Too many attempts. Wait a minute and try again.', 'err'); }
         else { say('That code did not match. Check it on the computer and try again.', 'err'); }
         btn.disabled = false;

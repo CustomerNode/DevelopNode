@@ -856,7 +856,7 @@ def test_watch_listing_the_parent(lab):
 
 def test_watch_calling_vibenodes_session_list(lab):
     rec, fake = _probe(lab, "Bash", lambda cwd, sib: {"command": "curl -s http://127.0.0.1:5050/api/sessions"})
-    _assert_contained(rec, fake, "VibeNode's own routes")
+    _assert_contained(rec, fake, "DevelopNode's own routes")
 
 
 def test_watch_reading_the_reference_or_the_tests(lab):

@@ -241,7 +241,7 @@ def _with_mobile_preamble(text: str) -> str:
     pre = _MOBILE_PREAMBLE
     try:
         from shared.config import get_kanban_config
-        if get_kanban_config().get("smart_termination") is True:
+        if get_kanban_config().get("smart_termination", True) is not False:
             pre = pre.replace("⟦/VN-MOBILE⟧", _CARD_SHOTS_NOTE + "⟦/VN-MOBILE⟧")
     except Exception:
         pass

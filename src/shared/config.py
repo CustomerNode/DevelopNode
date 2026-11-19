@@ -104,8 +104,9 @@ def _kanban_config_defaults() -> dict:
         # Smart termination (src/engine/smart_termination.py): every turn ends
         # with a "what we're working on / where it stands / what's needed
         # from you" handoff, and a session stopping with work it could still
-        # do is sent back once to think again.  Opt-in (off by default).
-        "smart_termination": False,
+        # do is sent back once to think again.  On by default; only an explicit
+        # false turns it off.
+        "smart_termination": True,
         # ── Validation URL preferences ──
         "validation_url_enabled": False,
         "validation_base_url": "",

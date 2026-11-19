@@ -154,6 +154,7 @@ function _setViewModeImmediate(mode, prevMode) {
     const sessionBar = document.getElementById('kanban-session-bar');
     if (sessionBar) sessionBar.remove();
     if (kanbanEl) { kanbanEl.style.display = 'none'; kanbanEl.innerHTML = ''; }
+    if (window.VNFeed) VNFeed.leave();   // the feed half of Workflow mode (feed.js)
     document.getElementById('main-body').style.display = '';
     if (mode !== 'homepage') document.getElementById('main-body').innerHTML = _buildDashboard();
     document.getElementById('main-toolbar').style.display = 'none';
@@ -337,6 +338,8 @@ function _setViewModeImmediate(mode, prevMode) {
     if (composeEl) composeEl.style.display = 'none';
     if (homepageEl) homepageEl.style.display = 'none';
     if (typeof initKanban === 'function') initKanban();
+    // The feed half (feed.js): shown in place of the columns when chosen.
+    if (window.VNFeed) VNFeed.enter();
 
   } else if (mode === 'compose') {
     // Restore saved compose sub-route hash (if any) before initCompose
@@ -879,7 +882,7 @@ function renderWorkforce(sessions) {
     sessions = _fam.ordered;
     _roleOf = _fam.roleOf;
   }
-  grid.innerHTML = sessions.map(s => {
+  const _html = sessions.map(s => {
     const st = getSessionStatus(s.id);
     const { emoji, label, hint: _dblTitle, cls: _vsCls, foot: _vsFoot } = _wfCardStatusParts(s.id, st);
     const selClass = s.id === activeId ? ' wf-selected' : '';
@@ -923,6 +926,8 @@ function renderWorkforce(sessions) {
       ${_vsFoot || `<div class="wf-meta">${escHtml(date)}</div>`}
     </div>`;
   }).join('');
+  // Unchanged markup in the same order: keep the cards (app.js _vnWriteRows).
+  if (typeof _vnWriteRows === 'function') _vnWriteRows(grid, _html); else grid.innerHTML = _html;
 }
 
 const _WF_STATUS_SVG = {

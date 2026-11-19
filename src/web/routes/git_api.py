@@ -23,6 +23,14 @@ def api_git_status():
     return jsonify(get_git_cache())
 
 
+@bp.route("/api/git-changes")
+def api_git_changes():
+    """What an Update brings in and a Publish sends out, by area (src/web/change_areas.py)."""
+    from ..change_areas import changes
+    from ..git_ops import _VIBENODE_DIR
+    return jsonify(changes(_VIBENODE_DIR))
+
+
 @bp.route("/api/git-sync", methods=["POST"])
 def api_git_sync():
     data = request.get_json() or {}

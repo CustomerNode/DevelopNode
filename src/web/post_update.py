@@ -85,7 +85,7 @@ OLD_DIRS = {"app": "src/web", "daemon": "src/engine", "common": "src/shared",
             "features": "src/features", "launcher": "src/launcher"}
 OLD_SCRIPTS = ("run.py",)
 OLD_MODULES = ("_early_boot", "process_label")
-_FORWARDER = """# Local forwarder (not published): something started before VibeNode's code
+_FORWARDER = """# Local forwarder (not published): something started before DevelopNode's code
 # moved to src/ ran this path. It runs the file's new home.
 import runpy, sys, pathlib
 _p = pathlib.Path(__file__).resolve().parent / "src" / "launcher" / %r

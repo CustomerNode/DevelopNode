@@ -541,7 +541,7 @@ def context_sources(workdir: Path) -> dict:
 def isolation_problems(workdir: Path, exp: Path, other_workdirs: list) -> list:
     p = []
     if _within(workdir, S.REPO):
-        p.append("isolation: the trial's copy is inside the VibeNode repository")
+        p.append("isolation: the trial's copy is inside the DevelopNode repository")
     if _within(exp, workdir) or _within(workdir, exp):
         p.append("isolation: the trial's copy and the sealed records overlap")
     for o in other_workdirs:
@@ -790,7 +790,7 @@ def trial_verdict(t: dict) -> tuple:
 
 # ── 4. running ───────────────────────────────────────────────────────────────
 
-WATCHED = ["paths outside the trial folder", "VibeNode's own routes", "the transcript folder",
+WATCHED = ["paths outside the trial folder", "DevelopNode's own routes", "the transcript folder",
            "the experiment record", "the hidden tests' and reference solution's folders",
            "other trials' folders and their parent", "permission and ownership commands",
            "the canary and sealing-key tokens"]
@@ -896,7 +896,7 @@ def _rules_for(exp: Path, work: Path, wd: Path, frozen: dict, sealed: dict, othe
     if ev.get("reference_dir"):
         protected["the reference solution's folder"] = ev["reference_dir"]
     protected["the transcript folder"] = str(claude_projects_dir())
-    protected["the VibeNode repository"] = str(S.REPO)
+    protected["the DevelopNode repository"] = str(S.REPO)
     for i, m in enumerate(frozen.get("forbidden_material") or []):
         protected[f"forbidden material #{i + 1}"] = m
     protected.update(others)

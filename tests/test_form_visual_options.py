@@ -105,3 +105,54 @@ def test_sessions_are_told_a_form_about_looks_pictures_each_option():
     assert "No needs.look or screens needed" not in text
     assert "popup hides needs.look" in text
     assert "carries its own \"image\"" in text
+
+
+# What goes where on a web page is a choice about looks even when no design
+# word names it: a form deciding which content blocks a landing page gets,
+# and in what form, is judged by seeing the page.
+
+PAGE_BLOCK = _q("tips", "Put the three growing tips at the top of the page?",
+                "Short tips about soil, light and water for new gardeners.",
+                ["Yes, above the seed list", "Leave the tips out"])
+MOVING = _q("demo", "Show a seed sprouting as its own animated part?",
+            "A short loop of a seed turning into a seedling.",
+            ["Yes, a part of its own", "Only a still picture"])
+
+
+def test_choosing_what_goes_where_on_a_page_needs_pictures_without_any_design_word():
+    card = _card([PAGE_BLOCK, MOVING], title="Planner page content",
+                 headline="Pick which garden ideas go in")
+    out = _visual(hr.split_problems(card))
+    assert len(out) == 1 and "question 1, 2" in out[0]
+    assert "never by renaming" in out[0]
+
+
+def test_page_content_with_every_option_pictured_passes():
+    qs = [_q(q["id"], q["question"], q["context"], [o["label"] for o in q["options"]], images=True)
+          for q in (PAGE_BLOCK, MOVING)]
+    assert not _visual(hr.split_problems(_card(qs)))
+
+
+def test_a_site_named_as_a_deploy_target_is_not_a_page_layout_choice():
+    target = _q("deploy", "Run the checks against the staging site now?",
+                "The website copy there was built this morning.",
+                ["Run them now", "Wait for a fresh build"])
+    assert not _visual(hr.split_problems(_card([STORE, target])))
+
+
+def test_a_reply_decision_about_page_content_must_show_it():
+    card = {"type": "needs_you", "title": "Planner landing page",
+            "headline": "Pick which block opens the landing page",
+            "needs": {"kind": "decision", "ask": "Which block goes first on the landing page?",
+                      "replies": [{"key": "A", "label": "The growing tips"},
+                                  {"key": "B", "label": "The seed list"}]}}
+    p = hr.visual_choice_problem(card)
+    assert p and "landing page" in p
+    card["needs"]["replies"][0]["screens"] = [{"label": "Tips first", "url": "/static/scratch/x.html#A"}]
+    assert hr.visual_choice_problem(card) is None
+
+
+def test_the_guide_says_page_placement_is_a_look_and_renaming_is_no_fix():
+    text = hr.INSTRUCTIONS
+    assert "what goes where on a web page" in text
+    assert "renaming the words that named the look" in text

@@ -1,0 +1,54 @@
+/* The Workflow feed: one line per session, its newest summary card behind it.
+   See src/web/static/js/feed.js.  Rows take the sidebar's status colours
+   (session-status.css, --vs per .vs-<verb>). */
+
+#feed-view { height: 100%; overflow-y: auto; overflow-x: hidden; background: var(--bg-body); }
+.vnf-col { max-width: 640px; margin: 0 auto; padding: 8px 14px 60px; font-family: var(--font-sans); }
+.vnf-quiet { font-size: 12px; color: var(--text-faint); padding: 14px 2px 4px; display: flex; gap: 14px; }
+.vnf-quiet b { color: var(--text-muted); font-weight: 600; }
+.vnf-empty { padding: 48px 20px; text-align: center; color: var(--text-faint); font-size: 13px; line-height: 1.6; }
+
+.vnf-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 13px 10px; border-radius: 10px; cursor: pointer; outline: none; }
+.vnf-row:hover { background: var(--bg-hover); }
+.vnf-row:focus-visible { box-shadow: 0 0 0 1px rgba(165,165,255,.6) inset; }
+.vnf-row.open { background: var(--bg-active); border-radius: 10px 10px 0 0; }
+/* The sidebar's own status icon (session-verb.js), sized for the line. */
+.vnf-ic { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; }
+.vnf-ic svg, .vnf-ic img { width: 24px; height: 24px; display: block; }
+.vnf-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: rgb(var(--vs, 140,145,160)); flex: none; }
+.vnf-text { min-width: 0; }
+.vnf-ttl { font-size: 14px; font-weight: 650; color: var(--text-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vnf-hl { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.vnf-act { font-size: 11.5px; font-weight: 650; color: rgb(var(--vs, 140,145,160)); white-space: nowrap; }
+.vnf-sep { height: 1px; background: rgba(127,127,127,.12); margin: 0 10px; }
+
+/* The open card under its line: the real summary card, drawn as in the chat. */
+.vnf-open { padding: 0; }
+.vnf-open:not(:empty) { padding: 0 0 10px; }
+.vnf-open .msg { margin: 0; max-width: none; }
+.vnf-open .msg.assistant .msg-body { padding: 0; }
+.vnf-open .vnf-msg { display: block; }
+.vnf-thread { padding: 8px 2px 0; font-size: 12px; }
+.vnf-thread a, .vnf-nocard a { color: var(--text-faint); text-decoration: none; }
+.vnf-thread a:hover, .vnf-nocard a:hover { color: var(--text-secondary); }
+.vnf-nocard { padding: 12px 10px 4px; font-size: 12.5px; color: var(--text-muted); }
+
+/* Done and Standby fold behind one quiet line. */
+.vnf-fold { margin: 22px 0 0; padding: 12px 14px; border: 1px dashed rgba(127,127,127,.3); border-radius: 10px;
+  font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
+.vnf-fold:hover { color: var(--text-secondary); }
+.vnf-folded { padding-top: 6px; }
+.vnf-folded .vnf-row { opacity: .75; }
+
+/* Feed | Tasks, under the Workflow label in the sidebar (kanban.js renderKanbanSidebar). */
+.kanban-sidebar-seg { display: flex; margin: 0 4px 8px; border: 1px solid rgba(127,127,127,.3); border-radius: var(--r-md, 8px); overflow: hidden; }
+.kanban-sidebar-seg button { flex: 1; background: none; border: 0; padding: 6px 4px; color: var(--text-muted);
+  font-size: var(--fs-sm, 12px); font-family: inherit; font-weight: 600; cursor: pointer; }
+.kanban-sidebar-seg button.on { background: var(--bg-active); color: var(--text-heading); }
+.kanban-sidebar-seg button:hover { color: var(--text-heading); }
+
+@media (max-width: 700px) {
+  .vnf-col { padding: 4px 8px 80px; }
+  .vnf-row { padding: 12px 8px; gap: 10px; }
+}

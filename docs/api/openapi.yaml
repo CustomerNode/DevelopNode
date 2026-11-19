@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: VibeNode API
+  title: DevelopNode API
   version: 1.0.0
   description: |
-    VibeNode is a GUI application for managing Claude Code sessions, projects,
+    DevelopNode is a GUI application for managing Claude Code sessions, projects,
     kanban boards, composition workflows, and more. This spec documents all
     REST endpoints served by the Flask web server on port 5050.
 
@@ -12,14 +12,14 @@ info:
     **Authentication:** None. VibeNode is a localhost-only development tool.
     All endpoints are available without credentials.
 
-    VibeNode also uses SocketIO for real-time push events. Those are documented
+    DevelopNode also uses SocketIO for real-time push events. Those are documented
     separately in `socketio-events.md`.
 
     ---
 
     ## Getting Started
 
-    The typical workflow for driving VibeNode programmatically:
+    The typical workflow for driving DevelopNode programmatically:
 
     ### 1. List projects
 
@@ -168,7 +168,7 @@ paths:
       summary: Open a fix session in another project from a watchdog error email
       operationId: fixFromWatchdog
       description: |
-        Landing target for the "Draft fix in VibeNode" button in another
+        Landing target for the "Draft fix in DevelopNode" button in another
         project's watchdog error email. The `d` param is the whole error (gzip +
         base64url JSON) built by that project's watchdog. The route switches
         the active project to that project, forces the manual permission policy
@@ -387,6 +387,382 @@ paths:
                 total: 1009
                 untitled: 1009
                 nameable: 988
+
+  /api/feed:
+    get:
+      tags: [Sessions]
+      summary: The Workflow feed, one item per session with a newest summary card
+      operationId: feed
+      description: |
+        Every session of a project that has a newest end-of-turn summary card
+        (the fenced `handoff` block Smart termination asks for) or live work,
+        in reading order: a pick, a blocker or a permission first, then the
+        person's verdict (review, read, send), then working, then standby and
+        done; newest first within each. Built on the same listing as
+        `GET /api/sessions` (renamed ids, holds, live sessions) with the card
+        itself beside each item, so Workflow mode's feed is one request.
+      parameters:
+        - name: project
+          in: query
+          schema:
+            type: string
+          description: Encoded project identifier. Defaults to active project.
+      responses:
+        "200":
+          description: The feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        session_id:
+                          type: string
+                        name:
+                          type: string
+                          description: The session's title in the sidebar.
+                        title:
+                          type: string
+                          description: The card's title, else the session's.
+                        headline:
+                          type: string
+                        line:
+                          type: string
+                          description: The card's ask when it has one, else its headline.
+                        verb:
+                          type: string
+                          enum: [decide, unblock, approve, review, read, send, working, waiting, standby, done]
+                        group:
+                          type: string
+                          enum: [needs, working, standby, done]
+                        label:
+                          type: string
+                        eta_minutes:
+                          type: integer
+                          nullable: true
+                        state:
+                          type: string
+                          nullable: true
+                          description: The engine's live state, when the session runs.
+                        hold:
+                          type: string
+                          nullable: true
+                        ts:
+                          type: number
+                        card:
+                          type: object
+                          nullable: true
+                          description: The newest summary card, as the session wrote it.
+              example:
+                project: "C--Users-me-Documents-myproj"
+                items:
+                  - session_id: "7c1e…"
+                    name: "Payment form"
+                    title: "Card number field"
+                    headline: "Pick how the card-number field reads on the payment form."
+                    line: "Which card-number field goes on the payment form?"
+                    verb: decide
+                    group: needs
+                    label: Decide
+                    eta_minutes: null
+                    state: null
+                    hold: null
+                    ts: 1791370000
+                    card: {"type": "needs_you", "title": "Card number field"}
+
+  /api/agents:
+    get:
+      tags: [Sessions]
+      summary: The Workflow agent map, where each session is in the codebase
+      operationId: agents
+      description: |
+        The project's folders with their file counts (tiles), and for every
+        session in the feed that touched files lately or runs now: the files
+        it touched (newest first, relative to the project), the folder each
+        sits in, its last steps in plain words (Read, Changed, Wrote, Searched
+        for, Ran, Asked a helper) read from the tail of its transcript, and its
+        newest summary card.
+      parameters:
+        - name: project
+          in: query
+          schema:
+            type: string
+          description: Encoded project identifier. Defaults to active project.
+      responses:
+        "200":
+          description: The map
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    type: string
+                  cwd:
+                    type: string
+                  tree:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        files:
+                          type: integer
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        session_id:
+                          type: string
+                        title:
+                          type: string
+                        verb:
+                          type: string
+                        group:
+                          type: string
+                        live:
+                          type: boolean
+                        files:
+                          type: array
+                          items:
+                            type: string
+                        folders:
+                          type: object
+                        steps:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              verb:
+                                type: string
+                              obj:
+                                type: string
+                              file:
+                                type: string
+                                nullable: true
+                              ts:
+                                type: number
+                        card:
+                          type: object
+                          nullable: true
+
+  /api/queue:
+    get:
+      tags: [Workflow]
+      summary: The Workflow queue of tasks, their status read off their sessions' cards
+      operationId: queue
+      description: |
+        Top-level tasks in the person's order inside fixed groups (Needs you,
+        Working, Not started, Standby, Done). A task's status is the most
+        urgent of its linked sessions' verbs and its children's; Not started
+        with no session; Done when marked complete and nothing runs. Each row
+        carries its sessions (with their cards), its first-level children and
+        the sentence of its most urgent session. `unfiled` lists the sessions
+        no task owns.
+      parameters:
+        - name: project
+          in: query
+          schema:
+            type: string
+          description: Encoded project identifier. Defaults to active project.
+      responses:
+        "200":
+          description: The queue
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    type: string
+                  tasks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        verb:
+                          type: string
+                        group:
+                          type: string
+                          enum: [needs, working, new, standby, done]
+                        label:
+                          type: string
+                        old_status:
+                          type: string
+                        latest:
+                          type: string
+                        sessions:
+                          type: array
+                          items:
+                            type: object
+                        children:
+                          type: array
+                          items:
+                            type: object
+                        children_done:
+                          type: integer
+                        has_session:
+                          type: boolean
+                  unfiled:
+                    type: array
+                    items:
+                      type: object
+
+  /api/queue/order:
+    post:
+      tags: [Workflow]
+      summary: Save the person's order of the queue
+      operationId: queueOrder
+      parameters:
+        - name: project
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Task ids, top first. Groups stay fixed; the order rules inside a group.
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  ids:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: ids is not a list, or no project
+
+  /api/queue/tasks/{task_id}/prompt:
+    get:
+      tags: [Workflow]
+      summary: What a task's orchestrator session starts with
+      operationId: queueTaskPrompt
+      description: |
+        The task briefing (`GET /api/kanban/tasks/{id}/context`) plus the
+        orchestrator contract: the one session for the task opens a
+        subsession (`POST /api/queue/tasks/{id}/subsessions`) for each part
+        that will need the person and uses subagents for the rest; Done on
+        the task is the person's verdict. `session_id` is the id the browser
+        will start the session under, so the contract can name it.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The prompt and system prompt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                  name:
+                    type: string
+                  prompt:
+                    type: string
+                  system_prompt:
+                    type: string
+        "404":
+          description: Task not found
+
+  /api/queue/tasks/{task_id}/subsessions:
+    post:
+      tags: [Workflow]
+      summary: An orchestrator opens a subsession of its task
+      operationId: queueTaskSubsession
+      description: |
+        Creates a child task under the task (one level only: a task that is
+        itself a part of another is refused with 409), starts a fresh session
+        for it in the project's folder, briefed with the child task and the
+        subsession brief, as a subsession of `parent_session_id`, and links
+        the session to the child task.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, prompt]
+              properties:
+                title:
+                  type: string
+                prompt:
+                  type: string
+                parent_session_id:
+                  type: string
+      responses:
+        "200":
+          description: Opened
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  task_id:
+                    type: string
+                  session_id:
+                    type: string
+                  parent_task_id:
+                    type: string
+        "400":
+          description: title or prompt missing
+        "404":
+          description: Task not found
+        "409":
+          description: The task is itself a part of another
+        "502":
+          description: The session could not be started (the child task stays, unlinked)
 
   /api/sessions/name-untitled:
     post:
@@ -1645,13 +2021,56 @@ paths:
   # ==========================================================================
   # Projects (project_api.py)
   # ==========================================================================
+  /api/rebrand:
+    get:
+      tags: [Projects]
+      summary: What on this computer still shows the old name, and whether the one-time rename notice shows
+      operationId: getRebrandStatus
+      responses:
+        "200":
+          description: Rename status
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/rebrand/apply:
+    post:
+      tags: [Projects]
+      summary: Rename this computer's shortcuts, icons and the project's name to DevelopNode (this machine only)
+      operationId: applyRebrand
+      responses:
+        "200":
+          description: Each rename and whether it worked
+          content:
+            application/json:
+              schema:
+                type: object
+        "403":
+          description: Not called from this machine or the owner's device
+
+  /api/rebrand/later:
+    post:
+      tags: [Projects]
+      summary: Put the rename notice off for now
+      operationId: rebrandLater
+      responses:
+        "200":
+          description: Notice put off
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+
   /api/repo-project:
     get:
       tags: [Projects]
-      summary: The VibeNode repo itself, as a project
+      summary: The DevelopNode repo itself, as a project
       operationId: getRepoProject
       description: |
-        Path and encoded project id of the running VibeNode repo. The Publish
+        Path and encoded project id of the running DevelopNode repo. The Publish
         gate's fix sessions ("Fix errors" after a failed test run, "Fix with
         AI" after a security scan) work on this repo, so the client creates
         them in this project regardless of which project is active in the
@@ -2075,7 +2494,7 @@ paths:
       tags: [Live]
       summary: Flag a summary as bad and start a session that fixes the summary rules
       description: >
-        Keeps the flag and starts a session in the VibeNode project that reads
+        Keeps the flag and starts a session in the DevelopNode project that reads
         the flagged session's transcript and patches the Smart termination
         rules. Needs at least one reason or a note.
       operationId: flagCard
@@ -5324,7 +5743,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Parent VibeNode project filter
+          description: Parent DevelopNode project filter
       responses:
         "200":
           description: Compose board data (or null if no projects)
@@ -6393,7 +6812,7 @@ paths:
   /api/git-status:
     get:
       tags: [Git]
-      summary: Get cached git status for the VibeNode repository
+      summary: Get cached git status for the DevelopNode repository
       operationId: getGitStatus
       responses:
         "200":
@@ -6408,6 +6827,19 @@ paths:
                 behind: 0
                 uncommitted: true
                 ready: true
+
+  /api/git-changes:
+    get:
+      tags: [Git]
+      summary: What an Update brings in and a Publish sends out, grouped by area
+      operationId: getGitChanges
+      responses:
+        "200":
+          description: Incoming and outgoing changes by area of the app
+          content:
+            application/json:
+              schema:
+                type: object
 
   /api/git-sync:
     post:
@@ -7284,25 +7716,25 @@ paths:
   /api/orgs/me:
     get:
       tags: [Orgs]
-      summary: This VibeNode's org membership
+      summary: This DevelopNode's org membership
       operationId: orgsMe
       description: Org name, your username and role, whether cloud storage is on and whether its publishable key is saved. Never includes the member token.
       responses:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/setup-sql:
     get:
       tags: [Orgs]
-      summary: The SQL that adds VibeNode Orgs to cloud storage
+      summary: The SQL that adds DevelopNode Orgs to cloud storage
       operationId: orgsSetupSql
       description: Plain text, for the Supabase SQL Editor when no access token is given to setup.
       responses:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/setup:
     post:
       tags: [Orgs]
@@ -7313,7 +7745,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/join:
     post:
       tags: [Orgs]
@@ -7324,7 +7756,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/members:
     get:
       tags: [Orgs]
@@ -7334,7 +7766,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/invite:
     post:
       tags: [Orgs]
@@ -7345,7 +7777,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/invites/revoke:
     post:
       tags: [Orgs]
@@ -7356,7 +7788,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/members/{member_id}/remove:
     post:
       tags: [Orgs]
@@ -7367,7 +7799,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/orgs/leave:
     post:
       tags: [Orgs]
@@ -7377,7 +7809,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/call:
     post:
       tags: [Orgs]
@@ -7388,7 +7820,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/revoke/{grant_id}:
     post:
       tags: [Orgs]
@@ -7398,7 +7830,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/note/{grant_id}:
     post:
       tags: [Orgs]
@@ -7409,7 +7841,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not a side of this call, or not the owner of this VibeNode
+          description: Not a side of this call, or not the owner of this DevelopNode
   /api/phone/mirror/{session_id}:
     get:
       tags: [Orgs]
@@ -7430,7 +7862,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/in:
     get:
       tags: [Orgs]
@@ -7441,7 +7873,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/read/{share_id}:
     get:
       tags: [Orgs]
@@ -7452,7 +7884,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/send/{grant_id}:
     post:
       tags: [Orgs]
@@ -7463,7 +7895,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/suggestions:
     get:
       tags: [Orgs]
@@ -7473,7 +7905,7 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/phone/suggestions/{key}/{action}:
     post:
       tags: [Orgs]
@@ -7484,15 +7916,15 @@ paths:
         "200":
           description: Done
         "403":
-          description: Not allowed for this member, or not the owner of this VibeNode
+          description: Not allowed for this member, or not the owner of this DevelopNode
   /api/disk:
     get:
       tags: [App]
       summary: Disk reading behind the usage panel's Disk gauge
       operationId: diskReading
       description: |
-        The drive's size and free space, VibeNode's share of it and the cap
-        ("VibeNode may use"). With light=1 only the drive, the share and the
+        The drive's size and free space, DevelopNode's share of it and the cap
+        ("DevelopNode may use"). With light=1 only the drive, the share and the
         cap are returned, for the bar.
       parameters:
         - name: light
@@ -7506,7 +7938,7 @@ paths:
   /api/disk/cap:
     post:
       tags: [App]
-      summary: Set how much of the disk VibeNode may use
+      summary: Set how much of the disk DevelopNode may use
       operationId: diskCap
       description: 0, or the drive's size or more, removes the cap.
       requestBody:
@@ -7599,14 +8031,14 @@ paths:
       summary: End the 5-hour pacing window now
       operationId: pace5hReset
       description: |
-        A button for a person: taken only from VibeNode's own page (the owner,
+        A button for a person: taken only from DevelopNode's own page (the owner,
         a same-site Origin and the X-VN-Human header). Sessions are refused a
         tool call that names it. Broadcasts pace_5h.
       responses:
         "200":
           description: The window was reset; returns the new reading
         "403":
-          description: Not the owner, or not sent from VibeNode's page
+          description: Not the owner, or not sent from DevelopNode's page
   /api/usage-pace:
     get:
       tags: [App]
@@ -7829,7 +8261,7 @@ paths:
 
         When the ping names an approval page (url is the front page of a port
         on this machine, a title is given, and the caller is a process on this
-        machine), VibeNode also starts watching that page. The first fetch
+        machine), DevelopNode also starts watching that page. The first fetch
         must return 200 and show the title. The approval counts as open for as
         long as every later fetch returns the same page. It is over when the
         port refuses or the page differs, and also when a page the same source
@@ -7837,7 +8269,7 @@ paths:
         after the one that mattered was answered). While it is open, the list
         of open approvals is broadcast as approvals_open every few seconds and
         background tabs flash their title; they stop when it is over. The only
-        request VibeNode makes is GET / on that port.
+        request DevelopNode makes is GET / on that port.
 
         A ping without an approval page (a "release is live" notice) is that
         one ping and nothing that stays on.
@@ -7880,7 +8312,7 @@ paths:
       summary: A local script says its approval page has been answered
       operationId: notifyApprovalResolve
       description: |
-        Optional. VibeNode notices an answered approval page by itself at its
+        Optional. DevelopNode notices an answered approval page by itself at its
         next check of the page (every half second at first, every three seconds
         once the approval is ten minutes old); a script that calls this ends
         the title flash at once. Give the id from the reply to

@@ -122,6 +122,9 @@
 
   watch('js/last-card.js', 'js', redrawCards);
   watch('css/last-card.css', 'css', null);
+  watch('css/quiet-chat.css', 'css', null);
+  // The summary's edges and bars in the hairline finish.
+  watch('css/hairline.css', 'css', null);
   // The phone layer: a stylesheet swaps in place, so open tabs pick up a fix.
   watch('css/mobile.css', 'css', null);
   watch('css/phone-a-friend.css', 'css', null);
@@ -138,7 +141,9 @@
    // Workplace and Mission Control (ws-card and mc-card).
    'js/workspace.js', 'js/workforce.js',
    // Phone a Friend and the composer's four-squares menu.
-   'js/phone-a-friend.js', 'js/image-attach.js']
+   'js/phone-a-friend.js', 'js/image-attach.js',
+   // The summary's edge rows (one observer per copy, so never twice).
+   'js/hairline-fit.js']
     .forEach(p => watch(p, 'reload', null));
 
   document.addEventListener('visibilitychange', () => {

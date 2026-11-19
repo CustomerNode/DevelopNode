@@ -150,7 +150,7 @@ def _save_run_log(mode, cmd, lines, exit_code):
     try:
         LAST_RUN_LOG.parent.mkdir(parents=True, exist_ok=True)
         header = [
-            "# VibeNode test run (mode=%s, exit=%s)" % (mode, exit_code),
+            "# DevelopNode test run (mode=%s, exit=%s)" % (mode, exit_code),
             "# command: " + " ".join(str(c) for c in cmd),
             "",
         ]

@@ -1,5 +1,5 @@
 @echo off
-REM VibeNode launcher (Windows).
+REM DevelopNode launcher (Windows).
 REM
 REM Detached spawn: pythonw.exe has no console window, so the web server
 REM survives a closed terminal, a sign-out, and any Windows console reclaim.
@@ -58,6 +58,6 @@ if not defined MINIMIZED (
 python src\launcher\session_manager.py
 if errorlevel 1 (
     echo.
-    echo ERROR: VibeNode failed to start. See message above.
+    echo ERROR: DevelopNode failed to start. See message above.
     pause
 )

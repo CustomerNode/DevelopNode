@@ -1825,7 +1825,7 @@ function _onExternalNotice(data) {
             const d = data || {};
             window.VNNotify.notice({
                 key: 'external:' + (d.source || 'unknown'),
-                title: d.title || 'VibeNode',
+                title: d.title || 'DevelopNode',
                 body: d.message || '',
                 // A ping with an id is an approval page the server is now
                 // watching. Its banner belongs to approvals_open, which also

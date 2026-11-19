@@ -86,7 +86,7 @@ def rpc(fn: str, params: dict, *, url: str | None = None, key: str | None = None
     if url is None or key is None:
         m = load()
         if not m:
-            raise OrgsError("not_set_up", "This VibeNode is not in an org.")
+            raise OrgsError("not_set_up", "This DevelopNode is not in an org.")
         url, key = m["url"], m["key"]
     if not valid_url(url):
         raise OrgsError("bad_url", "Not a Supabase project address.")
@@ -100,7 +100,7 @@ def rpc(fn: str, params: dict, *, url: str | None = None, key: str | None = None
         text = resp.text[:400]
         m = _ERR_RE.search(text)
         if resp.status_code == 404 and "Could not find the function" in text:
-            raise OrgsError("schema_missing", "VibeNode Orgs is not set up in this cloud storage yet.")
+            raise OrgsError("schema_missing", "DevelopNode Orgs is not set up in this cloud storage yet.")
         raise OrgsError(m.group(1).replace(" ", "_") if m else f"http_{resp.status_code}", text)
     try:
         return resp.json()
@@ -112,5 +112,5 @@ def call(fn: str, **params):
     """Call ``fn`` as this member (the saved token is passed as ``p_token``)."""
     m = load()
     if not m:
-        raise OrgsError("not_set_up", "This VibeNode is not in an org.")
+        raise OrgsError("not_set_up", "This DevelopNode is not in an org.")
     return rpc(fn, {"p_token": m["token"], **params}, url=m["url"], key=m["key"])

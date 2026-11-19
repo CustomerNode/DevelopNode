@@ -49,6 +49,9 @@ def _open(browser, state="stopped", extra=""):
     app = FakeApp(browser, s, init=init_script("sessions", "grid", extra),
                   extra_routes={"/api/session/": lambda r: (200, {"id": sid, "display_title": "T", "messages": []}),
                                 "/api/session-hold/": hold}, clock=True)
+    # The hairline look (the desktop default) has no status row above the text
+    # box: its picker lives only in the classic look (?finish=classic).
+    app.eval("() => document.documentElement.setAttribute('data-finish', 'classic')")
     app.push("session_state", {"session_id": sid, "state": state, "cwd": CWD})
     app.eval(f"() => openInGUI('{sid}')")
     app.page.wait_for_function(f"typeof liveSessionId !== 'undefined' && liveSessionId === '{sid}'", timeout=10000)

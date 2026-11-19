@@ -1097,4 +1097,8 @@ def test_board_project_param_overrides_the_shared_active_project(monkeypatch):
 def test_homepage_board_fetch_names_the_project():
     from pathlib import Path
     js = (Path(__file__).resolve().parents[1] / "src" / "web" / "static" / "js" / "toolbar.js").read_text(encoding="utf-8")
-    assert "'/api/kanban/board' + (_hpBoardProj ? '?project=' + encodeURIComponent(_hpBoardProj)" in js
+    # The homepage no longer draws a board; if a board fetch comes back it
+    # must still name the project, or it reads another project's board.
+    import re
+    for m in re.finditer(r"fetch\(\s*'/api/kanban/board'([^\n]*)", js):
+        assert "project=" in m.group(1), m.group(0)

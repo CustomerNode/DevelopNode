@@ -17,6 +17,13 @@ Push events from SessionManager are forwarded to the connected client.
 import sys as _sys
 from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+# Cap glibc malloc arenas before ANY thread exists (glibc fixes the limit the
+# first time a thread needs one).  Stdlib-only.  See launcher/memory_tuning.py.
+try:
+    from launcher import memory_tuning as _memory_tuning
+    _memory_tuning.cap_arenas()
+except Exception:
+    pass
 from launcher import _early_boot
 _early_boot.arm_hang_dump(120, "daemon-boot")
 
@@ -622,7 +629,7 @@ def _install_signal_forensics_watcher(daemon):
             elif sender > 0 and _proc_name_of(sender) in ("python", "python3", "python3.12"):
                 logger.warning(
                     "  DIAGNOSIS: sender is a Python process.  Likely the "
-                    "VibeNode web server (run.py) or a daemon-launcher "
+                    "DevelopNode web server (run.py) or a daemon-launcher "
                     "running a restart endpoint.  Check app/routes/main.py "
                     "/api/restart and /api/shutdown for whether scope="
                     "'daemon' or scope='both' was triggered."
@@ -630,7 +637,7 @@ def _install_signal_forensics_watcher(daemon):
             else:
                 logger.warning(
                     "  DIAGNOSIS: sender is NOT this daemon and NOT a known "
-                    "VibeNode component.  External source — could be "
+                    "DevelopNode component.  External source — could be "
                     "systemd, OOM killer, the user's terminal, or a "
                     "wrapper script.  Inspect ps/journalctl for context."
                 )
@@ -699,6 +706,14 @@ def main():
     try:
         from launcher import process_label
         process_label.label_current_process("session-daemon")
+    except Exception:
+        pass
+
+    # Give freed memory back to the OS (Linux/glibc); see
+    # launcher/memory_tuning.py.  Before any worker thread starts.  Never raises.
+    try:
+        from launcher import memory_tuning
+        memory_tuning.apply()
     except Exception:
         pass
 

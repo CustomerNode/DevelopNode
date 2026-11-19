@@ -1,0 +1,163 @@
+/* The Home screen: a project chooser on one plain page
+   (_buildHomepageContent in toolbar.js).  Project cards down the left, the
+   chosen project's preview on the right (Open, three numbers, its sessions),
+   the usage meters underneath.  Scoped to .homepage.hs so the older
+   homepage rules in style.css and mobile.css never reach it. */
+/* No tinted wash behind Home: in light it drew a grey box with hard edges
+   against the top bar and the icon rail. */
+#homepage-container, [data-theme] #homepage-container { background: none; }
+.homepage.hs { --bt: 255,255,255; display: block; padding: 0; overflow: auto; align-items: stretch; justify-content: flex-start; }
+[data-theme="light"] .homepage.hs { --bt: 0,0,0; }
+.hd-wrap { position: relative; max-width: 1120px; margin: 0 auto; padding: 5vh 40px 64px; box-sizing: border-box; }
+.hd .sm { font: 600 10.5px var(--font-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+
+/* The DevelopNode banner (_hpBannerHtml): an ink panel in dark, a pale one in light, with
+   the mark and name, a greeting and the totals, a large faint mark at right. */
+.hd-banner { position: relative; overflow: hidden; border-radius: 18px; padding: 30px 34px; margin-bottom: 28px; color: #fff;
+  background: #0f0f17 radial-gradient(120% 140% at 100% 100%, rgba(139, 143, 247, .28), transparent 55%); }
+[data-theme="dark"] .hd-banner { background-color: #15151f; border: 1px solid rgba(255, 255, 255, .06); }
+/* Light theme: the same banner on a pale lavender panel, ink text. */
+[data-theme="light"] .hd-banner { color: #14141c; border: 1px solid rgba(90, 95, 225, .14);
+  background: #f5f5fd radial-gradient(120% 140% at 100% 100%, rgba(139, 143, 247, .22), transparent 55%); }
+[data-theme="light"] .hd-banner .hb-greet { color: #14141c; }
+[data-theme="light"] .hd-banner .hb-line { color: rgba(20, 20, 28, .6); }
+[data-theme="light"] .hd-banner .hb-n { color: #c76a00; }
+[data-theme="light"] .hd-banner .hb-w { color: #5a5fe1; }
+[data-theme="light"] .hd-banner .hb-big { color: rgba(90, 95, 225, .08); }
+[data-theme="light"] .hd-banner .hb-big circle { fill: rgba(139, 143, 247, .3); }
+.hd-banner .hb-mark { fill: currentColor; overflow: visible; }
+.hd-banner .hb-mark circle { fill: #8B8FF7; }
+.hd-banner .hb-lock { position: relative; display: flex; align-items: center; gap: 10px; font: 600 15px 'Geist', 'Inter', var(--font-sans); letter-spacing: .1em; white-space: nowrap; }
+.hd-banner .hb-lock .hb-mark { width: 22px; height: 17px; }
+.hd-banner .hb-lock sup { font-size: .38em; font-weight: 500; letter-spacing: 0; margin-left: .12em; vertical-align: top; position: relative; top: .15em; }
+.hd-banner .hb-greet { position: relative; margin: 22px 0 6px; font: 700 32px/1.1 var(--font-sans); letter-spacing: -.02em; color: #fff; }
+.hd-banner .hb-line { position: relative; font-size: 15px; color: rgba(255, 255, 255, .7); }
+.hd-banner .hb-n { color: #ffb156; font-weight: 600; }
+.hd-banner .hb-w { color: #b3b5ff; font-weight: 600; }
+.hd-banner .hb-big { position: absolute; right: -10px; bottom: -34px; width: 260px; height: 204px; color: rgba(255, 255, 255, .06); }
+.hd-banner .hb-big circle { fill: rgba(139, 143, 247, .35); }
+
+/* Usage meters: one per usage window. */
+#hs-usage-wrap:empty { display: none; }
+.hs-usage { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px 18px; margin-top: 22px; cursor: default; }
+.hs-um { display: grid; grid-template-columns: auto 80px 32px; gap: 8px; align-items: center; font: 500 11.5px var(--font-sans); color: var(--text-faint); }
+.hs-um b { display: block; height: 4px; border-radius: 3px; background: rgba(var(--bt), .1); position: relative; overflow: hidden; }
+.hs-um b i { position: absolute; inset: 0 auto 0 0; background: #8f8fff; border-radius: 3px; }
+.hs-um em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
+.hs-um.ulp-stale { opacity: .55; }
+.hs-um.ulp-warn b i { background: #d29922; }
+.hs-um.ulp-crit b i { background: #f85149; }
+.hs-um.ulp-warn em, .hs-um.ulp-crit em { color: var(--text-secondary); }
+
+.hd-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+
+/* Projects: one row each, parted by hairlines; the chosen one has an accent bar. */
+.hd-side { display: flex; flex-direction: column; gap: 0; }
+.hd-proj { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; box-sizing: border-box;
+  background: none; border: 0; border-bottom: 1px solid rgba(var(--bt), .08); border-radius: 0; padding: 13px 12px 13px 14px; cursor: pointer;
+  position: relative; text-align: left; font: inherit; color: inherit; transition: background .15s; }
+.hd-proj:hover { background: rgba(var(--bt), .025); }
+.hd-proj.on { background: rgba(var(--bt), .035); }
+.hd-proj.on::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); }
+.hd-add { border-bottom: 0; }
+.hd-proj:focus-visible { outline: 2px solid rgba(124, 124, 255, .7); outline-offset: 2px; }
+.hd-pt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hd-pt .nm { font: 600 14px var(--font-sans); color: var(--text-heading); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hd-pt .s { font-size: 11.5px; color: var(--text-faint); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Needs you / Standby / Working per project: the project picker's columns,
+   icons and colours (app.js _renderProjectOverlay, #project-overlay in style.css). */
+.hd-ps-head { display: grid; grid-template-columns: 1fr repeat(3, 30px); align-items: center; height: 20px; padding: 0 13px 2px 0; border-bottom: 1px solid rgba(var(--bt), .08); }
+.hd-ps-head > span { display: flex; justify-content: center; }
+.hd-ps-head .ps-pick { display: block; filter: brightness(0) saturate(100%) invert(55%) sepia(78%) saturate(1000%) hue-rotate(215deg); }
+.hd-proj .ps-cols { display: grid; grid-template-columns: repeat(3, 30px); align-items: center; }
+.hd-proj .ps-n { text-align: center; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--vs)); }
+.hd-proj .ps-n.zero { visibility: hidden; }
+.hd-proj .ps-n.vs-working { --vs: 138, 140, 255; }
+[data-theme="light"] .hd-proj .ps-n.vs-working { --vs: 90, 95, 225; }
+.hd-add .nm { color: var(--text-faint); font-weight: 500; }
+/* The initial: an outlined tile, as in the All projects view (no project colours). */
+.hd-mono { display: inline-grid; place-items: center; flex: none; box-sizing: border-box; border-radius: 7px; color: var(--text-secondary);
+  border: 1px solid var(--text-faint); font: 600 12px var(--font-sans); }
+.hd-hero .hd-mono { border-radius: 10px; font-size: 16px; }
+.hd-mono-add { width: 28px; height: 28px; border-style: dashed; color: var(--text-faint); font-weight: 500; font-size: 15px; }
+
+/* The chosen project. */
+.hd-pane { border-radius: 16px; border: 1px solid rgba(var(--bt), .1); background: var(--bg-body); overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 28px rgba(0, 0, 0, .06); }
+[data-theme="dark"] .hd-pane { background: rgba(255, 255, 255, .02); box-shadow: none; }
+.hd-hero { padding: 26px 28px 22px; display: flex; gap: 18px; align-items: center; border-bottom: 1px solid rgba(var(--bt), .08); }
+.hd-hero .hd-mono { display: none; }
+.hd-ht { min-width: 0; }
+.hd-name { margin: 0; font: 700 28px/1.15 var(--font-sans); letter-spacing: -.02em; color: var(--text-heading);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hd-sub { font-size: 13px; color: var(--text-faint); margin-top: 4px; }
+/* Open: the app's primary button (as New session on the empty Sessions view). */
+.hd-open { margin-left: auto; flex: none; display: inline-flex; gap: 8px; align-items: center; box-sizing: border-box; height: 40px; padding: 0 18px;
+  font: 600 13.5px var(--font-sans); color: #fff; background: var(--accent); border: 0; border-radius: 11px; cursor: pointer; transition: filter .12s; }
+.hd-open:hover { filter: brightness(1.1); }
+.hd-open:focus-visible { box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px var(--accent); }
+.hd-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid rgba(var(--bt), .08); }
+.hd-stat { padding: 18px 28px; border-right: 1px solid rgba(var(--bt), .08); min-width: 0; }
+.hd-stat:last-child { border-right: 0; }
+.hd-stat b { display: block; font: 500 28px/1 var(--font-sans); color: var(--text-heading); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.hd-stat.n b { color: #ff9f2e; }
+
+[data-theme="light"] .hd-stat.n b { color: #c76a00; }
+.hd-spark { display: block; margin-top: 10px; color: var(--text-faint); max-width: 100%; }
+.hd-lists { display: grid; grid-template-columns: 1fr 1fr; }
+.hd-lists > div { padding: 18px 28px 20px; min-width: 0; }
+.hd-lists > div:first-child { border-right: 1px solid rgba(var(--bt), .08); }
+.hd-lists .sm { margin-bottom: 6px; }
+.hd-none, .homepage.hs .hpn-empty { padding: 8px 0; font-size: 13px; color: var(--text-faint); }
+.homepage.hs .hpn-list { display: flex; flex-direction: column; margin: 0; }
+.homepage.hs .hd-r { display: flex; gap: 10px; align-items: center; padding: 7px 0; font-size: 14px; color: var(--text-primary); cursor: pointer; }
+.homepage.hs .hd-r .t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.homepage.hs .hd-r:hover .t { color: var(--text-heading); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(var(--bt), .25); }
+.homepage.hs .hd-r .d { font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.homepage.hs .hpx-ico { display: inline-block; flex: none; width: 7px; height: 7px; margin: 0; border-radius: 50%; -webkit-mask: none; mask: none;
+  background: #ff9500; box-shadow: none; }
+.homepage.hs .hpx-ico.unread { background: #9b8cff; }
+.hs-dots { flex: none; display: inline-flex; gap: 3px; width: 18px; }
+.hs-dots i { width: 4px; height: 4px; border-radius: 50%; background: #8f8fff; animation: hs-dot 1.2s infinite ease-in-out; }
+.hs-dots i:nth-child(2) { animation-delay: .15s; } .hs-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes hs-dot { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+/* Choosing a project: the preview rises in. */
+@keyframes hd-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.hd-hero.hd-anim { animation: hd-rise .35s cubic-bezier(.2, .7, .2, 1) both; }
+.hd-stats.hd-anim { animation: hd-rise .35s .06s cubic-bezier(.2, .7, .2, 1) both; }
+.hd-lists.hd-anim { animation: hd-rise .35s .12s cubic-bezier(.2, .7, .2, 1) both; }
+@media (prefers-reduced-motion: reduce) { .hd-anim, .hs-dots i { animation: none !important; } }
+
+/* Durable Jobs / untitled sessions: one quiet line under the grid. */
+#hs-strip-wrap:empty { display: none; }
+.homepage.hs .hp-strip { margin: 18px 0 0; padding: 0; max-width: none; justify-content: flex-start; }
+
+/* Phone: the chosen project first (name, Open, its two lists, no boxes or
+   number tiles), the other projects below as plain rows, usage last. */
+@media (max-width: 768px) {
+  .hd-wrap { padding: 20px 16px 48px; }
+  .hd-banner { padding: 22px; margin-bottom: 22px; border-radius: 16px; }
+  .hd-banner .hb-greet { font-size: 24px; margin-top: 18px; }
+  .hd-banner .hb-line { font-size: 14px; }
+  .hd-banner .hb-big { width: 150px; height: 118px; bottom: -22px; }
+  .hs-usage { gap: 6px 14px; margin-top: 18px; }
+  .hs-um { grid-template-columns: auto 50px auto; }
+  .hd-grid { display: flex; flex-direction: column; align-items: stretch; gap: 22px; }
+  .hd-pane, .hd-side { width: 100%; box-sizing: border-box; }
+  .hd-pane { order: -1; border: 0; background: none; border-radius: 0; overflow: visible; box-shadow: none; }
+  .hd-hero { padding: 0 0 10px; border: 0; gap: 12px; }
+  .hd-hero .hd-mono { display: none; }
+  .hd-name { font-size: 22px; }
+  .hd-open { height: 36px; padding: 0 14px; }
+  .hd-stats { display: none; }
+  .hd-lists { grid-template-columns: 1fr; }
+  .hd-lists > div { padding: 10px 0; border: 0 !important; }
+  .hd-side { gap: 0; }
+  .hd-ps-head { border-bottom: 1px solid rgba(var(--bt), .08); }
+  .hd-proj.on { display: none; }
+  .hd-proj { background: none; border: 0; border-bottom: 1px solid rgba(var(--bt), .06); border-radius: 0; padding: 12px 2px; }
+  .hd-proj:hover { background: none; }
+  .hd-proj:hover { border-color: rgba(var(--bt), .06); }
+  .hd-ps-head { padding-right: 2px; }
+}

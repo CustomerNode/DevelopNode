@@ -433,7 +433,7 @@ def _gate():
             return None
         if path.startswith("/api/"):
             return jsonify(ok=False, error="not_owner"), 403
-        return ("This VibeNode belongs to someone else. Open what they shared "
+        return ("This DevelopNode belongs to someone else. Open what they shared "
                 "with you from your own VibeNode."), 403
     if not auth_enabled():
         return None

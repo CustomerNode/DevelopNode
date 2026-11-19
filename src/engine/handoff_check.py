@@ -361,7 +361,7 @@ _BANNED_SAMPLES = (
     ("not my fault", "unrelated, pre-existing, predates, flaky, not my change, another session's"),
     ("handing the job back", "want me to, should I, your call, say the word, do one of these, I'd ship"),
     ("sounds like AI", "quietly, genuinely, honest, honestly"),
-    ("ritual apology", "you're right, understood, noted, my mistake, that's on me, from now on I"),
+    ("ritual apology", "my mistake, you're right, noted, understood, from now on I, that's on me"),
     ("waiting on the user in a none card", "once you confirm, when you say go, on your word, if you want it"),
 )
 

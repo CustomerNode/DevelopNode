@@ -1,0 +1,68 @@
+/* Workflow mode's queue (js/queue.js) and agent map (js/agents-map.js).
+   Both reuse the feed's line parts (css/feed.css: .vnf-row, .vnf-ic, .vnf-ttl,
+   .vnf-hl, .vnf-act, .vnf-open) and the sidebar's status colours. */
+
+#queue-view, #agents-view { height: 100%; overflow-y: auto; overflow-x: hidden; background: var(--bg-body); }
+.vnq-col { max-width: 680px; }
+.vnq-group { font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--vs, 140,145,160)); padding: 18px 10px 4px; }
+.vnq-group .vnq-n { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-faint); }
+
+/* A task line: grip, icon, words, status or Start. */
+.vnq-task { display: grid; grid-template-columns: 14px 26px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 12px 10px 12px 6px; border-radius: 10px; cursor: pointer; outline: none; }
+.vnq-task:hover { background: var(--bg-hover); }
+.vnq-task:focus-visible { box-shadow: 0 0 0 1px rgba(165,165,255,.6) inset; }
+.vnq-task.open { background: var(--bg-active); border-radius: 10px 10px 0 0; }
+.vnq-task.vnq-lifted { background: var(--bg-active); box-shadow: 0 10px 30px rgba(0,0,0,.35); position: relative; z-index: 2; }
+.vnq-grip { color: var(--text-faint); font-size: 14px; letter-spacing: -2px; cursor: grab; opacity: .45; user-select: none; }
+.vnq-task:hover .vnq-grip { opacity: .85; }
+.vnq-sub { color: var(--text-faint); }
+.vnq-start { all: unset; cursor: pointer; font-size: 11.5px; font-weight: 650; color: var(--text-secondary); border: 1px solid rgba(127,127,127,.4); border-radius: 999px; padding: 3px 11px; }
+.vnq-start:hover { color: var(--text-heading); border-color: rgba(127,127,127,.8); }
+.vnq-start:disabled { opacity: .6; cursor: default; }
+
+/* The parts under an open task: its sessions and subsessions, one level in. */
+.vnq-parts { margin: 0 0 6px 30px; border-left: 1px solid rgba(127,127,127,.22); padding: 2px 0 2px 8px; }
+.vnq-parts .vnq-sess { padding: 10px 8px; }
+.vnq-child { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 8px; }
+.vnq-kind { font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); border: 1px solid rgba(127,127,127,.3); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 2px; }
+.vnq-empty { padding: 10px 8px 12px; font-size: 12.5px; color: var(--text-faint); }
+.vnq-sess.open { background: var(--bg-active); border-radius: 10px 10px 0 0; }
+
+/* The agent map. */
+.vna-wrap { padding: 8px 14px 60px; max-width: 1100px; margin: 0 auto; }
+.vna-quiet .vna-note { margin-left: auto; }
+.vna-map { display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: minmax(84px, auto); gap: 6px; margin: 8px 0 18px; }
+.vna-tile { position: relative; border-radius: 8px; background: rgba(127,127,127,.08); border: 1px solid rgba(127,127,127,.14); padding: 7px 9px; min-width: 0; }
+.vna-tile.has { border-color: rgba(127,127,127,.3); background: rgba(127,127,127,.11); }
+.vna-f { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono, ui-monospace, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vna-n { font-size: 10.5px; color: var(--text-faint); margin-top: 1px; }
+.vna-dots { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; }
+.vna-dot { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border-radius: 999px; padding: 2px 8px 2px 2px; background: rgba(var(--vs, 140,145,160), .12); border: 1px solid rgba(var(--vs, 140,145,160), .35); }
+.vna-dot:hover, .vna-dot.on { background: rgba(var(--vs, 140,145,160), .22); border-color: rgba(var(--vs, 140,145,160), .8); }
+.vna-dot .vnf-ic { width: 22px; height: 22px; }
+.vna-dot .vnf-ic svg, .vna-dot .vnf-ic img { width: 18px; height: 18px; }
+@keyframes vna-ring { 0%,100% { box-shadow: 0 0 0 0 rgba(var(--vs, 138,169,255), .35); } 50% { box-shadow: 0 0 0 5px rgba(var(--vs, 138,169,255), 0); } }
+.vna-dot.live { animation: vna-ring 1.6s ease-out infinite; }
+.vna-nm { font-size: 12px; font-weight: 650; color: var(--text-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+/* The list of agents under the map, each opening to its steps and card. */
+.vna-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 10px; border-radius: 10px; cursor: pointer; outline: none; }
+.vna-row:hover { background: var(--bg-hover); }
+.vna-row.open { background: var(--bg-active); border-radius: 10px 10px 0 0; }
+.vna-open { padding: 4px 10px 12px; }
+.vna-steps { display: grid; gap: 2px; margin: 4px 0 10px; }
+.vna-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--text-secondary); padding: 4px 0; border-top: 1px solid rgba(127,127,127,.1); }
+.vna-step:first-child { border-top: 0; }
+.vna-verb { color: var(--text-muted); }
+.vna-obj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vna-when { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.vna-none { color: var(--text-faint); }
+.vna-card .msg { margin: 0; max-width: none; }
+.vna-card .msg.assistant .msg-body { padding: 0; }
+
+@media (max-width: 700px) {
+  .vna-map { display: none; }           /* the list below is the whole view on a phone */
+  .vna-quiet .vna-note { display: none; }
+  .vnq-parts { margin-left: 18px; }
+}

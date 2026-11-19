@@ -150,7 +150,7 @@
   }
 
   const TYPES = {
-    done:        { cls: 't-done',        label: 'Done',        icon: I.check },
+    done:        { cls: 't-done',        label: 'Check it',    icon: I.check },   // finished, and waiting on the person's review
     needs_you:   { cls: 't-needs',       label: 'Needs you',   icon: I.hand },
     working:     { cls: 't-working',     label: 'Working',     icon: I.spin },
     blocked:     { cls: 't-blocked',     label: 'Blocked',     icon: I.block },
@@ -758,7 +758,7 @@
     // The time is gone from the corner; "Redo as…" sits there instead, shown
     // only on the open session's newest card (_syncRedo).
     h += '<div class="lm-head"><div class="lm-pillrow"><span class="lm-pill">' + t.icon + esc(m.pill || t.label) + '</span>' +
-      '<button type="button" class="lm-flag" title="Flag this summary as bad: this session redoes it, and a VibeNode session fixes the summary rules" aria-haspopup="dialog">' + I.flag + 'Flag</button></div>' +
+      '<button type="button" class="lm-flag" title="Flag this summary as bad: this session redoes it, and a DevelopNode session fixes the summary rules" aria-haspopup="dialog">' + I.flag + 'Flag</button></div>' +
       (ti ? pathH + '<h3 class="lm-headline lm-title' + (/^[BDEFHIKLMNPRbhiklmnpr]/.test(ti) ? ' stem' : '') + '">' + inl(ti) + '</h3><p class="lm-subtitle">' + inl(m.headline) + '</p>'
           : '<h3 class="lm-headline">' + inl(m.headline) + '</h3>' + (m.context ? '<p class="lm-context"><b>Working on</b> ' + inl(m.context) + '</p>' : '')) +
       // Explain more belongs to the top block, with no rule above it.
@@ -1262,7 +1262,7 @@
     btn.disabled = true;
     btn.classList.add('on');
     btn.innerHTML = I.flag + 'Flagged';
-    btn.title = 'Flagged: a VibeNode session is fixing the summary rules';
+    btn.title = 'Flagged: a DevelopNode session is fixing the summary rules';
   }
   function _syncFlags(log) {
     const sid = (typeof liveSessionId !== 'undefined') ? liveSessionId : null;
@@ -1304,7 +1304,7 @@
     box.setAttribute('aria-labelledby', 'lm-fl-h');
     box.innerHTML = '<h3 id="lm-fl-h">' + I.flag + 'What was wrong with this summary?</h3>' +
       '<p class="sub">Pick any that fit.' + (canRedo ? ' This session redoes its reply, and a' : ' A') +
-      ' session in your VibeNode project reads this session and fixes the summary rules so it stops happening.</p>' +
+      ' session in your DevelopNode project reads this session and fixes the summary rules so it stops happening.</p>' +
       '<div class="lm-fl-why" role="group" aria-label="What was wrong">' + FLAG_REASONS.map(([k, t]) =>
         '<button type="button" class="fr" data-reason="' + esc(k) + '" aria-pressed="false">' + esc(t) + '</button>').join('') + '</div>' +
       (canRedo ? '<div class="nl lm-fl-rh">Redo it as <span>(this one is ' + _an(cur.name) + ')</span></div>' +
@@ -1362,7 +1362,7 @@
   async function _flagSend(r, reasons, note) {
     const go = r.box.querySelector('.go');
     go.disabled = true; go.textContent = 'Sending…';
-    const sid = (typeof liveSessionId !== 'undefined') ? liveSessionId : '';
+    const sid = _targetSession(r.card) || '';
     let project = '';
     try { project = localStorage.getItem('activeProject') || ''; } catch (_e) { /* private mode */ }
     const yours = _yourMessageBefore(r.card);
@@ -1389,7 +1389,7 @@
       const why = reasons.map(k => (FLAG_REASONS.find(x => x[0] === k) || [k, k])[1]).filter(t => r.want === r.cur || t !== 'Wrong kind of card');
       const off = [why.join(', '), note].filter(Boolean).join('. ');
       const msg = r.want === r.cur ? _flagRedoMessage(r.c, reasons, note) : _redoMessage(r.c, r.want, off);
-      if (_send(msg, r.card)) {
+      if (_send(msg, r.card, true)) {
         redone = r.want === r.cur ? 'Redoing' : 'Redoing as ' + r.want.name;
         const id = 'rd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
         _redoQueue('/api/card-feedback', { id, session: sid, project, your_message: yours, card: r.c, card_kind: r.cur.k,
@@ -1407,7 +1407,7 @@
     _closeFlag();
     if (typeof showToast === 'function') {
       if (d.queued) showToast('Flagged. ' + (redone ? 'This session is redoing it. ' : '') + 'The summary-rules fix starts after the next web server restart.');
-      else showToast(d.ok ? 'Flagged. ' + (redone ? 'This session is redoing it; a' : 'A') + ' VibeNode session is fixing the summary rules: ' + (d.name || 'Fix summary')
+      else showToast(d.ok ? 'Flagged. ' + (redone ? 'This session is redoing it; a' : 'A') + ' DevelopNode session is fixing the summary rules: ' + (d.name || 'Fix summary')
         : 'Flag saved, but the fixing session didn’t start: ' + (d.error || 'unknown error'), !d.ok);
     }
   }
@@ -1575,7 +1575,7 @@
     // A key inside a sentence after a go word ("lets do f and ..."), the
     // twin of _KEY_IN_SENTENCE in src/engine/handoff_evidence.py.
     const named = new Set();
-    said.replace(/\b(?:do|go with|with|pick|choose|use|take|build|ship|prefer|want|like|love|option|variant)\s+([a-z0-9])(?=\s*(?:$|[.!,;:]|\s(?:and|but|then|please|thanks|is|looks|it|for|now|however|though|except|with|instead|only|so|minus|plus)\b))/g,
+    said.replace(/(?:^|\b(?:do|go with|with|pick|choose|use|take|build|ship|prefer|want|like|love|option|variant)\s+)([a-z0-9])(?=\s*(?:$|[.!,;:]|\s(?:and|but|then|please|thanks|is|looks|it|for|now|however|though|except|with|instead|only|so|minus|plus)\b))/g,
       (m, k, off) => { if (keys.indexOf(k) === -1) return m;
         // judged by its own clause, like the stop check
         const rest = said.slice(off + m.length), stop = rest.match(/[,.;!?]/);
@@ -1720,8 +1720,97 @@
     // "running for 0:00".  Start it again once the message is in the thread.
     if (fresh) { const again = () => { _syncTiming(); _tick(); }; setTimeout(again, 0); setTimeout(again, 400); setTimeout(again, 1500); }
     _hookSocket();
-    requestAnimationFrame(() => { _syncDone(); _syncAnswered(); _queueSoon(); _syncEarlier(); });
+    requestAnimationFrame(() => { _syncDone(); _syncAnswered(); _queueSoon(); _syncEarlier(); _syncRides(); });
   }
+
+  // ── Full screen: a large handle beside every summary ─────────────────
+  // The handle sits in the thread's margin to the right of the summary and
+  // rides down beside it as the thread scrolls (sticky), so it is always in
+  // reach while any of the summary is on screen.  Where the margin is too
+  // narrow for it (a phone, a narrow window) it sits inside the summary's
+  // right edge, below the Flag row.  It is a SIBLING of the card, because the
+  // card clips its own overflow (overflow: clip, for the sticky title bar).
+  const _EXPAND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+  const _RIDE_ROOM = 66;   // px the margin needs: 44px handle + gaps
+  let _rideObs = null;
+  function _syncRides() {
+    if (window.VNLastCard !== _api) return;
+    document.querySelectorAll('.lm-fs-ride').forEach(r => {
+      const c = r.nextElementSibling;
+      if (!c || !c.matches('.lm[data-card]')) r.remove();
+    });
+    document.querySelectorAll('.lm.skim[data-card]').forEach(card => {
+      if (card.classList.contains('lm-full')) return;
+      let r = card.previousElementSibling;
+      if (!r || !r.classList.contains('lm-fs-ride')) {
+        r = document.createElement('div');
+        r.className = 'lm-fs-ride';
+        r.innerHTML = '<button type="button" class="lm-fs" title="Full screen" aria-label="Open this summary full screen">' + _EXPAND + '</button>';
+        card.before(r);
+      }
+      const box = card.closest('#live-log') || card.parentElement;
+      const room = box ? box.getBoundingClientRect().right - card.getBoundingClientRect().right : 0;
+      r.classList.toggle('in', room < _RIDE_ROOM);
+    });
+    const log = document.getElementById('live-log');
+    if (log && typeof ResizeObserver === 'function' && (!_rideObs || _rideObs.el !== log)) {
+      if (_rideObs) _rideObs.disconnect();
+      let t = 0;
+      _rideObs = new ResizeObserver(() => { clearTimeout(t); t = setTimeout(_syncRides, 120); });
+      _rideObs.el = log;
+      _rideObs.observe(log);
+    }
+  }
+  /** The summary itself full screen: the same element, so every button on
+   *  it keeps working as in the thread.  It is pinned over the window; if
+   *  something in the page keeps a pinned element from covering the window,
+   *  it is lifted into the body for as long as it is open and put back. */
+  function _openFull(card) {
+    if (!card || card.classList.contains('lm-full')) return;
+    _closeAll();
+    const all = [...document.querySelectorAll('#live-log .lm[data-card]')], i = all.indexOf(card);
+    const back = document.createComment('lm-full');
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'lm-full-x';
+    x.setAttribute('aria-label', 'Close full screen');
+    x.title = 'Close (Esc)';
+    x.innerHTML = I.close;
+    card.prepend(x);
+    card.classList.add('lm-full');
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    document.documentElement.classList.add('lm-ov-open');
+    let moved = false;
+    const hit = document.elementFromPoint(Math.max(0, innerWidth - 4), Math.max(0, innerHeight - 4));
+    if (!hit || !card.contains(hit)) { card.replaceWith(back); document.body.appendChild(card); moved = true; }
+    card.scrollTop = 0;
+    try { x.focus({ preventScroll: true }); } catch (_e) { /* old browser */ }
+    const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); _closeReview(); } };
+    document.addEventListener('keydown', onKey, true);
+    _ov = { el: card, onKey, restore() {
+      card.classList.remove('lm-full');
+      card.removeAttribute('role');
+      card.removeAttribute('aria-modal');
+      x.remove();
+      if (moved && back.parentNode) back.replaceWith(card);
+      _syncDone();
+      _syncRides();
+    } };
+    _panelOpened(i >= 0 ? 'full:' + (all.length - i) : '');
+  }
+  // The quiet chat surfaces (css/quiet-chat.css) are linked by index.html; a tab
+  // opened before that link existed gets it here, since this file reaches open
+  // tabs without a reload (live-assets.js).
+  if (typeof document.createElement === 'function' && document.head && !document.querySelector('link[href*="css/quiet-chat.css"]') &&
+      document.querySelector('link[href*="css/hairline.css"]')) {
+    const ql = document.createElement('link');
+    ql.rel = 'stylesheet';
+    ql.href = '/static/css/quiet-chat.css?v=' + Date.now();
+    document.head.appendChild(ql);
+  }
+  if (typeof window.addEventListener === 'function') window.addEventListener('resize', () => { clearTimeout(_syncRides._t); _syncRides._t = setTimeout(_syncRides, 150); });
 
   // ── Also handled: queued messages the session sent and handled since the
   //    user last sent something directly.  One line under "Just
@@ -1764,7 +1853,7 @@
     wrap.dataset.key = key;
     wrap.innerHTML = '<button type="button" class="r lm-qline" aria-expanded="false"><div class="nst">' + _CLOCK + '<span class="lbl">Also handled</span><span class="t">' +
       n + ' queued message' + (n === 1 ? '' : 's') + (since ? ' since ' + esc(since) : '') + ' <span class="chev">' + I.chev + '</span></span></div></button>' +
-      '<div class="lm-qx"><div><ul class="lm-ql">' + items.map((i, j) => '<li><span class="n">' + (j + 1) + '</span><span class="bd"><span class="tx">' + esc(i.text) + '</span>' +
+      '<div class="lm-qx"><div><ul class="lm-ql">' + items.map((i, j) => '<li><span class="n">' + (j + 1) + '</span><span class="bd"><span class="tx">' + esc(_wordsOnly(i.text)) + '</span>' +
         '<span class="tm">' + (i.queued_at ? 'Queued ' + esc(_when(i.queued_at * 1000)) + ' · ' : '') + 'sent ' + esc(_when(i.sent_at * 1000)) + '</span></span>' +
         '<button type="button" class="go" data-qjump="' + j + '">Show it</button></li>').join('') + '</ul></div></div>';
     wrap._items = items;
@@ -1891,12 +1980,41 @@
   function _sendFail(text) {
     if (!_refused && typeof showToast === 'function') showToast(text, true);
   }
+  /** The session a summary's button answers.  In the chat thread that is
+   *  the open session (and the summary must be that session's).  A summary
+   *  drawn anywhere else (the Workflow feed, feed.js) answers its OWN
+   *  session, which is usually not the one the tab has open. */
+  function _targetSession(from) {
+    const inThread = !!(from && from.closest && from.closest('#live-log'));
+    const own = _cardSession(from);
+    if (!inThread && own) return own;
+    return (typeof liveSessionId !== 'undefined') ? liveSessionId : null;
+  }
+  // A summary's button sends words the SESSION wrote (the reply text on its
+  // own card).  Unmarked, the session reads them as the user's own words and
+  // its framing confirms itself.  This hidden note says where they came from;
+  // like the tone note it is a ⟦VN-NOTE⟧ block, so every bubble, title,
+  // answer match and Smart termination check strips it (CARD_TAP_MARK lets
+  // the bubble tell a card tap from a typed message).
+  const CARD_TAP_MARK = '[VibeNode note: sent by a summary button]';
+  const CARD_TAP_NOTE = '⟦VN-NOTE⟧\n' + CARD_TAP_MARK + ' The user did not type the message below. ' +
+    'They tapped a button on the end-of-turn summary card you wrote, so these are the reply words YOU ' +
+    'wrote for that button, sent on their behalf. Read it as the user picking that option and nothing ' +
+    'more: it is not the user restating your reasoning, and it does not confirm any assumption the ' +
+    'words carry. Where acting on it depends on something the user never actually said, check it ' +
+    'against their own typed messages first. Do not mention this note.\n⟦/VN-NOTE⟧';
+  window.VN_CARD_TAP_MARK = CARD_TAP_MARK;
+  /** A message without its hidden ⟦VN-…⟧ notes. */
+  const _wordsOnly = t => String(t || '').replace(/⟦VN-(?:MOBILE|NOTE)⟧[\s\S]*?⟦\/VN-(?:MOBILE|NOTE)⟧\s*/g, '');
   // Every button on a summary sends through here, and only to the session
   // that wrote the summary, never to whatever session the tab has open.
   // `from` is the button or the card.
-  function _send(text, from) {
+  // `plain`: send the words unmarked.  Only for messages that are the user's
+  // own (a flag and its redo) or that a project's stop add-on matches word for
+  // word (an Approve band's "Approve <id>: …").
+  function _send(text, from, plain) {
     _refused = false;
-    const sid = (typeof liveSessionId !== 'undefined') ? liveSessionId : null;
+    const sid = _targetSession(from);
     if (!sid || !text) return false;
     if (!_sameSession(_cardSession(from), sid)) {
       _refused = true;
@@ -1905,8 +2023,9 @@
     }
     const kind = (typeof sessionKinds !== 'undefined') ? sessionKinds[sid] : '';
     let sent = false;
-    if ((kind === 'idle' || kind === 'question' || !kind) && typeof _liveSubmitDirect === 'function') { _liveSubmitDirect(sid, text); sent = true; }
-    else if (typeof _addQueue === 'function') { _addQueue(sid, text); sent = true; }
+    const marked = plain ? text : CARD_TAP_NOTE + '\n\n' + text;
+    if ((kind === 'idle' || kind === 'question' || !kind) && typeof _liveSubmitDirect === 'function') { _liveSubmitDirect(sid, marked); sent = true; }
+    else if (typeof _addQueue === 'function') { _addQueue(sid, marked); sent = true; }
     // A card answer is a request to watch what it starts: follow the work
     // until the user scrolls, whatever Auto scroll is set to.
     if (sent && window.ThreadScroll && typeof ThreadScroll.followWork === 'function') {
@@ -1968,7 +2087,9 @@
     const anc = new Set([d.body]), undo = [];
     els.forEach(o => { for (let p = o.parentElement; p && p !== d.documentElement; p = p.parentElement) anc.add(p); });
     anc.forEach(a => [...a.children].forEach(ch => {
-      if (anc.has(ch) || els.includes(ch) || ch.matches('script, style, link') || els.some(o => ch.contains(o))) return;
+      // [data-keep]: the one copy of the live app a variants page shares
+      // between its options; hiding it would leave every option blank.
+      if (anc.has(ch) || els.includes(ch) || ch.matches('script, style, link, [data-keep]') || els.some(o => ch.contains(o))) return;
       undo.push([ch, 'display', ch.style.display]);
       ch.style.display = 'none';
     }));
@@ -2126,6 +2247,35 @@
       window.addEventListener('message', onMsg);
       timer = setTimeout(() => { if (f._vnWait) { f._vnWait(); f.src = to.href; } }, _SET_ADDRESS_MS);
       try { f.contentWindow.postMessage({ type: 'vn:set-address', url: to.pathname + to.search + to.hash }, to.origin); } catch (_e) { /* answered by the timer */ }
+    });
+    stage.querySelectorAll('.chrome span').forEach(sp => { sp.textContent = s.label || s.url; });
+    return true;
+  }
+  // A page of this app (a scratch variants page) whose next choice is another
+  // section of the SAME page: the loaded page is kept and only the section
+  // shown changes, so a page that frames the live app does not boot it again
+  // (its splash screen) on every switch.  False when a frame is not that page
+  // yet or the page has no such section: the choice is then loaded as before.
+  function _switchOwnPage(stage, r, dev, s) {
+    const frames = [...stage.querySelectorAll('iframe')];
+    if (frames.length !== ((dev || s.device) === 'both' ? 2 : 1)) return false;
+    const src = _reviewSrc(s.url), h = src.indexOf('#');
+    let to, frag = '';
+    try { to = new URL(h === -1 ? src : src.slice(0, h), location.href); } catch (_e) { return false; }
+    if (h !== -1) { try { frag = decodeURIComponent(src.slice(h + 1)); } catch (_e) { frag = src.slice(h + 1); } }
+    const hits = [];
+    for (const f of frames) {
+      let at, d;
+      try { at = new URL(f._vnUrl || f.src, location.href); d = f.contentDocument; } catch (_e) { return false; }
+      if (at.origin !== to.origin || at.pathname !== to.pathname || !d || !d.body || d.readyState === 'loading') return false;
+      const t = _screenOption(d, frag, r.key);
+      if (!t) return false;
+      hits.push([f, d, t]);
+    }
+    hits.forEach(([f, d, t]) => {
+      for (let p = t; p && p !== d.body; p = p.parentElement) if (p.style && p.style.display === 'none') p.style.display = '';
+      _isolate(d, [t], 16);
+      try { f.contentWindow.scrollTo(0, 0); } catch (_e) { /* ignore */ }
     });
     stage.querySelectorAll('.chrome span').forEach(sp => { sp.textContent = s.label || s.url; });
     return true;
@@ -2589,6 +2739,13 @@
     // section, how it is today, so every option can be compared with it and
     // kept.
     const NOW = { key: 'Now', now: true, label: 'Keep it as it is', reply: 'Keep it as it is: no change' };
+    // Every choice is one section of the page itself: Now is shown the same
+    // way (its section of that page), so moving between Now and a choice
+    // keeps the one loaded page instead of loading it again (_switchOwnPage).
+    const _base = u => String(u || '').replace(/[?#].*$/, '');
+    const onePage = !!src && rs.every(r => r && _onlyScreens(r) && r.screens.length === 1 &&
+      !_isPic(r.screens[0].url) && _base(r.screens[0].url) === _base(d.page));
+    if (onePage) NOW.screens = [{ label: 'Now', url: _base(d.page) + '#now', device: 'web' }];
     const all = (src ? [NOW] : []).concat(rs, [{ key: 'Other', other: true }]);
     const keys = rs.map(r => r.key);
     let i = (src ? 1 : 0) + Math.max(0, rs.findIndex(r => r.recommended));
@@ -2604,7 +2761,7 @@
         '<button type="button" class="tab' + (r.other ? ' other' : '') + '" data-j="' + j + '">' + esc(r.key) + '</button>').join('') + '</div>' +
       '<span class="ctl"></span><button type="button" class="go"></button>' +
       '<button type="button" class="xf" aria-label="Close">' + I.close + '</button></div>' +
-      '<div class="body">' + (src ? '<iframe title="Decide"></iframe>' : '') + '</div>';
+      '<div class="body">' + (src && !onePage ? '<iframe title="Decide"></iframe>' : '') + '</div>';
     const frame = el.querySelector('iframe'), body = el.querySelector('.body'), go = el.querySelector('.go'), cap = el.querySelector('.top .lab'), pill = el.querySelector('.pill');
     const top = el.querySelector('.top'), keyEl = top.querySelector('.key'), ctl = top.querySelector('.ctl');
     const sizeTop = () => el.style.setProperty('--dz-top', top.offsetHeight + 'px');
@@ -2673,6 +2830,10 @@
       const oldStage = old && old._vnOnlyScreens && old.querySelector('.tp-stage');
       if (!opening && oldStage && _onlyScreens(r) && _switchInPlace(oldStage, r, dev, shot)) {
         old._vnKey = r.key;
+        // the kept pane's words follow the choice now on screen
+        const tp = old.querySelector('.tp'), xp = tp && tp.querySelector(':scope > .xp');
+        if (xp) xp.remove();
+        if (tp) tp.insertAdjacentHTML('beforeend', _explainHTML(r, rs));
         return;
       }
       if (old) {
@@ -2783,7 +2944,7 @@
   function _closeReview() {
     if (!_ov) return;
     _panelClosed();
-    _ov.el.remove();
+    if (_ov.restore) _ov.restore(); else _ov.el.remove();   // a full-screen summary goes back into the thread
     document.documentElement.classList.remove('lm-ov-open');
     document.removeEventListener('keydown', _ov.onKey, true);
     _ov = null;
@@ -2831,7 +2992,7 @@
     try { u = new URL(String(src || ''), location.href); } catch (_e) { return; }
     if (!_LOOPBACK.test(u.hostname) || u.host === location.host || typeof fetch !== 'function') return;
     const probe = () => fetch('/api/preview/proxy?u=' + encodeURIComponent(u.href), { method: 'HEAD', cache: 'no-store' })
-      .then(r => !r.headers.get('X-VN-Proxy-Down'), () => true);   // VibeNode itself unreachable: say nothing, its own check covers that
+      .then(r => !r.headers.get('X-VN-Proxy-Down'), () => true);   // DevelopNode itself unreachable: say nothing, its own check covers that
     probe().then(ok => {
       if (ok || !frame.isConnected) return;
       const n = document.createElement('div');
@@ -3056,6 +3217,10 @@
       const l = [...log.querySelectorAll('.lm-dvopen')], b = l[l.length - Number(arg)];
       return b && (() => _openDeliverable(b));
     }
+    if (kind === 'full') {
+      const l = [...log.querySelectorAll('.lm[data-card]')], c = l[l.length - Number(arg)];
+      return c && (() => _openFull(c));
+    }
     return null;
   }
   // The thread renders after the session opens, so wait for the card.
@@ -3232,8 +3397,11 @@
 
   document.addEventListener('click', async e => {
     if (window.VNLastCard !== _api) return;   // a newer copy of this file took over (live-assets.js)
+    const fsb = e.target.closest && e.target.closest('.lm-fs-ride .lm-fs');
+    if (fsb) { _openFull(fsb.parentElement.nextElementSibling); return; }
     const root = e.target.closest && e.target.closest('.lm');
     if (!root) return;
+    if (e.target.closest('.lm-full-x')) { _closeReview(); return; }
     const sk = e.target.closest('.lm-stick .in');
     if (sk) { _stickJump(root, !!e.target.closest('.jump')); return; }
     const flb = e.target.closest('.lm-flag');
@@ -3277,7 +3445,7 @@
     if (dc) { if (!dc.dataset.sent) _openDecide(root, dc); return; }
     const vd = e.target.closest('[data-verdict]');
     if (vd) {
-      const sid = (typeof liveSessionId !== 'undefined') ? liveSessionId : null;
+      const sid = _targetSession(vd);
       const act = vd.dataset.verdict;
       if (!sid) return;
       // Done, Standby, Undo… mark the session that wrote this summary, never
@@ -3369,7 +3537,7 @@
     const fd = e.target.closest('.lm-find .go');
     if (fd) {
       if (fd.disabled) return;
-      if (_send(fd.dataset.find, fd)) { fd.disabled = true; fd.textContent = 'Sent'; fd.closest('.lm-find').classList.add('sent'); }
+      if (_send(fd.dataset.find, fd, !!fd.closest('.lm-approveband'))) { fd.disabled = true; fd.textContent = 'Sent'; fd.closest('.lm-find').classList.add('sent'); }
       else _sendFail('Couldn’t send that. Type it in the box below.');
       return;
     }
@@ -3708,4 +3876,26 @@
     openDecide: _openDecide, closeDecide: _closeDecide, syncDone: _syncDone, syncAnswered: _syncAnswered, markAnswered: _markAnswered, themedSrc: _themedSrc, screenOption: _screenOption, explainHTML: _explainHTML, tplStage: _tplStage, switchInPlace: _switchInPlace, deliverableBody: dvBodyHtml,
     flagReasons: FLAG_REASONS, openFlag: _openFlag, closeFlag: _closeFlag, redoKinds: _redoKinds, redoMessage: (card, key, note) => _redoMessage(card || {}, _redoKinds().find(x => x.k === key), note || ''), redoWantedName: _redoWantedName, redoTag: _redoTag, flagRedoMessage: (card, reasons, note) => _flagRedoMessage(card || {}, reasons || [], note || '') };
   window.VNLastCard = _api;
+})();
+
+/* A tab opened before the DevelopNode rename notice (rebrand.js) existed
+   picks up this file through live-assets.js; bring the notice along so that
+   tab gets it too.  Does nothing on a page that already loads it. */
+(function () {
+  // On a page still being parsed, its own <script src="…rebrand.js"> may come
+  // after this file: wait for the parse, or the notice is loaded twice.
+  function bring() {
+    try {
+      // A tab that already has the notice asks again: a Not now may have been cleared since it looked.
+      if (window.VNRebrand) { if (window.VNRebrand.check) window.VNRebrand.check(); return; }
+      if (!document.head || document.querySelector('script[src*="js/rebrand.js"]')) return;
+      const s = document.createElement('script');
+      s.src = '/static/js/rebrand.js?v=' + Date.now();
+      document.head.appendChild(s);
+    } catch (e) { /* not a full page (tests): nothing to bring */ }
+  }
+  try {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bring, { once: true });
+    else bring();
+  } catch (e) { /* not a full page (tests) */ }
 })();

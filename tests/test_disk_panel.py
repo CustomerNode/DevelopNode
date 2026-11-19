@@ -70,9 +70,9 @@ def test_disk_column_and_section(browser):
         _open(app)
         t = _text(app)
         # First bar: what VibeNode uses of its allotment (no cap: all it could have).
-        assert "VibeNode uses" in t and "1.4 GB of 1.0 TB allotted" in t and "Trash 9 MB" in t
+        assert "DevelopNode uses" in t and "1.4 GB of 1.0 TB allotted" in t and "Trash 9 MB" in t
         # Second bar: the allotment of what is available (free + what it holds).
-        assert "Allotted to VibeNode" in t and "All available" in t
+        assert "Allotted to DevelopNode" in t and "All available" in t
         assert "1.0 TB available · disk 41% full" in t
         assert "Empty Trash (9 MB)" in t
         assert "Release fix" in t and "300 MB" in t and "Last active 12 d ago" in t
@@ -91,7 +91,7 @@ def test_first_bar_is_use_of_the_allotment(browser):
         t = _text(app)
         assert "1.4 GB of 2.0 GB allotted" in t and "70%" in t
         assert "2.0 GB · 0% of available" not in t and "2.0 GB · 1% of available" in t
-        assert app.eval("() => _diskColumn().tip") == "Disk: VibeNode uses 1.4 GB of 2.0 GB allotted"
+        assert app.eval("() => _diskColumn().tip") == "Disk: DevelopNode uses 1.4 GB of 2.0 GB allotted"
     finally:
         app.close()
 

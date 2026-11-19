@@ -106,3 +106,23 @@ def test_the_route_counts_each_project(app, projects):
 def test_no_projects_named_is_an_empty_answer(app, projects):
     app.session_manager = _FakeEngine([])
     assert app.test_client().get("/api/project-status").get_json() == {}
+
+
+def test_detail_lists_the_sessions_in_each_group(app, projects):
+    """?detail=1 (the Home screen's project preview): the sessions behind each
+    count, newest activity and a 7-day count; without it the answer is unchanged."""
+    a = projects("C--Users-test-alpha", {
+        "ask": _card(type="needs_you", headline="Pick", needs={"kind": "decision"}),
+        "busy": None,
+    })
+    client = app.test_client()
+    app.session_manager = _FakeEngine([{"session_id": "busy", "state": "working", "cwd": "C:\\Users\\test\\alpha"}])
+    plain = client.get("/api/project-status?projects=" + a.name).get_json()
+    assert plain == {a.name: {"needs": 1, "standby": 0, "working": 1}}
+    d = client.get("/api/project-status?detail=1&projects=" + a.name).get_json()[a.name]
+    assert (d["needs"], d["working"]) == (1, 1)
+    assert [x["id"] for x in d["items"]["needs"]] == ["ask"]
+    assert [x["id"] for x in d["items"]["working"]] == ["busy"]
+    assert d["items"]["needs"][0]["title"]
+    assert d["last_ts"] > 0
+    assert len(d["daily"]) == 7 and sum(d["daily"]) == 2     # both active in the last week

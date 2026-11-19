@@ -55,10 +55,19 @@ def group_of(summary: dict, state: dict | None) -> str | None:
     return "needs"
 
 
-def project_counts(project: str, states: list, sessions_dir: Path) -> dict:
+def project_counts(project: str, states: list, sessions_dir: Path, *, detail: bool = False,
+                   now: float | None = None) -> dict:
     """``{"needs": n, "standby": n, "working": n}`` for one project.
 
-    *states* are the engine's states for THIS project's sessions only."""
+    *states* are the engine's states for THIS project's sessions only.
+
+    With *detail* (the Home screen's project preview) it also gives
+    ``items``: up to ``ITEMS_MAX`` sessions per group, newest first, as
+    ``{"id", "title", "ts"}``; ``last_ts``: the newest activity; and
+    ``daily``: how many sessions were last active on each of the last 7
+    days, oldest first, ending today (local time)."""
+    import time as _time
+    from datetime import datetime, timedelta
     from .sessions import all_sessions
     from .session_store import _load_remaps_cached
     from . import session_holds
@@ -75,6 +84,7 @@ def project_counts(project: str, states: list, sessions_dir: Path) -> dict:
         session_holds.overlay(rows, sessions_dir)
     by_sid = {s.get("session_id"): s for s in states if s.get("session_id")}
     out = {g: 0 for g in GROUPS}
+    items = {g: [] for g in GROUPS}
     seen = set()
     for r in rows:
         sid = r.get("id")
@@ -84,10 +94,35 @@ def project_counts(project: str, states: list, sessions_dir: Path) -> dict:
         g = group_of(r, by_sid.get(sid))
         if g:
             out[g] += 1
+            items[g].append({"id": sid, "title": r.get("display_title") or "", "ts": _ts(r)})
     # A live session with no transcript yet (its first turn is running).
     for sid, s in by_sid.items():
         if sid not in seen and s.get("state") not in ("stopped", None, ""):
             g = group_of({}, s)
             if g:
                 out[g] += 1
+                items[g].append({"id": sid, "title": s.get("name") or "", "ts": now or _time.time()})
+    if not detail:
+        return out
+    out["items"] = {g: sorted(v, key=lambda x: -x["ts"])[:ITEMS_MAX] for g, v in items.items()}
+    stamps = [_ts(r) for r in rows if _ts(r)]
+    out["last_ts"] = max(stamps) if stamps else 0
+    today = datetime.fromtimestamp(now or _time.time()).date()
+    days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    count = {d: 0 for d in days}
+    for t in stamps:
+        d = datetime.fromtimestamp(t).date()
+        if d in count:
+            count[d] += 1
+    out["daily"] = [count[d] for d in days]
     return out
+
+
+ITEMS_MAX = 5
+
+
+def _ts(row: dict) -> float:
+    try:
+        return float(row.get("last_activity_ts") or row.get("sort_ts") or 0)
+    except (TypeError, ValueError):
+        return 0.0

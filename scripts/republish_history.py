@@ -83,7 +83,7 @@ def scan_tree(repo: Path) -> list:
     return findings
 
 
-def republish(repo: Path, message: str = "VibeNode", push: bool = False,
+def republish(repo: Path, message: str = "DevelopNode", push: bool = False,
               allow_dirty: bool = False) -> dict:
     """Prepare (and optionally push) a fresh clean root. Returns a summary dict;
     raises SystemExit on a refusal. Safe to call in a test against a temp repo."""
@@ -104,7 +104,7 @@ def republish(repo: Path, message: str = "VibeNode", push: bool = False,
 
     _git(repo, "checkout", "--orphan", "_republish_tmp")
     _git(repo, "add", "-A")
-    _git(repo, "-c", "user.email=noreply@users.noreply.github.com", "-c", "user.name=VibeNode",
+    _git(repo, "-c", "user.email=noreply@users.noreply.github.com", "-c", "user.name=DevelopNode",
          "commit", "-q", "-m", message)
     new = _git(repo, "rev-parse", "HEAD")
     _git(repo, "branch", "-f", default, new)
@@ -123,8 +123,8 @@ def republish(repo: Path, message: str = "VibeNode", push: bool = False,
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Re-scrub and republish VibeNode history.")
-    ap.add_argument("--message", default="VibeNode", help="commit message for the new root")
+    ap = argparse.ArgumentParser(description="Re-scrub and republish DevelopNode history.")
+    ap.add_argument("--message", default="DevelopNode", help="commit message for the new root")
     ap.add_argument("--push", action="store_true", help="force-push to origin after preparing")
     ap.add_argument("--allow-dirty", action="store_true", help="skip the clean-tree check (not advised)")
     ap.add_argument("--repo", default=str(ROOT), help=argparse.SUPPRESS)
@@ -148,7 +148,7 @@ def main(argv=None) -> int:
         print("\nPrepared locally. To publish, run:\n  "
               f"git push --force origin {res['default']}")
         print(f"(The old history is on {res['backup']} if you need to undo before pushing.)")
-    print("\nUsers on current VibeNode adopt this automatically on their next Update click; "
+    print("\nUsers on current DevelopNode adopt this automatically on their next Update click; "
           "no one is migrated by hand.")
     return 0
 

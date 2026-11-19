@@ -80,7 +80,7 @@ def _from_the_page() -> bool:
 @local_only
 def pace_reset():
     if not _from_the_page():
-        return jsonify({"error": "The 5-hour reset is a button for a person, on VibeNode's page."}), 403
+        return jsonify({"error": "The 5-hour reset is a button for a person, on DevelopNode's page."}), 403
     r = pace.reset(current_app.session_manager)
     out = _reading()
     _emit("pace_5h", out)

@@ -438,7 +438,7 @@
   function openOrgs() {
     var overlay = document.getElementById('pm-overlay');
     if (!overlay) return;
-    overlay.innerHTML = '<div class="pm-card pm-enter pf-orgs" style="width:560px;max-height:80vh;display:flex;flex-direction:column;"><h2 class="pm-title">VibeNode Orgs</h2><div class="pm-body pf-obody" style="overflow:auto">Loading…</div><div class="pm-actions"><button type="button" class="pm-btn pm-btn-secondary" onclick="_closePm()">Close</button></div></div>';
+    overlay.innerHTML = '<div class="pm-card pm-enter pf-orgs" style="width:560px;max-height:80vh;display:flex;flex-direction:column;"><h2 class="pm-title">DevelopNode Orgs</h2><div class="pm-body pf-obody" style="overflow:auto">Loading…</div><div class="pm-actions"><button type="button" class="pm-btn pm-btn-secondary" onclick="_closePm()">Close</button></div></div>';
     overlay.classList.add('show');
     requestAnimationFrame(function () { var c = overlay.querySelector('.pm-card'); if (c) c.classList.remove('pm-enter'); });
     overlay.onclick = function (e) { if (e.target === overlay && window._closePm) _closePm(); };
@@ -448,7 +448,7 @@
   function drawOrgs(body) {
     api('/api/orgs/me').then(function (me) {
       if (!body.isConnected) return;
-      if (!me.ok) { body.textContent = me.message || 'Could not read VibeNode Orgs.'; return; }
+      if (!me.ok) { body.textContent = me.message || 'Could not read DevelopNode Orgs.'; return; }
       if (!me.member) return drawSetup(body, me);
       drawMembers(body, me);
     });

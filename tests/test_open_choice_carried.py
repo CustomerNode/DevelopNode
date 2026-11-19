@@ -101,7 +101,9 @@ def test_handing_over_or_dropping_it_closes_it():
                  # The choice named by what it is about (a "drop the <topic>
                  # question" reply drops it).
                  "Drop the toolbar layout question, the first answer covers it",
-                 "skip that layout choice"):
+                 "skip that layout choice",
+                 # told the choices were the wrong work altogether
+                 "you are building the wrong thing again, get back to what i asked"):
         f = ev.facts_from_entries(_entries(E("user", said)))
         assert f.open_choice is None, said
 

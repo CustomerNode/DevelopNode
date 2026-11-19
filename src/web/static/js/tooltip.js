@@ -4,7 +4,7 @@
 
    WHY THIS EXISTS
    ---------------
-   VibeNode had ~160 `title="..."` attributes across index.html and the JS
+   DevelopNode had ~160 `title="..."` attributes across index.html and the JS
    modules. Native tooltips are rendered by the OS, not the page: they use the
    system font at the system size, ignore the app's theme entirely, appear
    after a fixed ~500ms the page cannot tune, and are positioned by the

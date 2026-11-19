@@ -57,7 +57,7 @@ SOCKET_JS = STATIC / "js" / "socket.js"
 
 WARN = "⚠ Approval needed"
 STALLED = "⚠ Session stalled"
-PAGE = "VibeNode"
+PAGE = "DevelopNode"
 
 # A browser small enough to run notify.js in Node: a document with a title and
 # a visibility state, timers on a fake clock, a <link rel=icon>, Image and
@@ -80,7 +80,7 @@ function makeBrowser(source, opts) {
   Object.defineProperty(link, 'href', { get() { return link._href; }, set(v) { link._href = String(v); } });
   const images = [];
   const notifications = [];
-  let title = 'VibeNode';
+  let title = 'DevelopNode';
   let hidden = false;
   let hiddenThrows = false;
 
@@ -641,7 +641,7 @@ function fuzz(seed, steps, throttle) {
   const lease = {};                 // id -> { until, seen }
   let stalls = {};                  // key -> true
   const lastStall = {};
-  let hidden = false, enabled = true, pageTitle = 'VibeNode';
+  let hidden = false, enabled = true, pageTitle = 'DevelopNode';
   const liveAt = (t) => IDS.some((id) => lease[id] && !lease[id].seen && t < lease[id].until);
   const allowedAt = (t) => hidden && enabled && (Object.keys(stalls).length > 0 || liveAt(t));
 

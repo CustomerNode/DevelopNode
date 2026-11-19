@@ -60,7 +60,7 @@ def web_manifest():
     name = mobile_command.device_name()
     manifest = {
         "name": name,
-        "short_name": name[:12] or "VibeNode",
+        "short_name": name[:12] or "DevelopNode",
         "description": "Run and drive your Claude sessions from your phone.",
         "start_url": "/",
         "scope": "/",
@@ -69,7 +69,7 @@ def web_manifest():
         "background_color": "#0b0d10",
         "theme_color": "#0b0d10",
         "icons": [{
-            "src": "/static/vibenode.png",
+            "src": "/static/developnode.png",
             "sizes": "256x256",
             "type": "image/png",
             "purpose": "any maskable",
@@ -78,15 +78,23 @@ def web_manifest():
     return Response(json.dumps(manifest), mimetype="application/manifest+json")
 
 
-@bp.route("/api/ping")
+@bp.route("/api/ping", methods=["GET", "OPTIONS"])
 def ping():
     """Tiny liveness probe for the UI's server-reachable health check.
 
     Returns {"ok": true} with no side effects. Cheaper than /api/auth-status
     (which shells out to the Claude CLI) and decoupled from auth semantics,
     so a slow auth check never produces a false 'server unreachable' overlay.
+
+    developnode.com/app reads it too, from the person's own browser, to open
+    VibeNode when it is running (``shared.site_origins``); only that site is
+    named in the CORS headers, and the answer carries no data.
     """
-    return jsonify(ok=True)
+    from shared.site_origins import site_cors_headers
+    resp = Response(status=204) if request.method == "OPTIONS" else jsonify(ok=True)
+    for k, v in site_cors_headers(request.headers.get("Origin")).items():
+        resp.headers[k] = v
+    return resp
 
 
 @bp.route("/api/usage-limits")

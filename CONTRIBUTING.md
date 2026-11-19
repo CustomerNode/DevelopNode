@@ -1,4 +1,4 @@
-# Contributing to VibeNode
+# Contributing to DevelopNode
 
 Thanks for your interest in contributing! This guide covers everything you need to get started.
 
@@ -14,11 +14,11 @@ Thanks for your interest in contributing! This guide covers everything you need 
 ### Setup
 
 ```bash
-git clone https://github.com/CustomerNode/VibeNode.git
-cd VibeNode
+git clone https://github.com/CustomerNode/DevelopNode.git
+cd DevelopNode
 pip install -r requirements.txt        # the app and the test tools
 playwright install chromium            # browser-driven tests (skipped without it)
-git config core.hooksPath scripts/git-hooks   # VibeNode sets this itself when it starts
+git config core.hooksPath scripts/git-hooks   # DevelopNode sets this itself when it starts
 ```
 
 This repository is public. Its git hooks run the publish scan on every commit and
@@ -127,7 +127,7 @@ points:
 
 ### Maintaining API Documentation
 
-VibeNode has a comprehensive API reference at `docs/api/`. When you add or modify routes:
+DevelopNode has a comprehensive API reference at `docs/api/`. When you add or modify routes:
 
 1. **Add the endpoint to `docs/api/openapi.yaml`** — include path, method, summary, parameters, request body, response schema, and tags. Use the existing entries as a template.
 2. **If you added SocketIO events**, update `docs/api/socketio-events.md` with the event name, direction, payload schema, and example. Every `@socketio.on(...)` handler and every event name the browser listens for with `socket.on(...)` needs a `### \`event_name\`` section.

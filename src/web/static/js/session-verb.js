@@ -82,7 +82,9 @@
   // Needs-you session, or its Standby button); any new message ends it.
   const GROUP_LABEL = { needs: 'Needs you', new: 'New', working: 'Working', standby: 'Standby', done: 'Done' };
   GLYPH.needs = '<circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5"/><path d="M12 16.5h.01"/>';
-  GLYPH.new = GLYPH.idle;
+  // New: three typing dots, drawn as round strokes (the session boxes hide every circle in a status
+  // icon).  While the message box has focus the open session's dots squash and hop (session-status.css).
+  GLYPH.new = '<path class="vs-tdot vs-tdot0" d="M7 12h.01" stroke-width="3.2"/><path class="vs-tdot vs-tdot1" d="M12 12h.01" stroke-width="3.2"/><path class="vs-tdot vs-tdot2" d="M17 12h.01" stroke-width="3.2"/>';
   function shown(d) { return GROUP[d] || 'done'; }
   // Card verbs that hand the next move to the person.
   const PERSON_MOVE = new Set(['decide', 'unblock', 'review', 'read', 'send']);
@@ -410,7 +412,7 @@
   function _on() {
     if (window._smartTerminationEnabled === true) return true;
     if (window._smartTerminationEnabled === false) return false;
-    try { return localStorage.getItem(LS_KEY) === 'on'; } catch (_e) { return false; }  // before config loads
+    try { return localStorage.getItem(LS_KEY) !== 'off'; } catch (_e) { return true; }  // before config loads: on by default
   }
   window.SessionVerbCore = core;
   Object.defineProperty(window, 'SessionVerb', {
@@ -460,4 +462,11 @@
   }
   document.addEventListener('visibilitychange', _reread);
   window.addEventListener('focus', _reread);
+  // The open session's New icon types while the message box has focus: html.vn-composer-focus.
+  function _composerFocus() {
+    const a = document.activeElement;
+    document.documentElement.classList.toggle('vn-composer-focus', !!(a && a.id === 'live-input-ta'));
+  }
+  document.addEventListener('focusin', _composerFocus);
+  document.addEventListener('focusout', () => setTimeout(_composerFocus, 0));
 })();

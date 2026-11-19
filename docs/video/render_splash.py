@@ -36,7 +36,7 @@ class RenderSplash:
         self._lines = []
 
         self.root = tk.Tk()
-        self.root.title("VibeNode — Rendering Video")
+        self.root.title("DevelopNode — Rendering Video")
         self.root.resizable(False, False)
         self.root.attributes("-topmost", True)
         self.root.protocol("WM_DELETE_WINDOW", self._quit)

@@ -48,11 +48,11 @@ if [[ "${1:-}" == "--uninstall" ]]; then
 fi
 
 if [[ ! -f "$REPO_ROOT/reviver.py" ]]; then
-  echo "reviver.py not found at $REPO_ROOT — run from inside the VibeNode checkout." >&2
+  echo "reviver.py not found at $REPO_ROOT — run from inside the DevelopNode checkout." >&2
   exit 1
 fi
 
-echo "VibeNode checkout : $REPO_ROOT"
+echo "DevelopNode checkout : $REPO_ROOT"
 echo "User              : $VN_USER (uid $VN_UID)"
 
 # --- Step 1: linger — lets your systemd user manager (and its units) start at
@@ -80,7 +80,7 @@ if ! home_is_ecryptfs; then
   echo "[3/3] Home is NOT ecryptfs-encrypted — linger + reviver unit already"
   echo "      cover the pre-login window. You're done."
   echo
-  echo "Test it: reboot without logging in, then open VibeNode on your phone."
+  echo "Test it: reboot without logging in, then open DevelopNode on your phone."
   exit 0
 fi
 
@@ -90,7 +90,7 @@ cat <<EOF
 
       Fix: install prelogin_unlock.py as a small SYSTEM service (outside your
       home, under $INSTALL_DIR). Before login it serves an
-      "Unlock & start VibeNode" page on the VibeNode port: you type your login
+      "Unlock & start DevelopNode" page on the DevelopNode port: you type your login
       password on your phone, it unlocks the home with the same stock ecryptfs
       helpers a console login uses, then boots VibeNode. Loopback-only; only
       reachable remotely via your existing tailnet-only 'tailscale serve'.
@@ -110,7 +110,7 @@ sudo install -o root -g root -m 0755 "$HERE/prelogin_unlock.py" "$INSTALL_DIR/pr
 
 sudo tee "$UNIT_PATH" >/dev/null <<UNIT
 [Unit]
-Description=VibeNode pre-login Start page (boot CTA + ecryptfs unlock over Tailscale)
+Description=DevelopNode pre-login Start page (boot CTA + ecryptfs unlock over Tailscale)
 Documentation=file:$INSTALL_DIR/prelogin_unlock.py
 After=network-online.target
 Wants=network-online.target
@@ -147,7 +147,7 @@ if systemctl is-active --quiet vibenode-prelogin.service; then
   echo "Logs   : journalctl -u vibenode-prelogin -f"
   echo "Remove : bash $HERE/setup_linux_boot.sh --uninstall"
   echo
-  echo "Test it for real: reboot without logging in, open VibeNode on your"
+  echo "Test it for real: reboot without logging in, open DevelopNode on your"
   echo "phone, and enter your login password."
 else
   echo "Service failed to start — check: journalctl -u vibenode-prelogin -n 50" >&2

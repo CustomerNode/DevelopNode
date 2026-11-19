@@ -3,8 +3,24 @@
 # Handles: Python version check, virtualenv activation, package install,
 #          claude CLI check, then hands off to session_manager.py.
 
-cd "$(dirname "$0")/../.."   # the repo root: .venv, requirements.txt, logs/ live here
+# Follow links first: the desktop shortcut starts the link at the repo's top
+# (launch.sh / stopvibenode.sh), and "../.." from there left the repo, so every
+# click failed with "can't open file .../src/launcher/session_manager.py".
+_self="$0"
+while [ -L "$_self" ]; do
+    _to="$(readlink "$_self")"
+    case "$_to" in /*) _self="$_to" ;; *) _self="$(dirname "$_self")/$_to" ;; esac
+done
+cd "$(dirname "$_self")/../.."   # the repo root: .venv, requirements.txt, logs/ live here
 VIBENODE_DIR="$(pwd)"
+
+# A click is always a fresh start, never a restart.  A desktop restarted from
+# inside VibeNode (a session's shell) passes the engine's own process settings
+# on to every icon click; VIBENODE_PRESERVE_DAEMON then made the launch skip
+# "already running", start a second copy, and hang on "Loading modules".
+unset VIBENODE_PRESERVE_DAEMON VIBENODE_ENGINE_ONLY VIBENODE_BOOT_STATUS_FILE \
+      VIBENODE_NO_BROWSER VIBENODE_PROCESS_ROLE VIBENODE_PROCESS VIBENODE_DO_NOT_KILL \
+      VIBENODE_SMART_TERMINATION_ENGINE _VIBENODE_DAEMON_PATH_AUGMENTED
 
 # ── Python 3.10+ detection ──────────────────────────────────────────────────
 
@@ -94,10 +110,10 @@ fi
 if ! command -v claude &>/dev/null; then
     echo ""
     echo "  Warning: 'claude' CLI not found on PATH."
-    echo "  VibeNode needs Claude Code to run sessions."
+    echo "  DevelopNode needs Claude Code to run sessions."
     echo ""
     echo "  Install Claude Code: https://docs.anthropic.com/en/docs/claude-code"
-    echo "  Then run VibeNode again."
+    echo "  Then run DevelopNode again."
     echo ""
     echo "  (Continuing anyway — the UI will open but sessions won't start)"
     echo ""
@@ -147,8 +163,13 @@ disown 2>/dev/null || true
 # 1.5 s in, show a hint about the log file so the user is not left guessing.
 sleep 1.5
 if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    # A launch that found VibeNode already running opens a window and exits
+    # at once: that is success, not a failed start.
+    if tail -n 5 logs/_server.log | grep -q "already running on port"; then
+        exit 0
+    fi
     echo ""
-    echo "VibeNode failed to start (server pid $SERVER_PID died immediately)."
+    echo "DevelopNode failed to start (server pid $SERVER_PID died immediately)."
     echo "See logs/_server.log and logs/daemon_debug.log for the error."
     read -rp "Press Enter to close..."
     exit 1

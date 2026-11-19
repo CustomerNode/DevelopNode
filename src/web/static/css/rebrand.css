@@ -1,0 +1,34 @@
+/* The one-time DevelopNode rename notice (js/rebrand.js).  The lockup is the
+   top bar's (header h1.dn-lockup in style.css), set larger. */
+.vn-rebrand { z-index: 100002; }   /* above the phone drawer and the project-switch loader */
+.vn-rebrand .pm-card { width: 420px; text-align: center; padding-top: 34px; }
+.vn-rebrand .vrb-lk { font-family: 'Geist', 'Inter', sans-serif; font-size: 30px; font-weight: 600; letter-spacing: .1em;
+  line-height: 1; white-space: nowrap; color: var(--text-heading); margin: 0 0 8px; }
+.vn-rebrand .vrb-lk svg { height: .71em; width: .905em; vertical-align: baseline; margin-right: .5em; fill: currentColor; overflow: visible; }
+.vn-rebrand .vrb-lk svg circle { fill: #8B8FF7; transform-box: fill-box; transform-origin: center; animation: vrb-dot 2.4s cubic-bezier(.22,1,.36,1) infinite; }
+.vn-rebrand .vrb-tm { font-size: .42em; font-weight: 500; letter-spacing: 0; vertical-align: top; margin-left: .1em; }
+@keyframes vrb-dot { 0%, 70%, 100% { transform: scale(1); } 80% { transform: scale(1.4); } }
+.vn-rebrand .vrb-was { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.vn-rebrand .vrb-acts { display: flex; flex-direction: column; gap: 8px; }
+.vn-rebrand .vrb-acts .btn { justify-content: center; width: 100%; }
+.vn-rebrand .vrb-list { text-align: left; margin: 16px 0 0; font-size: 13px; }
+.vn-rebrand .vrb-list summary { cursor: pointer; color: var(--text-secondary); }
+.vn-rebrand .vrb-list ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 7px; }
+.vn-rebrand .vrb-list li { display: flex; gap: 8px; align-items: baseline; color: var(--text-secondary); }
+.vn-rebrand .vrb-list li b { color: var(--text-heading); font-weight: 600; }
+.vn-rebrand .vrb-st { width: 12px; flex: none; text-align: center; }
+.vn-rebrand .vrb-st.ok { color: #3fb950; }
+.vn-rebrand .vrb-st.fail { color: #ff6b6b; }
+.vn-rebrand .vrb-done { margin: 14px 0 0; font-size: 12px; color: var(--text-muted); text-align: left; }
+@media (prefers-reduced-motion: reduce) { .vn-rebrand .vrb-lk svg circle { animation: none; } }
+/* The iPhone home-screen icon steps (phoneIcon in js/rebrand.js). */
+.vrb-phone .pm-card { width: min(360px, calc(100vw - 32px)); padding-top: 26px; }
+.vrb-phone .vrb-icon { width: 64px; height: 64px; border-radius: 15px; display: block; margin: 0 auto 12px; }
+.vrb-phone .vrb-h { font-size: 17px; font-weight: 600; color: var(--text-heading); margin-bottom: 16px; }
+.vrb-phone .vrb-steps { text-align: left; margin: 0 0 18px; padding-left: 22px; display: grid; gap: 12px;
+  font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
+.vrb-phone .vrb-steps b { color: var(--text-heading); font-weight: 600; }
+.vrb-phone .vrb-steps .btn { width: 100%; justify-content: center; }
+.vrb-phone .vrb-steps svg { width: 17px; height: 17px; vertical-align: -3px; fill: none; stroke: #0a84ff;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.vrb-phone > .pm-card > .btn { width: 100%; justify-content: center; }

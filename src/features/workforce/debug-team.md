@@ -3,7 +3,7 @@ id: debug-team
 name: Debug Team
 department: compose
 source: vibenode
-version: 1.1.0
+version: 1.1.1
 depends_on: []
 type: prompt-template
 ---
@@ -28,7 +28,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 ## The Prompt
 
-Run the Debug Team: Triage Lead, Root Cause Analyst, Context Investigator, Fix Engineer, Regression Guard. All have full knowledge of the VibeNode codebase and architecture.
+Run the Debug Team: Triage Lead, Root Cause Analyst, Context Investigator, Fix Engineer, Regression Guard. All have full knowledge of the DevelopNode codebase and architecture.
 
 Diagnose and fix the issue under discussion. Debug Team owns unknown-cause issues and deeper causal investigation, even if the eventual code change is small.
 

@@ -45,7 +45,7 @@ def test_recovery_watchdog_lists_knobs_read_only(browser):
         app.page.wait_for_function("document.querySelectorAll('#rw-list .rw-row').length === 4", timeout=5000)
         assert app.eval("() => document.querySelector('#pm-overlay .pm-title').textContent") == "Recovery & Watchdog"
         assert app.eval("() => document.querySelector('#pm-overlay .rw-intro').textContent.trim()") == (
-            "These are set with environment variables before VibeNode starts. "
+            "These are set with environment variables before DevelopNode starts. "
             "Changing one needs a restart of the part that reads it.")
         # Grouped by `group`, in the server's order; the internal knob is in a collapsed <details>.
         groups = app.eval("() => Array.from(document.querySelectorAll('#rw-list > .rw-group:not(.rw-internal) > .rw-group-label')).map(e => e.textContent)")

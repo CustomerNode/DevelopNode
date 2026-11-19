@@ -10,6 +10,8 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
 
+from ..mobile_auth import local_only  # renames files on this computer
+
 from ..platform_utils import native_folder_picker, default_project_roots
 
 from ..config import (
@@ -101,6 +103,9 @@ def api_project_status():
     from ..project_status import project_counts
     from ..session_awareness import _get_all_states_cached
     wanted = [p for p in (request.args.get("projects") or "").split(",") if p]
+    # ?detail=1 (the Home screen's preview): also the sessions in each group,
+    # the newest activity and a 7-day count (project_status.project_counts).
+    detail = request.args.get("detail") == "1"
     sm = getattr(current_app, "session_manager", None)
     try:
         states = (sm.get_all_states() if current_app.testing else _get_all_states_cached(sm)) if sm else []
@@ -116,7 +121,7 @@ def api_project_status():
             continue
         mine = [s for s in states if s.get("cwd") and _encode_cwd(s["cwd"]).lower() == enc.lower()]
         try:
-            out[enc] = project_counts(enc, mine, d)
+            out[enc] = project_counts(enc, mine, d, detail=detail)
         except Exception:
             continue
     return jsonify(out)
@@ -146,6 +151,28 @@ def api_rename_project():
         names.pop(encoded, None)
     _save_project_names(names)
     return jsonify({"ok": True})
+
+
+@bp.route("/api/rebrand")
+def api_rebrand_status():
+    """What on this computer still shows the old name (src/web/rebrand.py),
+    and whether the one-time rename notice should show."""
+    from .. import rebrand
+    return jsonify(rebrand.status())
+
+
+@bp.route("/api/rebrand/apply", methods=["POST"])
+@local_only
+def api_rebrand_apply():
+    """Rename this computer's shortcuts, icons and the project's name."""
+    from .. import rebrand
+    return jsonify(rebrand.apply())
+
+
+@bp.route("/api/rebrand/later", methods=["POST"])
+def api_rebrand_later():
+    from .. import rebrand
+    return jsonify({"ok": True, **rebrand.later()})
 
 
 @bp.route("/api/delete-project", methods=["POST"])

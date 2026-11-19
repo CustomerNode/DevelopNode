@@ -1,0 +1,66 @@
+/* Quiet chat surfaces, layered on the desktop hairline finish (css/hairline.css).
+   What the thread shows is unchanged; only its surfaces are toned down:
+   - replies and step lines sit on the backdrop with no outline; a summary keeps its one box;
+   - step icons are grey; the step text is the muted colour (a failure keeps its amber words);
+   - the person's messages, and their pinned copy at the top, are a soft neutral fill with no outline;
+   - message times show on hover only;
+   - the full-screen handle beside a summary is a plain icon until hovered;
+   - the composer's edge is neutral, focused or not.
+   - every other surface in the panel follows the same two rules: a see-through fill, or the base colour where
+     content scrolls under it, and one neutral line (--qc-line); no drop shadows, no accent outline;
+   - the jump button keeps its status in its text colour instead of a solid fill.
+   Loaded after hairline.css; the selectors carry #live-log, .live-panel or .live-input-bar so they win over it. */
+
+html[data-finish="hairline"] { --qc-line: rgba(128, 128, 128, .22); }
+
+html[data-finish="hairline"] #live-log .msg.assistant:not(:has(.lm)) .msg-body {
+  border-color: transparent; background: none; padding-left: 2px; padding-right: 2px;
+}
+html[data-finish="hairline"] #live-log .msg.assistant:has(.lm) .msg-body { border-color: transparent; background: none; padding: 0; }
+html[data-finish="hairline"] #live-log .msg.assistant { margin-top: 10px; margin-bottom: 12px; }
+
+html[data-finish="hairline"] #live-log .vn-trail .vt-bar,
+html[data-finish="hairline"] #live-log .vn-trail .vt-bar:hover { border-color: transparent; background: none; padding-left: 0; color: var(--text-muted); }
+html[data-finish="hairline"] #live-log .vn-trail .vt-chip { color: var(--text-muted); border-color: rgba(128, 128, 128, .22); }
+
+html[data-finish="hairline"] #live-log .msg.user .msg-body { border-color: transparent; background: rgba(128, 128, 128, .13); }
+html[data-finish="hairline"] .live-panel .sticky-user-bar {
+  border-color: transparent; background: linear-gradient(rgba(128, 128, 128, .13), rgba(128, 128, 128, .13)), var(--hl-base);
+}
+
+html[data-finish="hairline"] #live-log :is(.vn-msg-footer, .msg-time) { opacity: 0; transition: opacity .15s; }
+html[data-finish="hairline"] #live-log .msg:hover :is(.vn-msg-footer, .msg-time) { opacity: 1; }
+@media (hover: none) { html[data-finish="hairline"] #live-log :is(.vn-msg-footer, .msg-time) { opacity: 1; } }
+
+html[data-finish="hairline"] #live-log .lm-fs-ride .lm-fs { background: none; border-color: transparent; box-shadow: none; color: var(--text-muted); }
+html[data-finish="hairline"] #live-log .lm-fs-ride .lm-fs:hover { border-color: rgba(128, 128, 128, .35); color: var(--text-heading); }
+
+html[data-finish="hairline"] .live-input-bar .vn-card,
+html[data-finish="hairline"] .live-input-bar .live-textarea:not(.vn-card .live-textarea) { border-color: rgba(128, 128, 128, .22); box-shadow: none; }
+html[data-finish="hairline"] .live-input-bar .vn-card:focus-within,
+html[data-finish="hairline"] .live-input-bar .live-textarea:not(.vn-card .live-textarea):focus { border-color: rgba(128, 128, 128, .42); box-shadow: none; }
+
+/* One surface treatment for everything else in the panel */
+html[data-finish="hairline"] #live-log .msg.assistant:has(.lm) .msg-body { box-shadow: none; }
+/* A summary's pinned title: no bar and no line.  The title sits on the base colour, which fades out below it;
+   the status is a coloured word.  The box-shadow above is the base-colour cover over the thread's top padding: kept. */
+html[data-finish="hairline"] #live-log .lm-stick > .in {
+  border: 0; left: 0; right: 0; height: 52px; padding-bottom: 10px;
+  background: linear-gradient(var(--hl-base) 62%, transparent);
+}
+html[data-finish="hairline"] #live-log .lm-stick b { font-size: 13.5px; font-weight: 600; }
+html[data-finish="hairline"] #live-log .lm-stick :is(.st, .jump) { background: none; padding: 0; letter-spacing: .06em; }
+html[data-finish="hairline"] #live-log .lm-stick .jump { letter-spacing: 0; }
+html[data-finish="hairline"] #live-log .lm :is(.lm-row.lm-validate, .vt) { background: transparent; border-color: var(--qc-line); }
+html[data-finish="hairline"] #live-log .lm .lm-row.shot { box-shadow: inset 0 0 0 1px var(--qc-line); }
+html[data-finish="hairline"] #live-log .live-load-more-btn { background: transparent; border-color: var(--qc-line); }
+html[data-finish="hairline"] .live-panel :is(.vn-jump-pill, .vn-jump-auto.solo) {
+  background: var(--hl-base); border-color: var(--qc-line); box-shadow: none;
+}
+html[data-finish="hairline"] .live-panel .vn-jump-menu { background: var(--hl-base); border-color: var(--qc-line); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+html[data-finish="hairline"] .live-panel :is(.vn-jump-pill.is-working, .vn-jump-pill.is-waiting, .vn-jump-pill.is-done) {
+  background: var(--hl-base); border-color: var(--qc-line); color: var(--vn-jump-c); filter: none;
+}
+html[data-finish="hairline"] .live-panel :is(.vn-jump-pill.is-working, .vn-jump-pill.is-waiting, .vn-jump-pill.is-done):is(:hover, :focus-visible) {
+  color: var(--vn-jump-c); border-color: var(--vn-jump-c);
+}

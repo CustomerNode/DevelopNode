@@ -3,7 +3,7 @@ id: refactor-team
 name: Refactor Team
 department: compose
 source: vibenode
-version: 1.1.0
+version: 1.1.1
 depends_on: []
 type: prompt-template
 ---
@@ -27,7 +27,7 @@ If any of these are missing and cannot be inferred reliably from conversation co
 
 ## The Prompt
 
-Run the Refactor Team: Code Analyst, Architect, Refactor Engineer, Documentation Updater, Verification Engineer. All have full knowledge of the VibeNode codebase and architecture.
+Run the Refactor Team: Code Analyst, Architect, Refactor Engineer, Documentation Updater, Verification Engineer. All have full knowledge of the DevelopNode codebase and architecture.
 
 Improve internal code quality without changing external behavior. Internal structure may change, external contracts may not.
 

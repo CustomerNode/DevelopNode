@@ -1,6 +1,6 @@
 {
-  "name": "VibeNode",
-  "short_name": "VibeNode",
+  "name": "DevelopNode",
+  "short_name": "DevelopNode",
   "description": "Run and drive your Claude sessions from your phone.",
   "start_url": "/",
   "scope": "/",

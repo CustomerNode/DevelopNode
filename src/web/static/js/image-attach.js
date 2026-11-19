@@ -198,11 +198,13 @@
   // still appear and text paste is untouched. The chip is a second affordance
   // at the point the thumb already is.
 
-  var _lpTimer = null, _lpStart = null, _chip = null;
+  var _lpTimer = null, _lpStart = null, _chip = null, _scrim = null;
 
   function hideChip() {
     if (_chip && _chip.parentNode) _chip.parentNode.removeChild(_chip);
     _chip = null;
+    if (_scrim && _scrim.parentNode) _scrim.parentNode.removeChild(_scrim);
+    _scrim = null;
     var open = document.querySelectorAll('.live-image-btn.is-open');
     for (var i = 0; i < open.length; i++) open[i].classList.remove('is-open');
   }
@@ -555,6 +557,13 @@
       menu.appendChild(pref);
     }
 
+    // Phone: a native bottom sheet (grab handle, dimmed screen behind, swipe
+    // down or tap outside to close) instead of the desktop popover.
+    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+      openSheet(menu, btn);
+      return;
+    }
+
     document.body.appendChild(menu);
     // Open upward from the button, right edges aligned, clamped into the viewport.
     //
@@ -572,6 +581,27 @@
     menu.style.bottom = Math.round(window.innerHeight - r.top + 8) + 'px';
     menu.style.maxHeight = Math.max(80, Math.round(r.top - 16)) + 'px';
     btn.classList.add('is-open');
+    _chip = menu;
+  }
+
+  function openSheet(menu, btn) {
+    menu.classList.add('vn-more-sheet');
+    var grab = document.createElement('div');
+    grab.className = 'vn-ms-grab';
+    menu.insertBefore(grab, menu.firstChild);
+    var scrim = document.createElement('div');
+    scrim.className = 'vn-more-scrim';
+    document.body.appendChild(scrim);
+    document.body.appendChild(menu);
+    // Swipe down closes it, as a phone's own sheets do.
+    var y0 = null;
+    menu.addEventListener('touchstart', function (e) { y0 = e.touches[0].clientY; }, {passive: true});
+    menu.addEventListener('touchend', function (e) {
+      if (y0 !== null && e.changedTouches[0].clientY - y0 > 60) hideChip();
+      y0 = null;
+    }, {passive: true});
+    btn.classList.add('is-open');
+    _scrim = scrim;
     _chip = menu;
   }
 

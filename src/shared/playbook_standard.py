@@ -450,7 +450,7 @@ def check(content: str, filename: str | None = None) -> list:
 
 def explain() -> str:
     lines = [
-        "VibeNode Playbook Standard",
+        "DevelopNode Playbook Standard",
         "",
         "A playbook is a workforce/*.md entry with `playbook: true` in its frontmatter.",
         "`playbook_risk` sets how much it must spell out:",
@@ -471,10 +471,10 @@ def explain() -> str:
         "Ids, names, invocation words and example phrases must be unique across the library",
         "(exact matches, ignoring case and punctuation). Replacing a playbook must raise its version.",
         "",
-        "Enforced by VibeNode: registration (--register, /api/workforce/write-asset) refuses a",
+        "Enforced by DevelopNode: registration (--register, /api/workforce/write-asset) refuses a",
         "failing playbook; loading it to run (--show, /api/playbooks/<id>) checks it again and",
         "refuses; Settings > Playbooks does not list it; the test suite fails on it.",
-        "A declared risk grants no permission: every action still goes through VibeNode's checks.",
+        "A declared risk grants no permission: every action still goes through DevelopNode's checks.",
     ]
     return "\n".join(lines)
 

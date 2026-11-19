@@ -68,7 +68,7 @@ PAGE = f"""<!doctype html><meta charset=utf-8>
 <div class="msg user"><div class="msg-body">go with Always a demo</div></div>
 </div>
 <script>window.liveSessionId = 's1'; window.sessionKinds = {{}}; window.__sent = [];
-window._liveSubmitDirect = (sid, t) => window.__sent.push(t);</script>
+window._liveSubmitDirect = (sid, t) => window.__sent.push(String(t).replace(/^⟦VN-NOTE⟧[\\s\\S]*?⟦\\/VN-NOTE⟧\\s*/, ''));</script>
 <script src="/static/js/last-card.js"></script>
 <script>VNLastCard.renderIn(document.getElementById('live-log'));</script>
 """

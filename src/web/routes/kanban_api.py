@@ -41,7 +41,7 @@ import subprocess
 import uuid as uuid_mod
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from ..config import get_active_project
 from ..db import create_repository, reset_repository
@@ -1511,7 +1511,7 @@ def get_kanban_config():
         # Read by the Preferences switches (socket.js startup, openPreferences).
         # Without it, Smart termination would always load as off.
         "wrong_session_detection": cfg.get("wrong_session_detection", True) is not False,
-        "smart_termination": cfg.get("smart_termination", False) is True,
+        "smart_termination": cfg.get("smart_termination", True) is not False,
         "chrome_control": cfg.get("chrome_control", False) is True,
         # Weekly usage pace pop-ups (src/web/usage_pace.py): on unless turned off.
         "usage_pace_warning": cfg.get("usage_pace_warning", True) is not False,
@@ -2433,3 +2433,152 @@ def projects_alias():
         return jsonify({"ok": True, "message": msg, "aliases": aliases})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# The Workflow queue and the orchestrator (src/web/workflow_queue.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _queue_projects():
+    """The board's project id (alias-resolved, for tasks) and the sessions
+    project (the encoded folder name, for transcripts), from one request."""
+    from .sessions_api import _listing_project
+    return _get_project_id(), _listing_project(_requested_project())
+
+
+def _queue_sessions(repo, tasks, sessions_project):
+    """task id -> the ids of the sessions linked to it, listed under the id the
+    sidebar shows (a session linked under its launch id may since have been
+    renamed)."""
+    from ..session_store import _load_remaps_cached
+    sm = current_app.session_manager
+    aliases = dict(sm._id_aliases) if hasattr(sm, "_id_aliases") and isinstance(getattr(sm, "_id_aliases", None), dict) else {}
+    for old_id, entry in _load_remaps_cached(sessions_project).items():
+        if old_id not in aliases and entry.get("new_id"):
+            aliases[old_id] = entry["new_id"]
+    out = {}
+    for t in tasks:
+        ids = []
+        for ts in repo.get_task_sessions(t.id):
+            if ts.session_type != "session":
+                continue
+            sid = aliases.get(ts.session_id, ts.session_id)
+            if sid not in ids:
+                ids.append(sid)
+        out[t.id] = ids
+    return out
+
+
+@bp.route("/api/queue")
+def api_queue():
+    """The Workflow queue: top-level tasks in the person's order, each with
+    its status read off its sessions' summary cards, its subsessions (first
+    level) and its sessions; plus the sessions no task owns."""
+    from .. import workflow_queue as wq
+    from .sessions_api import feed_items
+    repo = _get_repo()
+    project_id, sessions_project = _queue_projects()
+    board = repo.get_board(project_id)
+    all_tasks = [t for group in (board.get("tasks") or {}).values() for t in group]
+    tasks = sorted((t.to_dict() for t in all_tasks if not t.parent_id), key=lambda t: t.get("position") or 0)
+    children = {}
+    for t in all_tasks:
+        if t.parent_id:
+            children.setdefault(t.parent_id, []).append(t.to_dict())
+    for kids in children.values():
+        kids.sort(key=lambda t: t.get("position") or 0)
+    sessions = _queue_sessions(repo, all_tasks, sessions_project)
+    filed = {sid for ids in sessions.values() for sid in ids}
+    items = {it["session_id"]: it for it in feed_items(sessions_project)}
+    rows = wq.build(tasks, children, sessions, items, wq.load_order(sessions_project))
+    return jsonify({"project": sessions_project, "tasks": rows, "unfiled": wq.unfiled(items, filed)})
+
+
+@bp.route("/api/queue/order", methods=["POST"])
+def api_queue_order():
+    """Save the person's order of the queue: ``{ids: [task ids, top first]}``."""
+    from .. import workflow_queue as wq
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids")
+    if not isinstance(ids, list):
+        return jsonify({"error": "ids must be a list"}), 400
+    _, sessions_project = _queue_projects()
+    if not wq.save_order(sessions_project, ids):
+        return jsonify({"error": "no project"}), 400
+    return jsonify({"ok": True, "ids": wq.load_order(sessions_project)})
+
+
+@bp.route("/api/queue/tasks/<task_id>/prompt")
+def api_queue_prompt(task_id):
+    """What a task's orchestrator session starts with: the task briefing plus
+    the orchestrator contract (when to open a subsession, when a subagent is
+    enough).  ``?session_id=`` is the id the browser will start it under, so
+    the contract can name it."""
+    from .. import workflow_queue as wq
+    repo = _get_repo()
+    task = repo.get_task(task_id)
+    if task is None:
+        return jsonify({"error": "Task not found"}), 404
+    session_id = (request.args.get("session_id") or "").strip()
+    try:
+        context = build_task_context(repo, task_id, daemon_client=getattr(current_app, "session_manager", None))
+    except ValueError:
+        return jsonify({"error": "Task not found"}), 404
+    return jsonify({
+        "task_id": task_id, "name": task.title,
+        "prompt": ("Run this task as its orchestrator: split it into parts, open a subsession for each part "
+                   "that will need the person, use subagents for the rest, and keep your summary card about "
+                   "the whole task."),
+        "system_prompt": context + "\n\n" + wq.orchestrator_prompt(task_id, session_id),
+    })
+
+
+@bp.route("/api/queue/tasks/<task_id>/subsessions", methods=["POST"])
+def api_queue_subsession(task_id):
+    """An orchestrator opens a subsession: a child task under its own (one
+    level only), a fresh session for it in the project's folder, linked to
+    the child, with the task briefing and the subsession brief.
+    Body: ``{title, prompt, parent_session_id}``."""
+    from .. import workflow_queue as wq
+    from ..config import _decode_project
+    from ..session_store import _resolve_remapped_id
+    data = request.get_json(silent=True) or {}
+    title = str(data.get("title") or "").strip()
+    prompt = str(data.get("prompt") or "").strip()
+    parent_sid = str(data.get("parent_session_id") or "").strip()
+    if not title or not prompt:
+        return jsonify({"error": "title and prompt are required"}), 400
+    repo = _get_repo()
+    task = repo.get_task(task_id)
+    if task is None:
+        return jsonify({"error": "Task not found"}), 404
+    if task.parent_id:
+        return jsonify({"error": "A subsession never opens subsessions: this task is itself a part of another."}), 409
+    project_id, sessions_project = _queue_projects()
+    now = datetime.now(timezone.utc).isoformat()
+    child = repo.create_task(Task(
+        id=str(uuid_mod.uuid4()), project_id=project_id, parent_id=task_id, title=title[:200],
+        description=prompt[:4000], verification_url="", status=TaskStatus.NOT_STARTED,
+        position=repo.get_next_position(project_id, "not_started"), depth=1, created_at=now, updated_at=now))
+    sm = current_app.session_manager
+    new_id = str(uuid_mod.uuid4())
+    if parent_sid:
+        parent_sid = _resolve_remapped_id(parent_sid, sessions_project) or parent_sid
+    try:
+        context = build_task_context(repo, child.id, daemon_client=sm)
+    except ValueError:
+        context = ""
+    result = sm.start_session(
+        session_id=new_id, prompt=prompt, cwd=_decode_project(sessions_project) if sessions_project else "",
+        name=title[:80], session_type="subsession", parent_session_id=parent_sid or None,
+        subsession_origin_turn=0, system_prompt=(context + "\n\n" if context else "") + wq.subsession_brief(task_id, title))
+    if not (isinstance(result, dict) and result.get("ok")):
+        err = result.get("error") if isinstance(result, dict) else "could not start the session"
+        return jsonify({"error": err or "could not start the session", "task_id": child.id}), 502
+    repo.link_session(child.id, new_id, "session")
+    try:
+        child = handle_session_start(repo, child.id, session_id=new_id)
+    except Exception:
+        child = repo.get_task(child.id)
+    _emit("kanban_task_created", child)
+    return jsonify({"ok": True, "task_id": child.id, "session_id": new_id, "parent_task_id": task_id})

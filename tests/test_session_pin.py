@@ -256,18 +256,31 @@ def test_the_pin_on_a_card_pins_and_unpins_without_opening_it(browser):
 
 
 @pytest.mark.slow
-def test_pinned_is_purple(browser):
+def test_a_pinned_pin_is_one_colour_with_no_dot(browser):
+    # Every pinned pin is one colour whatever the session's status (white in
+    # dark theme, the colour of Send's arrow; the Send colour in light) and
+    # draws no dot behind it, on cards and list rows alike.
     rows = _sessions(pinned_index=2)
-    app = FakeApp(browser, rows, clock=True)
-    try:
-        color, accent = app.eval("""(id) => {
-            const p = document.querySelector(`.wf-card[data-sid='${id}'] .vn-pin.on`);
-            const probe = document.createElement('span'); probe.style.color = 'var(--accent)'; document.body.appendChild(probe);
-            const a = getComputedStyle(probe).color; probe.remove();
-            return [getComputedStyle(p).color, a]; }""", rows[2]["id"])
-        assert color == accent, (color, accent)
-    finally:
-        app.close()
+    rows[3]["pinned"] = True
+    rows[2]["hold"] = "standby"
+    look = ("(s) => { const e = document.querySelector(s), c = getComputedStyle(e);"
+            " return [c.color, c.backgroundColor]; }")
+    send = ("() => { if (document.documentElement.dataset.theme !== 'light') return 'rgb(255, 255, 255)';"
+            " const p = document.createElement('i'); p.style.color = 'var(--accent)';"
+            " document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; }")
+    for mode, sel in (("cards", ".wf-card[data-sid='{}'] .vn-pin.on"),
+                      ("list", ".session-item[data-sid='{}'] .vn-pin.on")):
+        init = init_script(display_mode="list") if mode == "list" else None
+        app = FakeApp(browser, rows, **({"init": init} if init else {}), clock=True)
+        try:
+            accent = app.eval(send)
+            for row in (rows[2], rows[3]):
+                color, bg = app.eval(look, sel.format(row["id"]))
+                assert color == accent, (mode, color, accent)
+                assert bg == "rgba(0, 0, 0, 0)", (mode, bg)
+            assert not app.errors, app.errors
+        finally:
+            app.close()
 
 
 @pytest.mark.slow

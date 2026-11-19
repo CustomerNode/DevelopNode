@@ -43,7 +43,7 @@ function _fetchCopyExport(path) {
   if (hit && Date.now() - hit.at < _COPY_EXPORT_TTL_MS) return hit.promise;
   const promise = fetch('/api/copy-export?path=' + encodeURIComponent(path))
     .then(r => r.json().catch(() => ({ ok: false, error: 'Could not read the file (' + r.status + ')' })))
-    .catch(() => ({ ok: false, error: 'Could not reach VibeNode' }));
+    .catch(() => ({ ok: false, error: 'Could not reach DevelopNode' }));
   _copyExportCache.set(path, { at: Date.now(), promise });
   return promise;
 }
@@ -103,7 +103,7 @@ function _buildCopyExportNote() {
     '(a context export, a pack for another AI, a long document), do not paste it. Write it to ' +
     'a file in ~/.claude/copy-exports/ (create the folder if needed) and put a fenced code block ' +
     'with the language copyfile in your reply: first line the file\'s absolute path, optional ' +
-    'second line a short label. VibeNode shows it as a card with the size and a Copy button, ' +
+    'second line a short label. DevelopNode shows it as a card with the size and a Copy button, ' +
     'without displaying the text.';
 }
 window._buildCopyExportNote = _buildCopyExportNote;

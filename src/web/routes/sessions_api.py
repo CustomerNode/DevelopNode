@@ -522,6 +522,88 @@ def _listing_project(raw: str) -> str:
     return project or get_active_project()
 
 
+def feed_items(project: str) -> list:
+    """The Workflow feed's items for *project*: one per session that has a
+    newest summary card or live work, in reading order (``src/web/feed.py``).
+
+    Built on the sidebar's own listing (``api_sessions``: aliases, holds,
+    utility filter, live stubs) so the feed and the sidebar never disagree
+    about which sessions exist; the card for each row comes from the summary
+    cache (``web.sessions.session_card``), read once per transcript change.
+    Shared by the feed, the queue and the agent map (``kanban_api``).
+    """
+    from .. import feed as _feed
+    from ..sessions import session_card
+    rows = api_sessions().get_json() or []
+    sm = current_app.session_manager
+    states = {}
+    for state in _listing_states(sm) or []:
+        sid = state.get("session_id", "")
+        if not sid or sid.startswith("_") or state.get("session_type") in ("planner", "title"):
+            continue
+        state_cwd = state.get("cwd", "")
+        if state_cwd and not cwd_matches_active_project(state_cwd, project=project):
+            continue
+        states[sid] = state
+    # A row is listed under the id it was renamed to; its transcript may
+    # still sit under the launch id.
+    older = {}
+    aliases = dict(sm._id_aliases) if hasattr(sm, "_id_aliases") else {}
+    for old_id, entry in _load_remaps_cached(project).items():
+        if old_id not in aliases and entry.get("new_id"):
+            aliases[old_id] = entry["new_id"]
+    for old_id, new_id in aliases.items():
+        older.setdefault(new_id, []).append(old_id)
+    cards = {}
+    for row in rows:
+        sid = row.get("id", "")
+        if not sid:
+            continue
+        # No card and nothing running: not in the feed, so skip the stat.
+        if not row.get("next_step") and sid not in states:
+            continue
+        card = session_card(project, sid)
+        for old_id in older.get(sid, []) if card is None else []:
+            card = session_card(project, old_id)
+            if card is not None:
+                break
+        if card is not None:
+            cards[sid] = card
+    return _feed.build(rows, states, cards)
+
+
+@bp.route("/api/feed")
+def api_feed():
+    """The Workflow feed (see ``feed_items``)."""
+    project = _listing_project(request.args.get("project", ""))
+    return jsonify({"project": project, "items": feed_items(project)})
+
+
+@bp.route("/api/agents")
+def api_agents():
+    """The Workflow agent map: where each session is in the codebase
+    (``src/web/agent_map.py``): the project's folders with their file counts,
+    and for every session in the feed the files it touched lately and its last
+    steps in plain words, read from the tail of its transcript."""
+    from .. import agent_map
+    project = _listing_project(request.args.get("project", ""))
+    cwd = _decode_project(project) if project else ""
+    sdir = _sessions_dir(project)
+    agents = []
+    for it in feed_items(project):
+        sid = it.get("session_id", "")
+        path = sdir / f"{sid}.jsonl"
+        act = agent_map.recent_activity(path, cwd) if path.is_file() else {"files": [], "steps": [], "last_ts": 0}
+        live = str(it.get("state") or "") in ("working", "starting")
+        if not act["files"] and not live:
+            continue
+        agents.append({"session_id": sid, "name": it.get("name"), "title": it.get("title"), "headline": it.get("headline"),
+                       "verb": it.get("verb"), "group": it.get("group"), "label": it.get("label"),
+                       "live": live, "files": act["files"], "folders": agent_map.folders_of(act["files"]),
+                       "steps": act["steps"], "last_ts": act["last_ts"], "card": it.get("card")})
+    return jsonify({"project": project, "cwd": cwd, "tree": agent_map.project_tree(cwd) if cwd else [], "agents": agents})
+
+
 @bp.route("/api/sessions/untitled-count")
 def api_sessions_untitled_count():
     """How many sessions in a project have no title.  ``GET /api/sessions``

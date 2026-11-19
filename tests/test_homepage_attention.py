@@ -1,14 +1,15 @@
-"""The homepage answers "what needs me".
+"""The Home screen (a project chooser) answers "what needs me".
 
 Against the real page (``tests/_fake_app.py``: the real ``index.html``, every
 real script and the real CSS in headless Chromium; only the network is faked):
 
-  * the Sessions card lists "Needs you" (sessions waiting on a question or
+  * the open project's preview lists "Needs you" (sessions waiting on a question or
     permission first, then finished sessions with unread output) and
     "Running" (working sessions), each from SessionStore and the live state
     maps, and re-renders on the same state pushes as the counts;
   * with nothing waiting or running it says "Nothing needs you. N sleeping.";
   * a row opens its session;
+  * the usage meters are drawn once a reading exists;
   * the strip under the project name shows Durable Jobs needing a person, an
     older-code Session Engine, and "Name N untitled sessions" at >= 10.
 """
@@ -111,8 +112,8 @@ def test_empty_state_says_nothing_needs_you(browser):
         app.page.wait_for_function("document.getElementById('hp-attention-empty') !== null", timeout=5000)
         assert app.eval("() => document.getElementById('hp-attention-empty').textContent") == \
             "Nothing needs you. 7 sleeping."
-        # The Open Sessions button is still there.
-        assert app.eval("() => document.querySelector('.hp-sessions .hp-cta').textContent.trim()") == "Open Sessions"
+        # Open still leads to the project's sessions.
+        assert app.eval("() => document.getElementById('hd-open').textContent.trim()") == "Open"
         assert app.eval("() => !document.getElementById('hp-needs-list') && !document.getElementById('hp-running-list')")
     finally:
         app.close()
@@ -160,10 +161,12 @@ def test_strip_jobs_engine_and_naming(browser):
         app.eval("() => EngineFreshness.check()")
         app.advance(800)
         assert app.eval("() => !document.getElementById('hp-engine-stale')")
-        # The usage gauge is in the strip but hidden until a reading exists.
-        assert app.eval("() => getComputedStyle(document.querySelector('#hp-strip .hps-usage')).display") == "none"
+        # The usage meters are absent until a reading exists, drawn when one
+        # arrives, and not in the strip.
+        assert app.eval("() => !document.getElementById('hs-usage')")
         app.eval("() => _ingestUsageLimits({windows: {five_hour: {percent: 42, resets_at: Date.now() / 1000 + 3600}}})")
-        assert app.eval("() => getComputedStyle(document.querySelector('#hp-strip .hps-usage')).display") != "none"
+        assert app.eval("() => document.getElementById('hs-usage').textContent") == "5-hour42%"
+        assert app.eval("() => !document.querySelector('#hp-strip .hps-usage')")
         # The jobs link opens System -> Durable Jobs.
         app.eval("() => document.getElementById('hp-jobs-link').click()")
         app.page.wait_for_function("document.querySelector('#pm-overlay .pm-title') && "
@@ -192,8 +195,8 @@ def test_strip_hides_naming_below_threshold(browser):
 
 @pytest.mark.slow
 def test_workforce_counts_have_one_source(browser):
-    """The homepage Workforce card and the Workforce view header both read
-    workforceCounts() (folders.js), so they cannot disagree."""
+    """The Workforce view header reads workforceCounts() (folders.js), the one
+    count of the installed department tree."""
     tree = {"version": 1, "rootChildren": ["eng", "ops"], "folders": {
         "eng": {"id": "eng", "name": "Engineering", "children": ["be"], "sessions": [],
                 "skill": {"label": "Eng lead", "systemPrompt": "x"}},
@@ -203,17 +206,64 @@ def test_workforce_counts_have_one_source(browser):
     }}
     app = _home(browser, _sessions(3), routes={"/api/folder-tree": lambda req: (200, tree)})
     try:
-        app.page.wait_for_function(
-            "document.getElementById('hp-workforce-stat').textContent.includes('department')", timeout=5000)
-        assert app.eval("() => document.getElementById('hp-workforce-stat').textContent") == "2 agents · 2 departments"
-        assert app.eval("() => JSON.stringify(workforceCounts())") == \
-            '{"departments":2,"subDepartments":1,"agents":2}'
         app.eval("() => setViewMode('workplace')")
         app.page.wait_for_function("!!document.querySelector('.wf-cc-subtitle')", timeout=5000)
+        assert app.eval("() => JSON.stringify(workforceCounts())") == \
+            '{"departments":2,"subDepartments":1,"agents":2}'
         sub = app.eval("() => document.querySelector('.wf-cc-subtitle').textContent")
         assert sub.startswith("2 departments · 1 sub-department"), sub
         assert app.eval("() => Array.from(document.querySelectorAll('.wf-mode-btn')).map(b => b.textContent)") == \
             ["Workspace", "Configure"]
+        assert not app.errors, app.errors
+    finally:
+        app.close()
+
+
+
+def _status(detail):
+    return {"/api/project-status": lambda req: (200, detail)}
+
+
+@pytest.mark.slow
+def test_home_is_a_project_chooser(browser):
+    """Every project is a card; choosing one previews it without leaving the
+    open project; Open on another project switches to it."""
+    other = "-home-test-other"
+    projects = [{"encoded": PROJECT, "display": CWD, "custom_name": "", "session_count": 4, "active": True},
+                {"encoded": other, "display": "/home/test/other", "custom_name": "Other", "session_count": 9, "active": False}]
+    detail = {PROJECT: {"needs": 0, "standby": 0, "working": 0, "items": {"needs": [], "standby": [], "working": []},
+                        "last_ts": 0, "daily": [0, 0, 0, 0, 0, 0, 4]},
+              other: {"needs": 2, "standby": 1, "working": 1, "last_ts": time.time() - 7200, "daily": [1, 0, 2, 0, 0, 3, 1],
+                      "items": {"needs": [{"id": "n1", "title": "Pick a pricing tier", "ts": time.time()},
+                                          {"id": "n2", "title": "Approve the release", "ts": time.time() - 60}],
+                                "standby": [], "working": [{"id": "w1", "title": "Write the docs", "ts": time.time()}]}}}
+    routes = dict(_status(detail))
+    routes["/api/projects"] = lambda req: (200, projects)
+    app = _home(browser, _sessions(4), routes=routes)
+    try:
+        app.page.wait_for_function("document.querySelectorAll('#hd-side .hd-proj[data-enc]').length === 2", timeout=5000)
+        # The open project is chosen first; the other shows how many need you.
+        assert app.eval("() => document.querySelector('#hd-side .hd-proj.on').dataset.enc") == PROJECT
+        app.page.wait_for_function("(e) => (document.querySelector('.hd-proj[data-enc=\"' + e + '\"] .ps-n.vs-needs') || {}).textContent === '2'",
+                                   arg=other, timeout=5000)
+        # The same three counts as the project picker: Needs you, Standby, Working.
+        assert app.eval("(e) => Array.from(document.querySelectorAll('.hd-proj[data-enc=\"' + e + '\"] .ps-n')).map(n => n.textContent)", other) == ["2", "1", "1"]
+        assert app.eval("() => document.querySelectorAll('.hd-ps-head > span').length") == 4
+        app.eval("(e) => document.querySelector('.hd-proj[data-enc=\"' + e + '\"]').click()", other)
+        assert app.eval("() => document.querySelector('.hd-name').textContent") == "Other"
+        assert app.eval("() => Array.from(document.querySelectorAll('#hd-pane .hd-lists .hd-r .t')).map(e => e.textContent)") == \
+            ["Pick a pricing tier", "Approve the release", "Write the docs"]
+        assert app.eval("() => document.querySelector('.hd-stat.n b').textContent") == "2"
+        assert app.eval("() => document.querySelector('.hd-stat:last-child b').textContent") == "7"
+        # Choosing previews only: the open project has not changed.
+        assert app.eval("() => localStorage.getItem('activeProject')") == PROJECT
+        # A live update keeps the choice.
+        app.eval("() => _updateHomepageStats()")
+        assert app.eval("() => document.querySelector('.hd-name').textContent") == "Other"
+        # Open switches to that project.
+        app.eval("() => { window.__switched = null; window.selectProjectFromOverlay = (e) => { window.__switched = e; }; }")
+        app.eval("() => document.getElementById('hd-open').click()")
+        assert app.eval("() => window.__switched") == other
         assert not app.errors, app.errors
     finally:
         app.close()

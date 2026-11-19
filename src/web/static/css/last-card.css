@@ -9,14 +9,14 @@
 .lm button, .lm a { font-family: var(--font-sans); }
 [data-theme="light"] .lm { background: rgba(255,255,255,.7); border-color: rgba(0,0,0,.08); }
 .lm::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: rgb(var(--tone)); opacity: .85; }
-.lm.t-done { --tone: 52, 199, 120; }
+.lm.t-done { --tone: 240, 166, 40; }   /* finished work waits on the person's review: amber, worded Check it */
 .lm.t-needs { --tone: 240, 166, 40; }
 .lm.t-working { --tone: 96, 158, 255; }
 .lm.t-blocked { --tone: 242, 100, 100; }
 .lm.t-deliverable { --tone: 160, 130, 255; }
 .lm.t-explain { --tone: 140, 150, 175; }
 [data-theme="light"] .lm.t-needs { --tone: 205, 128, 0; }
-[data-theme="light"] .lm.t-done { --tone: 22, 150, 80; }
+[data-theme="light"] .lm.t-done { --tone: 205, 128, 0; }
 /* A Needs-you card that has been answered goes green; _markAnswered() in last-card.js. */
 .lm.t-needs.lm-answered { --tone: 52, 199, 120; }
 [data-theme="light"] .lm.t-needs.lm-answered { --tone: 22, 150, 80; }
@@ -1469,6 +1469,14 @@ html.lm-ov-open, html.lm-ov-open body { overflow: hidden !important; }
 .lm.skim .lm-needs .lm-chips > .lm-row:first-child::after, .lm.skim .lm-needs .lm-chips > .lm-row:first-child *::after, .lm.skim .lm-needs .lm-chips > .lm-row:first-child svg { color: inherit !important; stroke: currentColor; }
 .lm.skim:not(.t-working) > .lm-move { box-shadow: inset 2px 0 0 rgb(240,166,40) !important; }
 .lm.skim { --pb: rgba(240,166,40,.12); --pc: rgb(245,185,80); --pbd: inset 0 0 0 1px rgba(240,166,40,.55); }
+/* Answered (_markAnswered): the card no longer waits on you, so the line, the sent button and its copy in the
+   sticky edge row turn the card's green tone with the Decided label instead of staying amber. */
+.lm.skim.lm-answered:not(.t-working) > .lm-move { box-shadow: inset 2px 0 0 rgb(var(--tone)) !important; }
+.lm.skim.lm-answered { --pb: rgba(var(--tone), .1); --pc: rgb(var(--tone)); --pbd: inset 0 0 0 1px rgba(var(--tone), .5); }
+.lm.skim .lm-decide.sent { cursor: default; }
+.lm.skim .lm-decide.sent:hover { opacity: 1; }
+html[data-finish="hairline"] body #live-log .lm.lm-answered > .hl-edge .hl-do.hl-do.main {
+  color: rgb(var(--tone)); background: rgba(var(--tone), .1); box-shadow: inset 0 0 0 1px rgba(var(--tone), .5); }
 /* Also found on a phone: the text takes the row, its buttons go under it. */
 @media (max-width: 640px) {
   .lm.skim .lm-find { flex-wrap: wrap; row-gap: 8px; }
@@ -1596,3 +1604,88 @@ html.lm-ov-open, html.lm-ov-open body { overflow: hidden !important; }
   .lm-pr-pair { flex: none; flex-direction: column; min-height: 0; }
   .lm-pr-side { flex: none; height: 300px; }
 }
+
+/* ── Full screen: a large handle beside every summary ──
+   The handle rides down the thread's margin beside the summary (sticky); with
+   no room for it (.in: a phone, a narrow window) it sits inside the
+   summary's right edge, below the Flag row.  Opening pins the summary itself
+   over the window, so every button on it keeps working. */
+.lm-fs-ride { position: sticky; top: 60px; height: 0; z-index: 3; pointer-events: none; }
+.lm-fs-ride .lm-fs { all: unset; box-sizing: border-box; pointer-events: auto; cursor: pointer; position: absolute; top: 0; left: calc(100% + 14px);
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--text-heading);
+  background: var(--bg-card, var(--bg-body)); border: 1px solid rgba(128,128,128,.35); box-shadow: 0 6px 18px rgba(0,0,0,.28);
+  transition: border-color .12s, background .12s; }
+.lm-fs-ride .lm-fs:hover { border-color: rgba(160,130,255,.7); }
+.lm-fs-ride .lm-fs:focus-visible { outline: 2px solid var(--text-heading); outline-offset: 2px; }
+.lm-fs-ride.in .lm-fs { left: auto; right: 10px; top: 52px; width: 40px; height: 40px; background: color-mix(in srgb, var(--bg-body) 86%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+[data-theme="light"] .lm-fs-ride .lm-fs { box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+
+.lm.lm-full { position: fixed !important; inset: 0 !important; z-index: 100000; margin: 0 !important; max-width: none !important; width: auto !important;
+  border: 0 !important; border-radius: 0 !important; box-shadow: none !important; overflow: auto !important; overscroll-behavior: contain;
+  background: var(--bg-body) !important; padding: 44px max(16px, calc((100vw - 820px) / 2)) 90px !important; animation: lmFullIn .16s ease-out; }
+.lm.lm-full .lm-stick { display: none; }   /* the title is on screen at the top already */
+/* The thread's edge rows (hairline-fit.js) are styled only inside #live-log; a summary lifted into the body for full
+   screen would show them as bare buttons, and the full-screen summary is its own scroller, so they have no job there. */
+.lm.lm-full > .hl-edge { display: none !important; }
+@keyframes lmFullIn { from { opacity: 0; transform: scale(.99); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .lm.lm-full { animation: none; } }
+.lm.lm-full .lm-full-x { all: unset; box-sizing: border-box; cursor: pointer; position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; z-index: 5;
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--text-muted);
+  background: var(--bg-body); border: 1px solid rgba(128,128,128,.28); }
+.lm.lm-full .lm-full-x:hover { color: var(--text-heading); border-color: rgba(128,128,128,.55); }
+.lm.lm-full .lm-full-x:focus-visible { outline: 2px solid var(--text-heading); outline-offset: 2px; }
+
+/* ── Full-screen popups opened from a summary (Validate's page and screenshot, a deliverable, Review the options) on
+   the hairline desktop finish (css/hairline.css): the app's backdrop with its indigo glow, a top bar with no rule or
+   status rail, quiet 32px icon buttons, and the page, picture or text inside one hairline box with the finish's radius.
+   No shadows, no tinted fills.  The phone layout has no hairline finish and keeps the plain popup. ── */
+html[data-finish="hairline"] .lm-ov {
+  background: radial-gradient(ellipse 70% 55% at 50% 0%, var(--hl-glow), transparent 70%) var(--hl-base);
+  padding: 0 16px 16px; box-sizing: border-box;
+}
+html[data-finish="hairline"] .lm-ov-top {
+  border-bottom: 0; box-shadow: none; background: transparent; padding: 12px 0 12px 6px; gap: 6px;
+}
+html[data-finish="hairline"] .lm-ov-top .t { font-size: 14px; font-weight: 600; letter-spacing: -.005em; }
+html[data-finish="hairline"] .lm-ov-top :is(.x, .nt) {
+  width: 32px; height: 32px; border-radius: 10px; border: 1px solid transparent; box-sizing: border-box; color: var(--text-muted);
+}
+html[data-finish="hairline"] .lm-ov-top :is(.x, .nt):hover { background: transparent; color: var(--text-heading); border-color: var(--hl-line); }
+html[data-finish="hairline"] .lm-ov-top :is(.x, .nt):focus-visible { outline: none; border-color: var(--lf-line, var(--hl-focus)); }
+html[data-finish="hairline"] .lm-dvview .lm-ov-top .cp { height: 32px; box-sizing: border-box; padding: 0 12px; border-color: var(--hl-line); }
+html[data-finish="hairline"] .lm-dvview .lm-ov-top .cp:hover { border-color: var(--lf-line, var(--hl-accent-line)); }
+/* the content: one hairline box */
+html[data-finish="hairline"] .lm-ov :is(.lm-ov-frame, .lm-view-img, .lm-dv-scroll, .lm-view-gone) {
+  box-sizing: border-box; border: 1px solid var(--hl-line); border-radius: var(--hl-r); overflow: auto;
+}
+html[data-finish="hairline"] .lm-ov .lm-ov-frame { overflow: hidden; background: var(--hl-base); }
+html[data-finish="hairline"] .lm-ov .lm-ov-frame.lm-dvframe { background: #fff; }
+html[data-finish="hairline"] .lm-ov :is(.lm-view-img, .lm-dv-scroll, .lm-view-gone) { background: transparent; }
+html[data-finish="hairline"] .lm-ov .lm-view-img { padding: 16px; align-items: flex-start; }
+html[data-finish="hairline"] .lm-ov .lm-view-img img { border-radius: calc(var(--hl-r) - 6px); }
+html[data-finish="hairline"] .lm-ov .lm-view-retry { border-color: var(--hl-line); border-radius: 10px; }
+/* Review the options: the pick bar is a second hairline box under the page */
+html[data-finish="hairline"] .lm-ov-pick {
+  margin-top: 12px; background: transparent; box-shadow: none;
+  border: 1px solid var(--hl-line); border-radius: var(--hl-r);
+}
+html[data-finish="hairline"] .lm-ov-pick .opt { background: transparent; border-color: var(--hl-line); }
+html[data-finish="hairline"] .lm-ov-pick .opt.on { background: rgba(var(--tone), .08); }
+html[data-finish="hairline"] .lm-ov-pick .send { box-shadow: none; border-radius: 10px; }
+
+/* The hairline finish's bottom-edge answer buttons (built by hairline-fit.js, styled in hairline.css): each leads with
+   a small icon in its own text colour.  Kept here, one step more specific than hairline.css, because this stylesheet
+   swaps into open tabs (the doubled class outranks hairline.css's Respond menu rule) (live-assets.js) where hairline.css needs a page load.
+   The icons hang from the words' own baseline, centred on the capitals (half a cap above the baseline), so they sit
+   with the letters wherever the bar lands on the pixel grid.  Centring both in the button's box put them a pixel apart:
+   the box centre is fractional, the browser snaps the text's baseline and draws the icon where it falls. */
+html[data-finish="hairline"] body #live-log .lm > .hl-edge .hl-do.hl-do { display: inline-block; line-height: 20px; padding: 5px 10px 3px; white-space: nowrap; }
+html[data-finish="hairline"] body #live-log .lm > .hl-edge .hl-do.hl-do svg.hl-ic { width: 13px; height: 13px; margin-right: 6px; color: inherit; vertical-align: calc(0.5cap - 6.5px); }
+html[data-finish="hairline"] body #live-log .lm > .hl-edge .hl-do.hl-do svg:not(.hl-ic) { margin-left: 5px; vertical-align: calc(0.5cap - 5.5px); }
+/* Every answer button in the sticky bar (Try it, Look, Respond, Decide) is drawn in the needs-you amber, so what can
+   be pressed stands out from the part names beside it.  Answered cards turn them to the card's tone. */
+html[data-finish="hairline"] body #live-log .lm > .hl-edge .hl-do.hl-do { color: rgb(240, 166, 40); background: rgba(240, 166, 40, .12); box-shadow: inset 0 0 0 1px rgba(240, 166, 40, .55); }
+html[data-finish="hairline"][data-theme="light"] body #live-log .lm > .hl-edge .hl-do.hl-do { color: rgb(190, 115, 0); }
+html[data-finish="hairline"] body #live-log .lm > .hl-edge .hl-do.hl-do:hover { background: rgba(240, 166, 40, .2); }
+html[data-finish="hairline"] body #live-log .lm.lm-answered > .hl-edge .hl-do.hl-do { color: rgb(var(--tone)); background: rgba(var(--tone), .1); box-shadow: inset 0 0 0 1px rgba(var(--tone), .5); }

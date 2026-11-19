@@ -79,7 +79,7 @@ def _ours(data: dict) -> bool:
 def _pref_on() -> bool:
     sys.path.insert(0, str(_REPO / "src"))
     from shared.config import get_kanban_config
-    return get_kanban_config().get("smart_termination", False) is True
+    return get_kanban_config().get("smart_termination", True) is not False
 
 
 def _applies(data: dict) -> bool:
@@ -98,9 +98,9 @@ def _applies(data: dict) -> bool:
 # "base" is what an engine-run session's system prompt says (the switch at
 # launch); a compaction keeps the system prompt but may drop a later note.
 
-TURNED_ON = ("VibeNode's Smart termination preference was just turned ON. "
+TURNED_ON = ("DevelopNode's Smart termination preference was just turned ON. "
              "From your next final message on, follow these rules:\n\n")
-TURNED_OFF = ("VibeNode's Smart termination preference was just turned OFF. "
+TURNED_OFF = ("DevelopNode's Smart termination preference was just turned OFF. "
               "The handoff card rules given earlier (in your system prompt or "
               "context) no longer apply: do not end turns with a ```handoff "
               "card or a zoom block; end each turn with a normal, plain reply.")

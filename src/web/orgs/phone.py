@@ -172,7 +172,7 @@ def call_friend(session_id: str, guest_id: str, level: str, duration: str,
     keys.my_private_key()
     if not keys.public_key_of(guest_id):
         raise OrgsError("friend_needs_update",
-                        "Their VibeNode needs an update before you can phone them (it cannot unlock calls yet).")
+                        "Their DevelopNode needs an update before you can phone them (it cannot unlock calls yet).")
     minutes = DURATIONS[duration]
     if duration == "today":
         lt = time.localtime()
@@ -606,7 +606,7 @@ def start(app, socketio) -> None:
                 backoff = TICK_S if live else IDLE_TICK_S
             except OrgsError as e:
                 if e.code in ("not_a_member",):
-                    log.warning("this VibeNode's org membership was removed")
+                    log.warning("this DevelopNode's org membership was removed")
                 backoff = min(60.0, backoff * 2)
             except Exception:
                 log.exception("Phone a Friend tick failed")

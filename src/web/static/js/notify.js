@@ -246,8 +246,8 @@
       if (!document.hidden) return null;
       var n = new Notification(title, {
         body: body,
-        icon: '/static/vibenode.png',
-        badge: '/static/vibenode.png',
+        icon: '/static/developnode.png',
+        badge: '/static/developnode.png',
         tag: tag,                      // coalesce a burst into one banner
         renotify: true,
       });
@@ -465,7 +465,7 @@
       done(href);
     };
     img.onerror = function () { done(_plainRedDotDataUrl()); };
-    img.src = _originalFaviconHref || '/static/images/logo.png';
+    img.src = _originalFaviconHref || '/static/developnode.png';
   }
 
   function _plainRedDotDataUrl() {
@@ -559,7 +559,7 @@
     info = info || {};
     if (!_chime(info.key || '')) return;
     if (info.banner !== false) {
-      _showNotification(info.title || 'VibeNode', info.body || '', 'vn-notice');
+      _showNotification(info.title || 'DevelopNode', info.body || '', 'vn-notice');
     }
   }
 

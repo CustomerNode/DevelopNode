@@ -173,7 +173,7 @@ def _default_device_name() -> str:
         host = (socket.gethostname() or "").split(".")[0].strip()
     except Exception:  # noqa: BLE001
         host = ""
-    return host or "VibeNode"
+    return host or "DevelopNode"
 
 
 def device_name() -> str:

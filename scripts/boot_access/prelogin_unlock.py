@@ -100,9 +100,9 @@ def _log(msg: str) -> None:
 
 def _device_name() -> str:
     try:
-        return (socket.gethostname() or "").split(".")[0].strip() or "VibeNode"
+        return (socket.gethostname() or "").split(".")[0].strip() or "DevelopNode"
     except Exception:
-        return "VibeNode"
+        return "DevelopNode"
 
 
 def _home_mounted() -> bool:
@@ -205,7 +205,7 @@ def _launch_vibenode() -> None:
     profile (readable now that the home is mounted) so PATH matches a normal
     login shell — the daemon's CLI shell-outs depend on it."""
     if not VN_CHECKOUT:
-        _log("VN_CHECKOUT not set — cannot launch VibeNode")
+        _log("VN_CHECKOUT not set — cannot launch DevelopNode")
         return
     entry = os.path.join(VN_CHECKOUT, "session_manager.py")
     if not os.path.isfile(entry):
@@ -228,9 +228,9 @@ def _launch_vibenode() -> None:
     try:
         subprocess.Popen(
             ["/bin/bash", "-lc", "exec python3 session_manager.py"], **kwargs)
-        _log("launched VibeNode (session_manager.py) in %s" % VN_CHECKOUT)
+        _log("launched DevelopNode (session_manager.py) in %s" % VN_CHECKOUT)
     except Exception as e:
-        _log("VibeNode launch failed: %s" % e)
+        _log("DevelopNode launch failed: %s" % e)
     finally:
         try:
             if log_fh is not None:
@@ -313,7 +313,7 @@ class PreLogin:
                              "remaining": _MAX_FAILS - self._fails}
             self._fails = 0
             self._unlock_started = True
-            _log("home UNLOCKED via phone — handing off to VibeNode")
+            _log("home UNLOCKED via phone — handing off to DevelopNode")
             threading.Thread(target=self._after_unlock,
                              name="prelogin-handoff", daemon=True).start()
             return 200, {"ok": True}

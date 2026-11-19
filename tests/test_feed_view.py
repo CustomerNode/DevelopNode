@@ -191,6 +191,7 @@ def test_with_smart_termination_off_workflow_opens_on_the_tasks(browser):
     app = _open(browser, smart="off", wait_for="typeof viewMode !== 'undefined' && viewMode === 'kanban' && !!window.VNFeed",
                 config={"smart_termination": False})
     try:
+        app.advance(600)     # past the view fade, which shows the board a moment after entering Workflow
         assert app.eval("VNFeed.mode()") == "tasks"
         assert app.eval("document.getElementById('feed-view').style.display") == "none"
         assert app.eval("document.getElementById('kanban-board').style.display") == ""

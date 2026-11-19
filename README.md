@@ -254,31 +254,31 @@ Run this once in PowerShell to create a desktop shortcut that launches DevelopNo
 
 ```powershell
 $WshShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\VibeNode.lnk")
+$Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\DevelopNode.lnk")
 $Shortcut.TargetPath = (Get-Command pythonw).Source
-$Shortcut.Arguments = "`"$env:USERPROFILE\Documents\VibeNode\vibenode.py`""
-$Shortcut.WorkingDirectory = "$env:USERPROFILE\Documents\VibeNode"
-$Shortcut.IconLocation = "$env:USERPROFILE\Documents\VibeNode\src\web\static\vibenode.ico,0"
+$Shortcut.Arguments = "`"$env:USERPROFILE\Documents\DevelopNode\vibenode.py`""
+$Shortcut.WorkingDirectory = "$env:USERPROFILE\Documents\DevelopNode"
+$Shortcut.IconLocation = "$env:USERPROFILE\Documents\DevelopNode\src\web\static\developnode.ico,0"
 $Shortcut.WindowStyle = 7
 $Shortcut.Save()
 ```
 
-Uses `pythonw.exe` (windowless) so no console flashes on launch. When you click the shortcut, a boot splash window shows real-time startup progress (clearing caches, checking dependencies, starting the session daemon, etc.) and automatically dismisses once the browser opens. The app self-heals this shortcut on every startup — if you created it with `python` instead, it will be silently upgraded to `pythonw` next time you run VibeNode.
+Uses `pythonw.exe` (windowless) so no console flashes on launch. When you click the shortcut, a boot splash window shows real-time startup progress (clearing caches, checking dependencies, starting the session daemon, etc.) and automatically dismisses once the browser opens. The app self-heals this shortcut on every startup — if you created it with `python` instead, it will be silently upgraded to `pythonw` next time you run DevelopNode.
 
 ### 4. Desktop shortcut (macOS)
 
 Create an alias in your Applications folder:
 
 ```bash
-ln -s ~/Documents/DevelopNode/src/launcher/launch.sh /Applications/VibeNode
+ln -s ~/Documents/DevelopNode/src/launcher/launch.sh /Applications/DevelopNode
 ```
 
 Or create a clickable `.command` file on your Desktop:
 
 ```bash
 echo '#!/bin/bash
-cd ~/Documents/DevelopNode && ./src/launcher/launch.sh' > ~/Desktop/VibeNode.command
-chmod +x ~/Desktop/VibeNode.command
+cd ~/Documents/DevelopNode && ./src/launcher/launch.sh' > ~/Desktop/DevelopNode.command
+chmod +x ~/Desktop/DevelopNode.command
 ```
 
 ### 5. Desktop shortcut (Linux)
@@ -293,7 +293,7 @@ cat > ~/.local/share/applications/vibenode.desktop << EOF
 Name=DevelopNode
 Comment=Development platform for agentic programming
 Exec=bash -c 'cd "$VIBENODE_DIR" && ./src/launcher/launch.sh'
-Icon=$VIBENODE_DIR/src/web/static/vibenode.png
+Icon=$VIBENODE_DIR/src/web/static/developnode.png
 Type=Application
 Terminal=false
 Categories=Development;
@@ -311,12 +311,12 @@ fi
 ```
 
 Notes:
-- The Linux entry uses `src/web/static/vibenode.png` because most desktop environments don't render `.ico` files. The `.ico` is still used on Windows.
+- The Linux entry uses `src/web/static/developnode.png` because most desktop environments don't render `.ico` files. The `.ico` is still used on Windows.
 - `~` and `$HOME` don't expand inside `.desktop` `Icon=`/`Exec=` fields, so the snippet above bakes in absolute paths via `$VIBENODE_DIR`.
 
 #### Optional: a "Stop DevelopNode" shortcut
 
-Same idea, but kills the running web server (5050), the session daemon (5051), and any orphaned subprocesses. Uses a grayed-out logo with a red X (`src/web/static/vibenode_stop.png`) so it's visually distinct from the launch shortcut. Hard stop — any active agent sessions are terminated.
+Same idea, but kills the running web server (5050), the session daemon (5051), and any orphaned subprocesses. Uses a grayed-out logo with a red X (`src/web/static/developnode_stop.png`) so it's visually distinct from the launch shortcut. Hard stop — any active agent sessions are terminated.
 
 ```bash
 VIBENODE_DIR="$(pwd)"
@@ -329,16 +329,16 @@ Comment=Stop DevelopNode (kills web server 5050, daemon 5051, and any orphaned s
 Exec=bash -c "cd '$VIBENODE_DIR' && '$VIBENODE_DIR/src/launcher/stop.sh'; exec bash"
 Path=$VIBENODE_DIR
 Terminal=true
-Icon=$VIBENODE_DIR/src/web/static/vibenode_stop.png
+Icon=$VIBENODE_DIR/src/web/static/developnode_stop.png
 Categories=Development;
 EOF
 chmod +x ~/.local/share/applications/vibenode-stop.desktop
 update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
 if [ -d "$HOME/Desktop" ]; then
-    cp ~/.local/share/applications/vibenode-stop.desktop "$HOME/Desktop/Stop VibeNode.desktop"
-    chmod +x "$HOME/Desktop/Stop VibeNode.desktop"
-    gio set "$HOME/Desktop/Stop VibeNode.desktop" metadata::trusted true 2>/dev/null || true
+    cp ~/.local/share/applications/vibenode-stop.desktop "$HOME/Desktop/Stop DevelopNode.desktop"
+    chmod +x "$HOME/Desktop/Stop DevelopNode.desktop"
+    gio set "$HOME/Desktop/Stop DevelopNode.desktop" metadata::trusted true 2>/dev/null || true
 fi
 ```
 

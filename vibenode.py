@@ -156,7 +156,7 @@ def _autostart_body(entry: Path) -> str:
 """
     return f"""[Desktop Entry]
 Type=Application
-Name=VibeNode
+Name=DevelopNode
 Exec={sys.executable} {launcher} --background
 Path={ROOT}
 X-GNOME-Autostart-enabled=true

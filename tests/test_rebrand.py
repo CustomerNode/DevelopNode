@@ -131,3 +131,75 @@ def test_project_name(monkeypatch, tmp_path):
 def test_the_new_icons_exist():
     for p in (rebrand.ICON_PNG, rebrand.ICON_STOP_PNG, rebrand.ICON_ICO):
         assert p.is_file(), p
+
+
+# ── Only people who had VibeNode see the notice ─────────────────────────
+
+def test_a_fresh_install_sees_no_notice(tmp_path, monkeypatch):
+    """A DevelopNode launcher, even with an icon the person picked, is not the old name."""
+    root = tmp_path / "apps" / "DevelopNode"
+    root.mkdir(parents=True)
+    home = tmp_path / "home"
+    (home / ".local" / "share" / "applications").mkdir(parents=True)
+    (home / "Desktop").mkdir()
+    monkeypatch.setattr(rebrand.subprocess, "run", lambda *a, **k: None)
+    import web.config as cfg
+    monkeypatch.setattr(cfg, "_load_project_names", lambda: {})
+    (home / ".local/share/applications/vibenode.desktop").write_text(
+        _launcher(root, "DevelopNode").replace(f"{root}/static/old.png", "/usr/share/icons/mine.png"))
+    (home / "Desktop" / "DevelopNode.desktop").write_text(_launcher(root, "DevelopNode"))
+    st = rebrand.status(root, home, tmp_path / "state.json", )
+    assert st["show"] is False and st["items"] == []
+
+
+def test_an_old_icon_alone_still_counts(box):
+    root, home, state, _ = box
+    app = home / ".local/share/applications/vibenode.desktop"
+    app.write_text(_launcher(root, "DevelopNode").replace(f"{root}/static/old.png",
+                                                          f"{root}/src/web/static/vibenode.png"))
+    st = rebrand.status(root, home, state)
+    assert st["show"] is True
+    rebrand.apply(root, home, state)
+    assert f"Icon={rebrand.ICON_PNG}" in app.read_text()
+
+
+def test_windows_counts_only_shortcuts_that_had_the_old_name(tmp_path, monkeypatch):
+    root = tmp_path / "DevelopNode"
+    root.mkdir()
+    found = [
+        {"path": str(tmp_path / "Desktop" / "DevelopNode.lnk"), "target": "pythonw.exe",
+         "args": f'"{root}\\session_manager.py"', "workdir": str(root), "icon": r"C:\icons\mine.ico,0"},
+        {"path": str(tmp_path / "Desktop" / "VibeNode.lnk"), "target": "pythonw.exe",
+         "args": f'"{root}\\session_manager.py"', "workdir": str(root), "icon": str(rebrand.ICON_ICO) + ",0"},
+        {"path": str(tmp_path / "Desktop" / "Work.lnk"), "target": "pythonw.exe",
+         "args": f'"{root}\\session_manager.py"', "workdir": str(root),
+         "icon": str(root / "src/web/static/vibenode.ico") + ",0"},
+    ]
+
+    class R:
+        stdout = json.dumps(found)
+    monkeypatch.setattr(rebrand, "_run_ps", lambda *a, **k: R())
+    labels = sorted(i["label"] for i in rebrand._windows_items(root, tmp_path))
+    assert labels == ["VibeNode on the desktop", "Work on the desktop"]
+
+
+def test_the_project_name_counts_only_an_old_folder(monkeypatch, tmp_path):
+    import web.config as cfg
+    monkeypatch.setattr(cfg, "_load_project_names", lambda: {})
+    fresh, old = tmp_path / "DevelopNode", tmp_path / "VibeNode"
+    fresh.mkdir()
+    old.mkdir()
+    assert rebrand._project_item(fresh) == []
+    assert rebrand._project_item(old)[0]["becomes"] == "DevelopNode"
+
+
+def test_new_installs_make_nothing_with_the_old_name():
+    """What a fresh install writes (sign-in entry, README shortcuts, the icon the
+    shortcut repair sets) never carries the old name, or the notice would show."""
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for old in ("VibeNode.lnk", "VibeNode.command", "/Applications/VibeNode", "Stop VibeNode.desktop",
+                "static/vibenode.png", "static/vibenode_stop.png", "static\\vibenode.ico"):
+        assert old not in readme, old
+    assert "Name=VibeNode" not in (root / "vibenode.py").read_text(encoding="utf-8")
+    assert "vibenode.ico" not in (root / "src/launcher/run.py").read_text(encoding="utf-8")

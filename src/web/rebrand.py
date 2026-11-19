@@ -82,6 +82,15 @@ def _inside(text: str, root: Path) -> bool:
     return re.search(re.escape(r) + r"(?=$|[/\s'\"&;])", t, flags) is not None
 
 
+def _had_old(*texts: str) -> bool:
+    """True when something carries the old name or one of its icons.
+
+    The notice is for people who had VibeNode.  A fresh DevelopNode install has
+    neither, so a launcher with some other icon (one the person picked) is not
+    a reason to show it."""
+    return any(OLD.lower() in (t or "").lower() for t in texts)
+
+
 def _renamed(name: str) -> str:
     return name.replace(OLD, NEW).replace(OLD.lower(), NEW.lower())
 
@@ -121,6 +130,12 @@ def _linux_items(root: Path, home: Path) -> list:
             continue
         if not _inside(text, root):
             continue
+        # Names as they read, and the icon by its file name only: the install's
+        # own folder may well be called VibeNode in either case.
+        shown = "\n".join(Path(m.group(3)).name if m.group(1) == "Icon" else m.group(3)
+                          for m in _FIELD.finditer(text))
+        if not _had_old(f.name if f.parent.name == "Desktop" else "", shown):
+            continue    # names and icon carry no trace of VibeNode
         new_text = _new_desktop_text(text)
         new_path = f.with_name(_renamed(f.name)) if (f.parent.name == "Desktop" and OLD in f.name) else f
         if new_text == text and new_path == f:
@@ -263,6 +278,9 @@ def _windows_items(root: Path, home: Path) -> list:
                 or _inside(i.get("workdir", ""), root)):
             continue
         p = Path(i["path"])
+        icon_file = re.split(r"[\\/]", (i.get("icon") or "").split(",")[0])[-1]
+        if not _had_old(p.stem, icon_file):
+            continue    # a DevelopNode shortcut, or an icon the person picked
         stop = "stop" in p.stem.lower()
         if stop:
             continue  # Windows has no stop shortcut of ours; leave others alone
@@ -294,6 +312,8 @@ def _project_item(root: Path) -> list:
     current = names.get(enc, "")
     if current == NEW or (current and OLD not in current):
         return []   # already renamed, or a name the person chose themselves
+    if not current and not _had_old(root.name):
+        return []   # shown under its folder's name, which never said VibeNode
     return [{"kind": "project_name", "encoded": enc,
              "label": f"The {current or OLD} project in your project list",
              "becomes": (current.replace(OLD, NEW) if current else NEW)}]

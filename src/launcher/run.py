@@ -484,7 +484,7 @@ def _fix_shortcut():
     shortcut_repair.fix_shortcuts(
         _ROOT,
         Path(__file__).resolve().parent / "session_manager.py",
-        _ROOT / "src" / "web" / "static" / "vibenode.ico",
+        _ROOT / "src" / "web" / "static" / "developnode.ico",
     )
 
 # Run shortcut repair in background — it's best-effort and involves

@@ -179,7 +179,8 @@ def test_session_manager_runs_a_hosted_session(fake, monkeypatch):
         assert "echo: hello" in texts
         # The host refiled its record under the adopted id.
         assert wait_until(lambda: shp.read_record(sid), 5)
-        assert not shp.record_path("temp-sm-1").exists()
+        # The host writes the new record first, then deletes the old one.
+        assert wait_until(lambda: not shp.record_path("temp-sm-1").exists(), 5)
         rec = dict(info._host_record)
         assert sm.send_message(sid, "second")["ok"]
         assert wait_until(lambda: "echo: second" in [e["text"] for e in sm.get_entries(sid)], 20)

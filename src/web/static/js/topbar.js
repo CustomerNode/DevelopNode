@@ -50,8 +50,20 @@
     counts.className = 'vn-foot-counts';
     counts.setAttribute('aria-label', 'Sessions by status');
     counts.innerHTML = ['needs', 'working', 'standby', 'done'].map(function (k) {
-      return '<span class="vn-ct ' + k + '" title="' + LABEL[k] + '"><span class="vn-ct-ic">' + ICON[k] + '</span><b>-</b></span>';
+      return '<span class="vn-ct ' + k + '" data-ct="' + k + '" role="button" tabindex="0" aria-pressed="false" title="Show only ' + LABEL[k] +
+        '"><span class="vn-ct-ic">' + ICON[k] + '</span><b>-</b></span>';
     }).join('');
+    // Each count is a filter (the funnel's own status chips, app.js toggleSessionFilter): several may be on;
+    // turning the last one off shows every session again.
+    var pick = function (e) {
+      var ct = e.target.closest && e.target.closest('.vn-ct[data-ct]');
+      if (!ct || typeof window.toggleSessionFilter !== 'function') return;
+      e.preventDefault();
+      window.toggleSessionFilter(CHIP[ct.dataset.ct]);
+      syncCountFilters();
+    };
+    counts.addEventListener('click', pick);
+    counts.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') pick(e); });
 
     pill = document.createElement('div');
     pill.className = 'vn-new-row';
@@ -116,6 +128,7 @@
     ['filter', 'Filter sessions', function () { if (typeof toggleFilterMenu === 'function') toggleFilterMenu(); }],
     ['sort', 'Sort and display', function () { if (typeof toggleSidebarMenu === 'function') toggleSidebarMenu(); }],
     ['sync', 'Sync', function () { if (typeof openGitSyncBoth === 'function') openGitSyncBoth(); }],
+    ['doom', 'Needs you', function () { if (window.VNDoom) VNDoom.open(); }],
     ['settings', 'Settings', function () { if (typeof toggleHdrSys === 'function') toggleHdrSys(); }],
     ['theme', 'Appearance', function () { if (typeof cycleTheme === 'function') cycleTheme(); }]
   ];
@@ -124,6 +137,7 @@
     filter: _svg('<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>'),
     sort: _svg('<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="8.5" cy="17" r="2.5"/>'),
     sync: _svg('<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1 .5 7.97"/><path d="M12 12v8M9 15l3-3 3 3"/>'),
+    doom: _svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 6 4-6 4Z"/>'),
     settings: _svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>'),
     theme: _svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>')
   };
@@ -162,7 +176,26 @@
     var c;
     try { c = window._hpThree(typeof _waitingPolledOnce !== 'undefined' ? _waitingPolledOnce : true); } catch (_e) { return; }
     var set = function (cls, v) { var b = counts.querySelector('.' + cls + ' b'); if (b && b.textContent !== String(v)) b.textContent = v; };
-    set('needs', c.needs); set('working', c.working); set('standby', c.standby); set('done', c.done);
+    // A New session counts under Needs you, as the Needs-you filter shows it (session-verb.js filterBucket).
+    var needs = (typeof c.needs === 'number' && c.new) ? c.needs + c.new : c.needs;
+    set('needs', needs); set('working', c.working); set('standby', c.standby); set('done', c.done);
+    syncCountFilters();
+  }
+
+  // Light the counts whose filter is on; while any is, the others go quiet.
+  var CHIP = { needs: 'needs', working: 'working', standby: 'standby', done: 'sleeping' };
+  function syncCountFilters() {
+    if (!counts || typeof window._activeSessionFilters !== 'function') return;
+    var cur; try { cur = window._activeSessionFilters(); } catch (_e) { return; }
+    var any = false;
+    counts.querySelectorAll('.vn-ct[data-ct]').forEach(function (b) {
+      var on = cur.has(CHIP[b.dataset.ct]);
+      if (on) any = true;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.title = (on ? 'Showing only this · click to stop' : 'Show only ') + (on ? '' : LABEL[b.dataset.ct]);
+    });
+    counts.classList.toggle('filtering', any);
   }
 
   // The bar spans the chat panel; the session title starts on the chat column's left edge
@@ -212,5 +245,5 @@
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
-  window.VNTopbar = { sync: sync, refreshCounts: refreshCounts };
+  window.VNTopbar = { sync: sync, refreshCounts: refreshCounts, syncCountFilters: syncCountFilters };
 })();

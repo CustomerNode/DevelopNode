@@ -1,0 +1,114 @@
+/* Needs-you reel (js/doomscroll.js): the rail button, the panel that comes out from the right and pushes the app
+   left, one session per screen with its picture on top, the summary sheet, the minimized tab. */
+
+/* The rail button: the rail's own 32px quiet unit (hairline.css "One control unit"), above Settings. */
+#btn-doom {
+  position: relative; width: 32px; height: 32px; padding: 0; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+#btn-doom svg { width: 16px; height: 16px; }
+#btn-doom:hover, #btn-doom.on { color: var(--text-heading); }
+@media (min-width: 769px) { html[data-finish="hairline"] header #btn-doom { order: 2; } }
+
+/* The panel comes out from the right edge; the app moves left to make room (side panel, desktop). */
+.vn-doom {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 900; width: min(480px, 94vw); box-sizing: border-box;
+  display: flex; flex-direction: column; background: var(--bg-body); border-left: 1px solid rgba(127,127,127,.22);
+  transform: translateX(104%); visibility: hidden;
+  transition: transform .42s cubic-bezier(.25,.8,.3,1), width .28s cubic-bezier(.2,.8,.2,1), visibility 0s linear .42s;
+}
+.vn-doom.in { transform: none; visibility: visible; transition: transform .42s cubic-bezier(.25,.8,.3,1), width .28s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+.vn-doom[data-size="full"] { width: 100vw; border-left: 0; }
+html .layout { transition: margin-right .42s cubic-bezier(.25,.8,.3,1); }
+@media (min-width: 769px) { html.vn-doom-open:not(.vn-doom-full) .layout { margin-right: min(480px, 94vw); } }
+@media (max-width: 768px) { .vn-doom { width: 100vw; border-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .vn-doom, .vn-doom.in, html .layout { transition: none; } }
+
+.vd-head { display: flex; align-items: center; gap: 2px; padding: 14px 12px 12px 20px; border-bottom: 1px solid rgba(127,127,127,.14); flex: none; }
+.vd-ttl { flex: 1; min-width: 0; font-size: 15px; font-weight: 650; color: var(--text-heading); display: flex; align-items: baseline; gap: 8px; }
+.vd-n { color: rgb(255,149,0); }
+.vd-b { width: 32px; height: 32px; border: 0; border-radius: 10px; background: transparent; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.vd-b svg { width: 16px; height: 16px; }
+.vd-b:hover { color: var(--text-heading); background: var(--bg-hover); }
+
+.vd-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; outline: none; scroll-snap-type: y mandatory; scrollbar-width: none; }
+.vd-body::-webkit-scrollbar { display: none; }
+.vd-empty { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 80px 24px; color: var(--text-muted); font-size: 13px; }
+.vd-empty b { color: var(--text-heading); font-size: 15px; }
+.vd-nocard { padding: 12px 4px; color: var(--text-muted); font-size: 13px; }
+
+/* One session per screen.  overflow: clip, never hidden: a hidden box can be scrolled by code, which pulled the
+   closed summary sheet into view. */
+.vd-slide { position: relative; height: 100%; box-sizing: border-box; scroll-snap-align: start; scroll-snap-stop: always;
+  overflow: clip; display: flex; flex-direction: column; justify-content: flex-start; }
+.vr-main { position: relative; z-index: 1; padding: 48px 28px 40px; display: flex; flex-direction: column; gap: 12px; }
+.vn-doom[data-size="full"] .vr-main { max-width: 680px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+
+/* The picture across the top: the summary's first picture, or a tile drawn from its status and path. */
+.vr-hero { margin-bottom: 6px; }
+.vr-shot { position: relative; height: 34vh; max-height: 320px; overflow: hidden; border-radius: 12px; border: 1px solid rgba(127,127,127,.18); background: rgba(127,127,127,.06); }
+.vr-shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.vr-shot.vr-broken img { visibility: hidden; }
+.vr-frame { position: absolute; inset: 0; overflow: hidden; }
+.vr-frame iframe { width: 300%; height: 300%; border: 0; transform: scale(.3334); transform-origin: 0 0; pointer-events: none; background: var(--bg-body); }
+.vr-art { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 10px; padding: 18px 20px; box-sizing: border-box;
+  background: radial-gradient(120% 120% at 100% 0%, rgba(var(--vs, 255,149,0), .16), transparent 60%), rgba(127,127,127,.05); }
+.vr-art-ic .vnf-ic { width: 40px; height: 40px; }
+.vr-art-ic .vnf-ic svg, .vr-art-ic .vnf-ic img { width: 38px; height: 38px; }
+.vr-art-path { font-size: 15px; font-weight: 600; color: var(--text-secondary); letter-spacing: -.01em; }
+
+/* The words: the sidebar tile's status label, the summary card's title size, the app's text colours. */
+.vr-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: rgb(var(--vs, 255,149,0)); }
+.vr-ic { display: inline-flex; }
+.vr-ic .vnf-ic { width: 16px; height: 16px; }
+.vr-ic .vnf-ic svg, .vr-ic .vnf-ic img { width: 15px; height: 15px; }
+.vr-name { color: var(--text-muted); font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 12px; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vr-name::before { content: "\00B7"; margin-right: 8px; color: var(--text-faint); }
+.vr-title { margin: 0; font: 700 24px/1.16 var(--font-sans, Inter, system-ui); letter-spacing: -.02em; color: var(--text-heading); text-wrap: balance; }
+.vr-hl { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text-secondary); }
+.vr-short { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-muted);
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* The card's own answers as its chips: the main one in the amber outline over a faint fill. */
+.vr-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.vr-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px 8px 11px; border-radius: 999px; cursor: pointer;
+  font: 600 12.5px/1 var(--font-sans, Inter, system-ui); color: var(--text-secondary); background: transparent; border: 1px solid rgba(127,127,127,.24);
+  transition: transform .15s ease, border-color .15s ease; }
+.vr-pill:hover { color: var(--text-heading); border-color: rgba(127,127,127,.42); }
+.vr-pill:active { transform: scale(.96); }
+.vr-pill.first { color: var(--text-heading); background: rgba(255,149,0,.10); border-color: rgba(255,149,0,.55); }
+.vr-pi { display: inline-flex; }
+.vr-pi svg { width: 13px; height: 13px; }
+
+/* Summary and Open: quiet squares at the top right. */
+.vr-side { position: absolute; top: 8px; right: 18px; z-index: 2; display: flex; gap: 6px; }
+.vr-sb { width: 32px; height: 32px; border: 1px solid rgba(127,127,127,.2); border-radius: 10px; background: transparent; color: var(--text-muted);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.vr-sb svg { width: 16px; height: 16px; }
+.vr-sb:hover { color: var(--text-heading); }
+.vr-next { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 2; border: 0; background: none;
+  color: var(--text-faint); cursor: pointer; animation: vr-bob 2.4s ease-in-out infinite; }
+.vr-next svg { width: 20px; height: 20px; }
+@keyframes vr-bob { 50% { transform: translate(-50%, 4px); } }
+.vr-end { height: 40%; display: flex; align-items: center; justify-content: center; scroll-snap-align: end; font-size: 13px; color: var(--text-faint); }
+
+/* The real summary: drawn hidden for its buttons, slid up as a sheet on Summary. */
+.vr-real { position: absolute; left: 0; right: 0; bottom: 0; top: 10%; z-index: 6; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--bg-body); border-radius: 20px 20px 0 0; box-shadow: 0 -20px 60px rgba(0,0,0,.45); padding: 0 10px 30px;
+  transform: translateY(102%); visibility: hidden; transition: transform .38s cubic-bezier(.2,.8,.2,1), visibility 0s linear .38s; }
+.vd-slide.sheet .vr-real { transform: none; visibility: visible; transition: transform .38s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+.vr-real .msg { margin: 0; max-width: none; }
+.vr-grab { position: sticky; top: 0; z-index: 3; height: 26px; cursor: pointer; background: var(--bg-body); }
+.vr-grab::after { content: ""; position: absolute; left: 50%; top: 10px; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: rgba(127,127,127,.45); }
+@media (prefers-reduced-motion: reduce) { .vr-real, .vd-slide.sheet .vr-real, .vr-next { transition: none; animation: none; } }
+
+/* Minimized: a small tab on the right edge with the count; tapping it slides the panel back. */
+.vn-doom-tab {
+  position: fixed; right: 0; top: 50%; z-index: 899; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 8px; border: 1px solid rgba(127,127,127,.25); border-right: 0; border-radius: 12px 0 0 12px;
+  background: var(--bg-card); color: var(--text-heading); cursor: pointer; box-shadow: -6px 0 18px rgba(0,0,0,.25);
+  transform: translate(110%, -50%); transition: transform .25s cubic-bezier(.2,.8,.2,1);
+}
+.vn-doom-tab.in { transform: translate(0, -50%); }
+.vn-doom-tab svg { width: 16px; height: 16px; color: var(--text-muted); }
+.vn-doom-tab b { font-size: 12px; color: rgb(255,149,0); }

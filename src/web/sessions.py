@@ -125,6 +125,129 @@ def _summary_cache_key(path: Path, st: os.stat_result) -> tuple:
     return (str(path), st.st_mtime, st.st_size)
 
 
+# Incremental scan of growing transcripts.  A working session appends to its
+# transcript many times a minute, and every append changes the summary cache
+# key, so a plain re-read parses the WHOLE file again each time: a 139 MB
+# transcript kept the web server above one CPU core and made /api/ping slow
+# enough to flash the "Server Unreachable" overlay.  Transcripts are
+# append-only, so for a large file the totals of the lines read so far are
+# kept with the byte offset they end at, and the next read parses only what
+# was appended.  ``_scan_state``: str(path) -> state dict (see _fresh_scan).
+#
+# The state is trusted only while the file still holds the same bytes up to
+# that offset: the size has not dropped below it and the first
+# ``_SCAN_SIG_BYTES`` bytes and the ``_SCAN_SIG_BYTES`` bytes before the offset
+# are unchanged.  Anything else (truncation, a rewrite, a new file at the same
+# path) gets a full read.  Small files are always read whole: cheap, and it
+# keeps the state's memory bounded to the few transcripts that are large.
+_scan_state: dict = {}
+_SCAN_STATE_MIN_BYTES = 1_000_000
+_SCAN_SIG_BYTES = 4096
+
+
+def _fresh_scan() -> dict:
+    return {"offset": 0, "head": b"", "tail": b"", "custom_title": None,
+            "first_user_content": "", "first_ts": None, "last_ts": None,
+            "message_count": 0, "last_asst_content": None}
+
+
+def _scan_line(s: dict, raw: bytes) -> None:
+    """Fold one transcript line into the scan totals *s*."""
+    line = raw.decode("utf-8", errors="replace").strip()
+    if not line:
+        return
+    try:
+        obj = json.loads(line)
+    except Exception:
+        return
+    if not isinstance(obj, dict):
+        return
+
+    t = obj.get("type", "")
+
+    if t == "custom-title":
+        # Always overwrite — last one wins
+        s["custom_title"] = obj.get("customTitle", "")
+
+    elif t in ("user", "assistant"):
+        s["message_count"] += 1
+        # The final message's handoff card (sidebar status, see
+        # src/shared/handoff_status.py).  Kept by reference; parsed once
+        # below.  Any user text after it means a newer turn began.
+        if not obj.get("isSidechain"):
+            _c = (obj.get("message") or {}).get("content", "")
+            _has_text = isinstance(_c, str) and bool(_c.strip()) or (
+                isinstance(_c, list) and any(
+                    isinstance(b, dict) and b.get("type") == "text" for b in _c))
+            if _has_text:
+                s["last_asst_content"] = _c if t == "assistant" else None
+        ts_str = obj.get("timestamp", "")
+        if ts_str:
+            try:
+                ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                if s["first_ts"] is None:
+                    s["first_ts"] = ts
+                s["last_ts"] = ts
+            except Exception:
+                pass
+        if t == "user" and not s["first_user_content"]:
+            msg = obj.get("message", {})
+            raw_c = msg.get("content", "")
+            if isinstance(raw_c, str):
+                s["first_user_content"] = raw_c.strip()
+            elif isinstance(raw_c, list):
+                parts = [b.get("text", "") for b in raw_c
+                         if isinstance(b, dict) and b.get("type") == "text"]
+                s["first_user_content"] = " ".join(parts).strip()
+
+
+def _scan_transcript(path: Path, size: int) -> dict:
+    """Scan totals for the whole transcript, reading only what was appended
+    since the last scan when the saved state still matches the file."""
+    path_str = str(path)
+    prev = _scan_state.get(path_str)
+    with open(path, "rb") as f:
+        s = None
+        if prev is not None and size >= prev["offset"]:
+            off = prev["offset"]
+            head = f.read(len(prev["head"]))
+            tail_len = len(prev["tail"])
+            f.seek(off - tail_len)
+            tail = f.read(tail_len)
+            if head == prev["head"] and tail == prev["tail"]:
+                s = dict(prev)
+        if s is None:
+            s = _fresh_scan()
+        f.seek(s["offset"])
+        data = f.read()
+        if not s["head"]:
+            f.seek(0)
+            s["head"] = f.read(_SCAN_SIG_BYTES)
+
+    # Only complete (newline-terminated) lines are folded into the saved
+    # state; a line still being written is parsed into this result only, and
+    # read again once it is finished.
+    cut = data.rfind(b"\n") + 1
+    for raw in data[:cut].split(b"\n"):
+        _scan_line(s, raw)
+    s["offset"] += cut
+    if s["offset"]:
+        sig_from = max(0, s["offset"] - _SCAN_SIG_BYTES)
+        if cut >= s["offset"] - sig_from:
+            s["tail"] = data[cut - (s["offset"] - sig_from):cut]
+        else:
+            with open(path, "rb") as f:
+                f.seek(sig_from)
+                s["tail"] = f.read(s["offset"] - sig_from)
+    if size >= _SCAN_STATE_MIN_BYTES:
+        _scan_state[path_str] = dict(s)
+    else:
+        _scan_state.pop(path_str, None)
+    if cut < len(data):
+        _scan_line(s, data[cut:])
+    return s
+
+
 def load_session_summary(path: Path, st: os.stat_result | None = None,
                          access_map: dict | None = None) -> dict:
     """Cached summary — reads the whole file, no head/tail tricks.
@@ -160,63 +283,16 @@ def load_session_summary(path: Path, st: os.stat_result | None = None,
         # across a project switch" bug.
         return dict(_overlay_access_ts(cached, path, access_map))
 
-    custom_title = None
-    first_user_content = ""
-    first_ts = None
-    last_ts = None
-    message_count = 0
-    last_asst_content = None
-
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except Exception:
-                    continue
-
-                t = obj.get("type", "")
-
-                if t == "custom-title":
-                    # Always overwrite — last one wins
-                    custom_title = obj.get("customTitle", "")
-
-                elif t in ("user", "assistant"):
-                    message_count += 1
-                    # The final message's handoff card (sidebar status, see
-                    # src/shared/handoff_status.py).  Kept by reference; parsed once
-                    # below.  Any user text after it means a newer turn began.
-                    if not obj.get("isSidechain"):
-                        _c = (obj.get("message") or {}).get("content", "")
-                        _has_text = isinstance(_c, str) and bool(_c.strip()) or (
-                            isinstance(_c, list) and any(
-                                isinstance(b, dict) and b.get("type") == "text" for b in _c))
-                        if _has_text:
-                            last_asst_content = _c if t == "assistant" else None
-                    ts_str = obj.get("timestamp", "")
-                    if ts_str:
-                        try:
-                            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                            if first_ts is None:
-                                first_ts = ts
-                            last_ts = ts
-                        except Exception:
-                            pass
-                    if t == "user" and not first_user_content:
-                        msg = obj.get("message", {})
-                        raw_c = msg.get("content", "")
-                        if isinstance(raw_c, str):
-                            first_user_content = raw_c.strip()
-                        elif isinstance(raw_c, list):
-                            parts = [b.get("text", "") for b in raw_c
-                                     if isinstance(b, dict) and b.get("type") == "text"]
-                            first_user_content = " ".join(parts).strip()
-
+        scan = _scan_transcript(path, st.st_size)
     except Exception:
         return _err
+    custom_title = scan["custom_title"]
+    first_user_content = scan["first_user_content"]
+    first_ts = scan["first_ts"]
+    last_ts = scan["last_ts"]
+    message_count = scan["message_count"]
+    last_asst_content = scan["last_asst_content"]
 
     if first_ts:
         local_ts = first_ts.astimezone() if first_ts.tzinfo else first_ts

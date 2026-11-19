@@ -130,6 +130,21 @@ let liveSessionId = null;
 let _activeGrpPopup = null;
 let respondTarget = null;
 let _allProjects = [];  // cached project list for overlay
+let _apChooseOpen = false;  // the picker's Choose list under All projects is open
+
+/** The projects All projects covers changed (the picker's Choose list): when
+ *  that view is open, redraw the sidebar from the new set.  Debounced, so
+ *  ticking several boxes in a row loads once. */
+let _apSubsetTimer = null;
+function _apSubsetChanged() {
+  clearTimeout(_apSubsetTimer);
+  _apSubsetTimer = setTimeout(() => {
+    if (!(window.VNAllProjects && VNAllProjects.on())) return;
+    _updateProjectLabel(null);
+    if (typeof loadSessions === 'function') loadSessions();
+    if (typeof socket !== 'undefined' && socket.connected) socket.emit('request_state_snapshot', { project: localStorage.getItem('activeProject') || '' });
+  }, 350);
+}
 
 // Workspace / Workplace state (used by workspace.js)
 let workspaceActive = false;
@@ -265,7 +280,7 @@ function _updateProjectLabel(project) {
   const btn = document.getElementById('btn-project');
   if (window.VNAllProjects && VNAllProjects.on()) {
     if (btn) btn.dataset.initial = '\u2217';
-    label.innerHTML = 'All projects <span class="sidebar-mini-label">project</span>'; return;
+    label.innerHTML = escHtml(VNAllProjects.label ? VNAllProjects.label() : 'All projects') + ' <span class="sidebar-mini-label">project</span>'; return;
   }
   if (!project) {
     if (btn) delete btn.dataset.initial;
@@ -432,6 +447,8 @@ function openProjectOverlay() {
   const overlay = document.getElementById('project-overlay');
   const card = document.getElementById('project-card');
 
+  // The Choose list under All projects starts closed each time.
+  _apChooseOpen = false;
   // The Add flow pads the list differently; put it back.
   const list = document.getElementById('project-list');
   if (list) list.style.padding = '';
@@ -567,6 +584,12 @@ function _refreshProjectStatus() {
 function _renderProjectOverlay(fromStatus) {
   const list = document.getElementById('project-list');
   if (!list) return;
+  // A row just picked is showing "opening": a late count refresh must not
+  // redraw it away.  Opening the picker again starts clean.
+  if (list.classList.contains('project-picked')) {
+    if (fromStatus === true) return;
+    list.classList.remove('project-picked');
+  }
   if (fromStatus !== true) _refreshProjectStatus();
   const saved = localStorage.getItem('activeProject');
 
@@ -596,7 +619,11 @@ function _renderProjectOverlay(fromStatus) {
     _sub.hidden = !!_asking;
   }
   const _inAll = !_asking && !!(window.VNAllProjects && VNAllProjects.on());
-  const _total = _allProjects.reduce((n, p) => n + (p.session_count || 0), 0);
+  // All projects covers the projects ticked in its Choose list (all-projects.js).
+  const _apHas = !!(window.VNAllProjects && VNAllProjects.shown);
+  const _apShown = _apHas ? VNAllProjects.shown() : _allProjects;
+  const _apNarrow = _apShown.length < _allProjects.length;
+  const _total = _apShown.reduce((n, p) => n + (p.session_count || 0), 0);
   const _check = '<svg class="project-item-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="Open"><path d="M20 6 9 17l-5-5"/></svg>';
   const _sessions = n => `${n} ${n === 1 ? 'session' : 'sessions'}`;
   // Smart termination on: three columns (Needs you · Standby · Working) in
@@ -605,6 +632,9 @@ function _renderProjectOverlay(fromStatus) {
   // without the route keeps the total.
   const _cols = !_asking && !!window.SessionVerb && !window._projectStatusFailed;
   list.classList.toggle('ps-cols-on', _cols);
+  // Asking which project (New Session in All projects): nothing is picked yet,
+  // so no row is marked open, and rename / delete stay out of a chooser.
+  list.classList.toggle('project-choosing', !!_asking);
   const _pc = _cols ? Object.assign({}, window._projectStatusCounts || {}, _localProjectCounts()) : {};
   const _colsHtml = c => '<span class="ps-cols">' + _PS_GROUPS.map(g => {
     const n = c ? (c[g] || 0) : null;
@@ -612,7 +642,7 @@ function _renderProjectOverlay(fromStatus) {
              : `<span class="ps-n zero">${n === null ? '' : '·'}</span>`;
   }).join('') + '</span>';
   const _allCounts = {};
-  _allProjects.forEach(p => { const c = _pc[p.encoded]; if (c) _PS_GROUPS.forEach(g => { _allCounts[g] = (_allCounts[g] || 0) + (c[g] || 0); }); });
+  _apShown.forEach(p => { const c = _pc[p.encoded]; if (c) _PS_GROUPS.forEach(g => { _allCounts[g] = (_allCounts[g] || 0) + (c[g] || 0); }); });
   const _head = _cols ? '<div class="ps-head" aria-hidden="true"><span></span>' +
     _PS_GROUPS.map(g => `<span title="${_PS_LABEL[g]}">${_psIcon(g)}</span>`).join('') + '</div>' : '';
   const _allRow = (window.VNAllProjects && !_asking) ? `
@@ -620,10 +650,16 @@ function _renderProjectOverlay(fromStatus) {
       <span class="project-item-mark" aria-hidden="true">\u2217</span>
       <div class="project-item-info">
         <div class="project-item-name"><span>All projects</span>${_inAll ? _check : ''}</div>
-        <div class="project-item-path">Every session in one list</div>
+        <div class="project-item-path">${_apNarrow ? escHtml(_apShown.map(_projectShortName).join(', ')) : 'Every session in one list'}</div>
       </div>
-      <div class="project-item-right">${_cols ? _colsHtml(_allCounts) : `<span class="project-item-count" title="${_sessions(_total)}">${_total}</span>`}</div>
+      <div class="project-item-right">${_apHas
+        ? `<button type="button" class="ap-choose" aria-expanded="${_apChooseOpen}" title="Choose which projects All projects shows">${_apChooseOpen ? 'Done' : 'Choose…'}</button>`
+        : (_cols ? _colsHtml(_allCounts) : `<span class="project-item-count" title="${_sessions(_total)}">${_total}</span>`)}</div>
     </div>
+    ${(_apHas && _apChooseOpen) ? '<div class="ap-sub">' + _allProjects.map(p => {
+      const nm = _projectShortName(p);
+      return `<label><input type="checkbox" data-ap="${escHtml(p.encoded)}"${VNAllProjects.included(p.encoded) || !_apNarrow ? ' checked' : ''}><span>${escHtml(nm)}</span></label>`;
+    }).join('') + '</div>' : ''}
     <div class="project-sep" aria-hidden="true"></div>` : '';
   const _addRow = _asking ? '' : `
     <div class="project-sep" aria-hidden="true"></div>
@@ -634,7 +670,7 @@ function _renderProjectOverlay(fromStatus) {
   // All projects sits first, then the projects, then Add project.
   list.innerHTML = _head + _allRow + _allProjects.map(p => {
     const shortName = _projectShortName(p);
-    const isActive = !_inAll && p.encoded === saved;
+    const isActive = !_inAll && !_asking && p.encoded === saved;
     return `
     <div class="project-item${isActive ? ' active' : ''}" data-encoded="${escHtml(p.encoded)}" data-name="${escHtml(shortName)}" title="${escHtml(p.display)}">
       <span class="project-item-mark${p.phoned ? ' project-item-phoned' : ''}" style="--h:${_projectHue(shortName)}" aria-hidden="true">${p.phoned ? _PHONED_PROJECT_SVG : escHtml((shortName || '?').trim().charAt(0).toUpperCase())}</span>
@@ -659,6 +695,28 @@ function _renderProjectOverlay(fromStatus) {
   // Event delegation for project items
   const _allItem = list.querySelector('.project-item-all');
   if (_allItem) _allItem.onclick = () => selectProjectFromOverlay(VNAllProjects.ALL);
+  // Choose… opens the list of projects under the row; Done closes it, and
+  // opens All projects when it is not open yet.
+  const _choose = list.querySelector('.ap-choose');
+  if (_choose) _choose.onclick = e => {
+    e.stopPropagation();
+    const closing = _apChooseOpen;
+    _apChooseOpen = !_apChooseOpen;
+    if (closing && !VNAllProjects.on()) { selectProjectFromOverlay(VNAllProjects.ALL); return; }
+    _renderProjectOverlay(true);
+  };
+  list.querySelectorAll('.ap-sub input[data-ap]').forEach(cb => {
+    cb.onclick = e => e.stopPropagation();
+    cb.onchange = () => {
+      if (!VNAllProjects.setIncluded(cb.dataset.ap, cb.checked)) {
+        cb.checked = true;
+        if (typeof showToast === 'function') showToast('Keep at least one project in All projects');
+        return;
+      }
+      _renderProjectOverlay(true);
+      _apSubsetChanged();
+    };
+  });
   const _addItem = list.querySelector('.project-item-add');
   if (_addItem) {
     _addItem.onclick = () => addProjectOverlay();
@@ -707,16 +765,45 @@ async function _refreshProjectsAndRerender() {
 }
 
 function closeProjectOverlay() {
+  _closeChoiceOverlay();
   document.getElementById('project-overlay').classList.remove('show');
   // A question it was asking (all-projects.js chooser) is answered "none".
   if (window.VNAllProjects && VNAllProjects.choosing()) VNAllProjects.finishChoice(null);
 }
 
+/** Close the picker after it answered a question (selectProjectFromOverlay):
+ *  hidden, and its "opening" marks cleared for the next time it opens. */
+function _closeChoiceOverlay() {
+  const list = document.getElementById('project-list');
+  // Only the picker that answered: one opened since then was redrawn and lost the mark.
+  if (!list || !list.classList.contains('project-picked')) return;
+  list.classList.remove('project-picked');
+  list.querySelectorAll('.project-picking').forEach(r => r.classList.remove('project-picking'));
+  list.querySelectorAll('.project-picking-spin').forEach(s => s.remove());
+  const overlay = document.getElementById('project-overlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
 async function selectProjectFromOverlay(encoded) {
   // The picker was asking a question (New Session in All projects): answer it.
+  // The click shows at once: the row is marked as opening and the picker
+  // stays up until whatever asked has drawn its result (New Session closes
+  // it once the empty session is on screen; it took ~0.7 s with nothing
+  // shown).  A backstop closes it if nothing does.
   if (window.VNAllProjects && VNAllProjects.choosing()) {
-    document.getElementById('project-overlay').classList.remove('show');
+    const overlay = document.getElementById('project-overlay');
+    const list = document.getElementById('project-list');
+    const row = list && Array.from(list.querySelectorAll('.project-item')).find(r => r.dataset.encoded === encoded);
+    if (list) list.classList.add('project-picked');
+    if (row) {
+      row.classList.add('project-picking');
+      const right = row.querySelector('.project-item-right');
+      if (right) right.insertAdjacentHTML('afterbegin', '<span class="project-picking-spin" aria-label="Opening"></span>');
+    }
+    // Let the browser paint the feedback before the work that follows blocks it.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     VNAllProjects.finishChoice(encoded);
+    setTimeout(() => _closeChoiceOverlay(), 4000);
     return;
   }
   closeProjectOverlay();
@@ -729,8 +816,8 @@ async function selectProjectFromOverlay(encoded) {
   if (window.VNAllProjects) VNAllProjects.set(_toAll);
   if (_toAll) encoded = localStorage.getItem('activeProject') || ((_allProjects[0] || {}).encoded) || '';
   const p = _allProjects.find(x => x.encoded === encoded);
-  const name = _toAll ? 'All projects' : (p ? _projectShortName(p) : 'project');
-  const count = _toAll ? _allProjects.reduce((n, x) => n + (x.session_count || 0), 0) : (p ? p.session_count : null);
+  const name = _toAll ? (VNAllProjects.label ? VNAllProjects.label() : 'All projects') : (p ? _projectShortName(p) : 'project');
+  const count = _toAll ? (VNAllProjects.shown ? VNAllProjects.shown() : _allProjects).reduce((n, x) => n + (x.session_count || 0), 0) : (p ? p.session_count : null);
 
   // Show the full-screen splash.  The floor only exists so the splash can
   // finish revealing the project name instead of flashing up and straight
@@ -1551,6 +1638,8 @@ async function addNewAgent() {
     (typeof _newSessionCancelHtml === 'function' ? _newSessionCancelHtml() : '') +
     '</div></div>' +
     '<div class="live-input-bar" id="live-input-bar"></div></div>';
+  // All projects: the project picker stayed up, showing the pick, until now.
+  if (_apProject) _closeChoiceOverlay();
 
   // Show idle input bar immediately — user types their first message here
   liveSessionId = newId;
@@ -2549,6 +2638,7 @@ function _syncSessionFilterMenu(show) {
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
   if (clear) clear.hidden = cur.size === 0;
+  if (window.VNTopbar && VNTopbar.syncCountFilters) VNTopbar.syncCountFilters();   // the counts under the list are filters too
   if (btn) {
     btn.classList.toggle('has-filter', cur.size > 0);
     btn.title = cur.size

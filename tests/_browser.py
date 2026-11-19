@@ -505,6 +505,30 @@ def uses_shared_browser(module) -> bool:
     return getattr(module, "shared_browser_scope", None) is shared_browser_scope
 
 
+def devtools_port(profile, timeout: float = 60.0) -> str:
+    """The DevTools port a throwaway Chrome wrote into its profile.
+
+    Chrome creates ``DevToolsActivePort`` and then writes it; on Windows a read
+    while Chrome still holds the file open for writing raises PermissionError,
+    and a read in between returns an empty or half-written file.  Retry until
+    the first line is a whole port number (60 s: a cold Chrome on a GitHub
+    runner took over 10)."""
+    import time
+    from pathlib import Path
+    port_file = Path(profile) / "DevToolsActivePort"
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            lines = port_file.read_text().splitlines()
+        except OSError:
+            lines = []
+        if len(lines) >= 2 and lines[0].strip().isdigit():
+            return lines[0].strip()
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"Chrome wrote no DevTools port into {port_file}")
+        time.sleep(0.01)
+
+
 def stop_throwaway_chrome(proc) -> None:
     """End a Chrome a test launched itself with a throwaway profile.
 

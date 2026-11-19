@@ -224,6 +224,22 @@ class Watch:
         self.t.join(seconds)
         return self.t.is_alive()
 
+    def has_checked(self, stage: str, wait: float = 20) -> bool:
+        """True once the watch has recorded a check at *stage*.  A fixed pause
+        is not enough under a loaded parallel run: the watch may not have
+        looked yet when the test makes its next change."""
+        import time as _t
+        end = _t.monotonic() + wait
+        while _t.monotonic() < end and self.t.is_alive():
+            try:
+                checks = json.loads(self.out.read_text(encoding="utf-8")).get("checks", [])
+            except (OSError, ValueError):
+                checks = []
+            if any(c.get("stage") == stage for c in checks):
+                return True
+            _t.sleep(0.01)
+        return False
+
 
 def _deliver(run_dir: Path, delivered: bool) -> None:
     import time as _t
@@ -268,6 +284,7 @@ def test_evidence_added_while_pending_is_caught_before_delivery(contestant: Path
     w = Watch(contestant)
     run_dir = _start(ROOT, contestant, "late-evidence")
     _deliver(run_dir, False)
+    assert w.has_checked("pending"), "the watch never looked at the pending delivery"
     assert w.alive_after(0.2)
     (run_dir / "evidence").mkdir()
     (run_dir / "evidence" / "unit.json").write_text(json.dumps({"impl": "0" * 64}), encoding="utf-8")

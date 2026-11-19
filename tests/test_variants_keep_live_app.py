@@ -151,7 +151,8 @@ window._liveSubmitDirect=(sid,text)=>{{ window.__sent.push([sid,text]); }};</scr
 SHOWN = """() => {
   const f = document.querySelector('.lm-dz .pane:not(.leaving) iframe');
   const d = f && f.contentDocument;
-  if (!d || !d.body) return null;
+  // about:blank, or the page still being parsed: not loaded yet, ask again.
+  if (!d || !d.body || !d.getElementById('app')) return null;
   const vis = [...d.querySelectorAll('section')].filter(s => getComputedStyle(s).display !== 'none').map(s => s.id);
   return { vis, keep: getComputedStyle(d.getElementById('app')).display !== 'none', loads: window.__loads || 0 };
 }"""

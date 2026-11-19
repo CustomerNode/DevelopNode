@@ -1237,10 +1237,32 @@ function _showSubsessionBadgeToast(parentSid) {
   }
 }
 
+/** The empty sessions list (list and cards views): still, fading ghost cards
+ *  and a message that says WHY it is empty.  Sessions exist but the funnel's
+ *  filters hide them → "Show all sessions"; the project has none → "New session". */
+function _emptySessionsHtml() {
+  const total = (typeof allSessions !== 'undefined' && allSessions) ? allSessions.length : 0;
+  const filtered = total > 0 && typeof _activeSessionFilters === 'function' && _activeSessionFilters().size > 0;
+  const t = filtered
+    ? { h: 'Nothing matches these filters',
+        s: 'Your other ' + total + ' session' + (total === 1 ? ' is' : 's are') + ' hidden, not gone.',
+        b: 'Show all sessions', on: 'clearSessionFilters()' }
+    : { h: 'No sessions yet', s: 'Start one and it shows up here.', b: 'New session', on: 'addNewAgent()' };
+  let cards = '';
+  for (let c = 0; c < 4; c++) {
+    cards += '<div class="skel-card">' + ['ico', 'pill', 't1', 't2', 'meta'].map(k =>
+      '<div class="skel-bar ' + k + '"></div>').join('') + '</div>';
+  }
+  return '<div class="vn-sess-empty' + (filtered ? ' is-filtered' : '') + '">'
+    + '<div class="vn-sess-ghosts" aria-hidden="true">' + cards + '</div>'
+    + '<div class="vn-sess-empty-msg"><b>' + t.h + '</b>' + escHtml(t.s)
+    + '<button type="button" class="vn-sess-empty-btn" onclick="' + t.on + '">' + t.b + '</button></div></div>';
+}
+
 function renderList(sessions) {
   const el = document.getElementById('session-list');
   if (!sessions.length) {
-    el.innerHTML = '<div style="padding:20px;color:var(--text-muted);font-size:12px;">No sessions found</div>';
+    el.innerHTML = _emptySessionsHtml();
     return;
   }
 

@@ -118,6 +118,15 @@ html.vn-has-topbar .vn-foot-counts .standby { color: rgb(40, 190, 175); }
 html[data-theme="light"].vn-has-topbar .vn-foot-counts .standby { color: rgb(10, 135, 125); }
 html.vn-has-topbar .vn-foot-counts .done { color: var(--text-secondary); }
 html.vn-has-topbar .vn-foot-counts .done .vn-ct-ic { color: var(--text-faint, var(--text-muted)); }
+/* Each count is a filter: tap to show only that status, several at once; the others go quiet while any is on. */
+html.vn-has-topbar .vn-foot-counts .vn-ct[data-ct] {
+  cursor: pointer; padding: 3px 6px; margin: -3px -2px; border-radius: 999px; box-sizing: content-box;
+  transition: opacity .15s, background-color .15s; -webkit-tap-highlight-color: transparent; outline: none;
+}
+html.vn-has-topbar .vn-foot-counts .vn-ct[data-ct]:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+html.vn-has-topbar .vn-foot-counts .vn-ct[data-ct]:focus-visible { box-shadow: 0 0 0 1.5px color-mix(in srgb, currentColor 55%, transparent); }
+html.vn-has-topbar .vn-foot-counts.filtering .vn-ct[data-ct]:not(.on) { opacity: .38; }
+html.vn-has-topbar .vn-foot-counts .vn-ct.on { background: color-mix(in srgb, currentColor 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent); }
 
 /* ── New session: a dashed full-width row under the masthead, above the tiles (nothing covers a tile) ── */
 /* the header closes with a hairline the tiles' width, 18px under New Session, 16px above the first tiles */
@@ -252,3 +261,20 @@ html.vn-tb-phone .vn-more-pop button {
 }
 html.vn-tb-phone .vn-more-pop button[hidden] { display: none; }
 html.vn-tb-phone .vn-more-pop button:active { background: rgba(127, 127, 127, .12); }
+
+/* ── Counts row icons drawn like the session boxes' badges: a disc tinted in the status colour with the bare mark
+   inside.  Every mark spans half the disc, the pickaxe's size: the svg fills the disc and each glyph is scaled by
+   how many of its 24 units it spans (the !, the check: 9; the pause bars: 6), stroke thinned by the same factor
+   so every line is the same weight.  Last in the file so it wins over the per-size icon rules above. ── */
+html.vn-has-topbar .vn-foot-counts { --ct-d: 15px; }   /* the numbers' height: 12.5px type on a 14px line */
+html.vn-tb-phone .vn-foot-counts { --ct-d: 15px; }
+html.vn-has-topbar .vn-foot-counts .vn-ct { height: var(--ct-d); }
+html.vn-has-topbar .vn-foot-counts .vn-ct-ic {
+  width: var(--ct-d); height: var(--ct-d); border-radius: 50%;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+html.vn-has-topbar .vn-foot-counts .done .vn-ct-ic { color: rgb(140, 145, 160); }
+html.vn-has-topbar .vn-foot-counts .vn-ct-ic > svg { width: var(--ct-d); height: var(--ct-d); overflow: visible; --k: 1.33; transform: scale(var(--k)); stroke-width: calc(1.4 * 24 / 15 / var(--k)); }
+html.vn-has-topbar .vn-foot-counts .standby .vn-ct-ic > svg { --k: 1.5; }   /* two bars read heavier than one mark: kept shorter */
+html.vn-has-topbar .vn-foot-counts .vn-ct-ic > svg circle { display: none; }
+html.vn-has-topbar .vn-foot-counts .vn-ct-ic > img { width: calc(var(--ct-d) * .6); height: calc(var(--ct-d) * .6); }   /* a thin diagonal reads smaller than an upright mark of the same box */

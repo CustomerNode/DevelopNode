@@ -75,6 +75,26 @@ _ERR_RE = re.compile(r"\b(not_a_member|not_allowed|bad_days|invite_invalid|usern
                      r"no_access|bad_text|permission denied)\b")
 
 
+_ssl_ctx = None
+_ssl_lock = threading.Lock()
+
+
+def _tls_context():
+    """One TLS context for every call, built with httpx's own defaults.
+
+    ``httpx.post`` builds a new context per call, and building one loads the
+    whole CA bundle: Phone a Friend's poll calls ``rpc`` every few seconds, and
+    that alone kept the web server at about a third of a CPU core.  A context
+    is safe to share between threads; verification is unchanged."""
+    global _ssl_ctx
+    if _ssl_ctx is None:
+        import httpx
+        with _ssl_lock:
+            if _ssl_ctx is None:
+                _ssl_ctx = httpx.create_ssl_context()
+    return _ssl_ctx
+
+
 def rpc(fn: str, params: dict, *, url: str | None = None, key: str | None = None,
         timeout: float = 15.0):
     """Call database function ``fn`` with named ``params``.
@@ -92,6 +112,7 @@ def rpc(fn: str, params: dict, *, url: str | None = None, key: str | None = None
         raise OrgsError("bad_url", "Not a Supabase project address.")
     try:
         resp = httpx.post(f"{url.rstrip('/')}/rest/v1/rpc/{fn}", json=params, timeout=timeout,
+                          verify=_tls_context(),
                           headers={"apikey": key, "Authorization": f"Bearer {key}",
                                    "Content-Type": "application/json"})
     except httpx.HTTPError as e:

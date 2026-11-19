@@ -94,7 +94,7 @@ def test_the_app_can_show_a_look_for_one_page_without_saving_it():
     assert "get('chrome')" in js and "setItem" not in js   # a preview never changes the saved look
     assert "vn:set-address:ok" in js and "e.origin !== location.origin" in js
     css = (ROOT / "src" / "web" / "static" / "css" / "chrome-looks.css").read_text(encoding="utf-8")
-    for look in ("open", "divided", "sheet", "corner"):
+    for look in ("family", "text", "hairline", "lit"):
         assert f'html[data-chrome="{look}"]' in css and f'[data-chrome="{look}"]' in js.replace(look + ": 1", f'[data-chrome="{look}"]')
     assert '[data-theme="light"]' in css   # every look has its light values
 

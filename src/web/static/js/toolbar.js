@@ -292,7 +292,7 @@ function _hpThree(polled) {
 
 function _buildDashboard() {
   const project = _allProjects.find(p => p.encoded === localStorage.getItem('activeProject'));
-  const projectName = (window.VNAllProjects && VNAllProjects.on()) ? 'All projects' : (project ? _projectShortName(project) : 'No project');
+  const projectName = (window.VNAllProjects && VNAllProjects.on()) ? (VNAllProjects.label ? VNAllProjects.label() : 'All projects') : (project ? _projectShortName(project) : 'No project');
   const total = allSessions.length;
   const polled = _waitingPolledOnce || false;
   const working = polled ? allSessions.filter(s => runningIds.has(s.id) && sessionKinds[s.id] === 'working').length : '-';
@@ -518,7 +518,7 @@ function _hpPaneHtml() {
   const act = _hpActiveEnc();
   const sel = _hpSel || act;
   const p = _hpProjects().find(x => x.encoded === sel);
-  const name = (sel === act && window.VNAllProjects && VNAllProjects.on()) ? 'All projects' : (p ? _projectShortName(p) : 'No project');
+  const name = (sel === act && window.VNAllProjects && VNAllProjects.on()) ? (VNAllProjects.label ? VNAllProjects.label() : 'All projects') : (p ? _projectShortName(p) : 'No project');
   const v = _hpProjectView(sel);
   const enc = escHtml(sel);
   const row = (x, kind) => {
@@ -759,7 +759,13 @@ function _colorDiffLines(html) {
   }).join('\n');
 }
 
+// The bar widths are fixed, not random: opening a session draws the
+// placeholder twice (openInGUI, then startLivePanel once the metadata
+// arrives), and random widths made the second draw visibly jump.
+const _SKEL_W = [0.31, 0.74, 0.12, 0.58, 0.93, 0.27, 0.66, 0.05, 0.81, 0.44, 0.19, 0.52, 0.88, 0.36, 0.71, 0.09, 0.63, 0.25, 0.97, 0.48];
 function _chatSkeleton() {
+  let _k = 0;
+  const _rnd = () => _SKEL_W[(_k++) % _SKEL_W.length];
   let html = '<div class="conversation">';
   const msgs = [
     {role:'user', lines:2},
@@ -777,16 +783,28 @@ function _chatSkeleton() {
     // Role label skeleton
     html += `<div style="margin-bottom:5px;"><div class="skel-bar" style="width:40px;height:7px;animation-delay:${d}s;border-radius:3px;"></div></div>`;
     // Bubble skeleton — same style for both sides
-    const bw = isUser ? (200 + Math.random() * 150) : (300 + Math.random() * 200);
+    const bw = isUser ? (200 + _rnd() * 150) : (300 + _rnd() * 200);
     html += `<div class="msg-body" style="width:${bw}px;max-width:85%;padding:14px 16px;">`;
     for (let l = 0; l < m.lines; l++) {
-      const lw = l === m.lines - 1 ? (40 + Math.random() * 35) : (75 + Math.random() * 25);
+      const lw = l === m.lines - 1 ? (40 + _rnd() * 35) : (75 + _rnd() * 25);
       html += `<div class="skel-bar" style="width:${lw}%;height:11px;margin-bottom:${l < m.lines - 1 ? 8 : 0}px;border-radius:4px;animation-delay:${(parseFloat(d) + l * 0.04).toFixed(2)}s;"></div>`;
     }
     html += '</div></div>';
   }
   html += '</div>';
   return html;
+}
+
+// The placeholder inside the live chat's own frame, exactly as
+// startLivePanel() draws it. A bare .conversation gets the old message styling
+// (boxed replies, no composer), which showed while a session's details loaded.
+function _liveSkeletonShell() {
+  const skel = _chatSkeleton().replace('<div class="conversation">', '').replace(/<\/div>$/, '');
+  return '<div class="live-panel" id="live-panel">' +
+    '<div class="conversation live-log" id="live-log">' + skel + '</div>' +
+    '<div class="live-output-shelf" id="live-output-shelf"></div>' +
+    '<div id="live-queue-area"></div>' +
+    '<div class="live-input-bar" id="live-input-bar"></div></div>';
 }
 
 async function loadAllMessages(id) {

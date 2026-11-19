@@ -26,6 +26,11 @@ def box(tmp_path, monkeypatch):
     names = {}
     monkeypatch.setattr(rebrand, "_project_item", lambda r: [])
     monkeypatch.setattr(rebrand.subprocess, "run", lambda *a, **k: None)
+    # These tests build Linux launchers and services, so they scan as Linux on
+    # every machine; on Windows the real scan reads .lnk files instead.
+    real_scan = rebrand.scan
+    monkeypatch.setattr(rebrand, "scan",
+                        lambda root=None, home=None, platform=None: real_scan(root, home, platform or "linux"))
     return root, home, tmp_path / "state.json", names
 
 

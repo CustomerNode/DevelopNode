@@ -14228,6 +14228,29 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
   html:not(.vn-mhl) #project-overlay .project-item-count { font-size: 13px; }
   html:not(.vn-mhl) #project-overlay .project-sep { display: none; }
 }
+/* Asking which project (New Session in All projects): no rename / delete,
+   the count stays put, and the row under the pointer is plainly the one a
+   click picks. */
+#project-overlay .project-choosing .project-item-actions { display: none; }
+@media (hover: hover) {
+  #project-overlay .project-choosing .project-item:hover .project-item-count { visibility: visible; }
+  html #project-overlay .project-list.project-choosing .project-item:hover { background: rgba(var(--bt),.09); border-radius: 12px; box-shadow: inset 3px 0 0 var(--accent); }
+  #project-overlay .project-choosing .project-item:hover .project-item-name { color: var(--text-heading); }
+}
+/* A project just picked: that row lights up with a spinner at once, the rest
+   fade, and nothing takes a second click, until the new session is drawn
+   (selectProjectFromOverlay / _closeChoiceOverlay, app.js). */
+#project-overlay .project-picked { pointer-events: none; }
+#project-overlay .project-picked .project-item:not(.project-picking) { opacity: .4; transition: opacity .12s; }
+html #project-overlay .project-list.project-picked .project-item.project-picking,
+html #project-overlay .project-list.project-picked .project-item.project-picking:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 12px; box-shadow: inset 3px 0 0 var(--accent); }
+#project-overlay .project-picking .project-item-name { color: var(--text-heading); }
+#project-overlay .project-picking .project-item-count { display: none; }
+.project-picking-spin { width: 14px; height: 14px; flex: none; border-radius: 50%;
+  border: 2px solid rgba(var(--bt, 255,255,255), .18); border-top-color: var(--accent); animation: vnPickSpin .7s linear infinite; }
+@keyframes vnPickSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .project-picking-spin { animation-duration: 2s; } }
 @media (min-width: 900px) and (hover: hover) {
   html:not(.vn-mhl) #project-overlay .project-item:hover { background: rgba(var(--bt),.04); border-radius: 12px; }
 }
@@ -14807,6 +14830,21 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 .skel-card .skel-bar.t1 { width: 86%; height: 9px; }
 .skel-card .skel-bar.t2 { width: 58%; height: 9px; }
 .skel-card .skel-bar.meta { width: 40%; height: 8px; margin-top: auto; }
+
+/* The empty sessions list (_emptySessionsHtml, sessions.js): the loading cards held still and faded,
+   so it reads as "empty", never as "still loading", with one message and one button under them. */
+.vn-sess-empty { width: 100%; flex: 1 0 100%; grid-column: 1 / -1; max-width: none !important; padding-right: 10px; box-sizing: border-box; }
+/* Not .skel-cards: _projectSwitchSettled (app.js) reads that class as "still loading". */
+.vn-sess-ghosts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 10px 0 12px 0;
+  -webkit-mask-image: linear-gradient(#000 0%, rgba(0,0,0,.55) 45%, transparent 92%);
+  mask-image: linear-gradient(#000 0%, rgba(0,0,0,.55) 45%, transparent 92%); }
+.vn-sess-ghosts .skel-card { height: 118px; }
+.vn-sess-ghosts .skel-bar { animation: none; background: var(--bg-skel-1); }
+.vn-sess-empty-msg { display: flex; flex-direction: column; align-items: center; padding: 4px 2px 20px; text-align: center; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.vn-sess-empty-msg b { display: block; font-weight: 500; font-size: 13px; color: var(--text-secondary); }
+.vn-sess-empty-btn { display: inline-block; margin-top: 10px; padding: 6px 12px; font: 500 12px var(--font-sans); color: var(--text-primary);
+  background: rgba(127,127,127,.10); border: 1px solid var(--border-subtle); border-radius: 8px; cursor: pointer; }
+.vn-sess-empty-btn:hover { background: rgba(127,127,127,.18); }
 
 
 /* ══ Theme-switch splash (see _themeFlash in theme.js).  Background and text colour are set inline from the

@@ -179,13 +179,23 @@ def list_records(base=None) -> list:
 
 
 def delete_host_files(sid: str, base=None) -> None:
+    """Remove a session's host files.  Windows refuses to delete a file
+    another process has open (the engine reading the record), so a refusal is
+    retried for up to a second, as ``read_json`` and ``write_json_atomic`` do:
+    giving up at once left a renamed host's old record behind for good."""
     for p in (record_path(sid, base), launch_path(sid, base), spill_path(sid, base)):
-        try:
-            p.unlink()
-        except FileNotFoundError:
-            pass
-        except Exception:
-            pass
+        for attempt in range(50):
+            try:
+                p.unlink()
+                break
+            except FileNotFoundError:
+                break
+            except PermissionError:
+                if attempt == 49:
+                    break
+                time.sleep(0.02)
+            except Exception:
+                break
 
 
 # ── Secret and frames ────────────────────────────────────────────────────

@@ -6,18 +6,28 @@
 
 .vn-ap .vn-ap-label {
   display: inline-flex; align-items: center; gap: 4px; max-width: 100%; box-sizing: border-box;
-  padding: 1px 7px 1px 2px; border-radius: 999px; font-size: 10.5px; font-weight: 500; line-height: 15px;
+  padding: 2px 7px 2px 2px; border-radius: 999px; font-size: 10.5px; font-weight: 500; line-height: 14px;
   color: var(--text-muted); background: var(--bg-hover); border: 1px solid var(--border-secondary);
   white-space: nowrap; vertical-align: middle;
 }
-.vn-ap .vn-ap-ic {
-  flex: none; width: 13px; height: 13px; box-sizing: border-box; border-radius: 4px; display: grid; place-items: center;
-  font-size: 8.5px; font-weight: 700; line-height: 1; color: var(--text-secondary); border: 1px solid var(--text-faint);
-}
+/* The project's initial in a round ring, inset evenly in the pill: one SVG (all-projects.js), so the letter is
+   placed by geometry and never snapped off the ring's centre. */
+.vn-ap .vn-ap-ic { flex: none; display: block; width: 14px; height: 14px; overflow: visible; }
+/* The ring takes the same soft disc as the status icon above it on the session box (hairline.css, tint "both"):
+   the box's status colour at 10%, no outline. */
+.vn-ap .vn-ap-ic circle { fill: rgba(var(--tint, var(--vs, 124, 124, 255)), .1); stroke: none; }
+/* The letter is Inter Bold's outline (a path), so it is never snapped off the disc's centre; text is the fallback. */
+.vn-ap .vn-ap-ic :is(path, text) { fill: var(--text-secondary); }
+.vn-ap .vn-ap-ic text { font: 700 9px var(--font-sans); }
 .vn-ap .vn-ap-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* card: the pill gets its own line, and the card grows by it so the title keeps two lines */
+/* card: the pill gets its own line, and the card grows by it so the title keeps two lines.
+   The finish stylesheets fix each card's height with stronger selectors, which left no room for the pill and
+   squeezed the round status icon into an oval (and cut the title's second line).  So the card sizes to its
+   content (each grid row takes its tallest card), and the icon never shrinks. */
 .vn-ap > .wf-card[data-sid] { height: 156px; }
+.sidebar #workforce-grid.vn-ap > .wf-card[data-sid] { height: auto !important; min-height: 156px; }
+.vn-ap > .wf-card[data-sid] > :is(.wf-avatar, .wf-status-label, .vn-ap-label) { flex-shrink: 0; }
 .vn-ap > .wf-card > .vn-ap-label { display: flex; width: fit-content; margin: 4px auto 1px; max-width: calc(100% - 12px); }
 
 /* list: the narrow column keeps the title; the pill shrinks to its tile (name on hover) */
@@ -26,3 +36,15 @@
 .vn-ap > .session-item .session-col-name > .vn-ap-t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vn-ap > .session-item .vn-ap-label { flex: none; margin-left: 6px; padding: 1px; border: 0; background: none; }
 .vn-ap > .session-item .vn-ap-nm { display: none; }
+
+/* The picker's Choose list under All projects (_renderProjectOverlay, app.js):
+   Choose… on the row opens a checklist of the projects; the ticked ones are
+   what All projects shows (all-projects.js shown()). */
+#project-overlay .ap-choose { font: 500 12px var(--font-sans); color: var(--accent); background: none; border: 0; border-radius: 6px; padding: 4px 6px; cursor: pointer; }
+#project-overlay .ap-choose:hover { background: rgba(var(--bt), .07); }
+#project-overlay .ap-sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 4px 6px 52px; }
+#project-overlay .ap-sub label { display: flex; align-items: center; gap: 10px; font: 13px var(--font-sans); color: var(--text-primary); padding: 5px 6px; border-radius: 7px; cursor: pointer; }
+@media (hover: hover) { #project-overlay .ap-sub label:hover { background: rgba(var(--bt), .06); } }
+#project-overlay .ap-sub input { flex: none; accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+#project-overlay .ap-sub label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#project-overlay .project-item-all .project-item-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

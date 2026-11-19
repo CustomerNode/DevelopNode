@@ -60,7 +60,8 @@ function _clearCrossProjectCache() {
  */
 function _sessionBelongsToActiveProject(cwd) {
     if (!cwd) return true;  // no cwd → don't filter
-    if (window.VNAllProjects && VNAllProjects.on()) return true;  // All projects view shows every project
+    // All projects view shows every project it covers (the picker's Choose list).
+    if (window.VNAllProjects && VNAllProjects.on()) return VNAllProjects.includesCwd ? VNAllProjects.includesCwd(cwd) : true;
     const active = localStorage.getItem('activeProject');
     if (!active) return true;  // no active project → don't filter
     const encoded = cwd.replace(/\\/g, '-').replace(/\//g, '-').replace(/:/g, '-').replace(/_/g, '-').replace(/\./g, '-');

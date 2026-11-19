@@ -869,7 +869,8 @@ function wfSortedSessions(sessions) {
 function renderWorkforce(sessions) {
   const grid = document.getElementById('workforce-grid');
   if (!sessions.length) {
-    grid.innerHTML = '<div style="padding:20px;color:var(--text-muted);font-size:12px;">No sessions found</div>';
+    grid.innerHTML = (typeof _emptySessionsHtml === 'function') ? _emptySessionsHtml()
+      : '<div style="padding:20px;color:var(--text-muted);font-size:12px;">No sessions found</div>';
     return;
   }
   // Keep subsessions glued to their parent regardless of the active sort,

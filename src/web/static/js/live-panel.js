@@ -1258,7 +1258,7 @@ async function openInGUI(id) {
   const cached = allSessions.find(x => x.id === id);
   const initTitle = cached ? cached.display_title : 'Loading\u2026';
   setToolbarSession(id, initTitle, !(cached && cached.custom_title), (cached && cached.custom_title) || '');
-  document.getElementById('main-body').innerHTML = _chatSkeleton();
+  document.getElementById('main-body').innerHTML = _liveSkeletonShell();
   const _lpProj = localStorage.getItem('activeProject') || '';
   const _lpProjQ = _lpProj ? '&project=' + encodeURIComponent(_lpProj) : '';
   const resp = await fetch('/api/session/' + id + '?meta_only=1' + _lpProjQ);

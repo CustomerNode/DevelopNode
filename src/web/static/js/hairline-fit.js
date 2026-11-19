@@ -58,7 +58,7 @@
     return out;
   }
   function signature(list) {
-    return list.map(p => p.g + ':' + (p.tabs || []).map(t => t.label).join(',') + ':' + (p.acts || []).map(a => a.label).join(',')).join('|') + '#8';
+    return list.map(p => p.g + ':' + (p.tabs || []).map(t => t.label).join(',') + ':' + (p.acts || []).map(a => a.label).join(',')).join('|') + '#9';
   }
   function jump(el) {
     const log = document.getElementById('live-log');
@@ -137,7 +137,8 @@
       for (const a of p.acts || []) {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'hl-do' + (a.main ? ' main' : '');
+        // k-<icon> names what it does, so the stylesheet can lead with Try it and keep Look / Respond quiet
+        b.className = 'hl-do' + (a.main ? ' main' : '') + (a.icon ? ' k-' + a.icon : '');
         b.innerHTML = (a.icon ? doIcon(a.icon) : '') + '<span></span>';
         b.querySelector('span').textContent = a.label;
         if (a.menu) {

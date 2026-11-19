@@ -3,7 +3,7 @@
 // changes the look of the app the person is using; localStorage vnChromeLook
 // is the saved choice.  Loaded in <head> so the look paints with the page.
 (function () {
-  var LOOKS = { open: 1, divided: 1, sheet: 1, corner: 1 };
+  var LOOKS = { family: 1, text: 1, hairline: 1, lit: 1 };
   var root = document.documentElement;
   function apply(v) {
     if (LOOKS[v]) root.setAttribute('data-chrome', v);

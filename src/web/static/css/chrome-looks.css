@@ -3,7 +3,7 @@
    it.  html[data-chrome="<look>"] turns one on: set by ?chrome=<look> for one
    page, or localStorage vnChromeLook (chrome-look.js).  No attribute: today. */
 
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) {
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) {
   --gl-base: #0d0d11;
   --gl-glow: rgba(99, 102, 241, .08);
   --gl-tint: rgba(255, 255, 255, .025);
@@ -15,7 +15,7 @@ html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [d
   --gl-well: rgba(255, 255, 255, .03);
   --gl-needs: rgba(255, 149, 0, .6);
 }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"])[data-theme="light"] {
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"])[data-theme="light"] {
   --gl-base: #f3f3f7;
   --gl-glow: rgba(99, 102, 241, .09);
   --gl-tint: rgba(255, 255, 255, .72);
@@ -29,46 +29,76 @@ html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [d
 }
 
 /* ── shared: one backdrop, no surface on the top bar or the sidebar ── */
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) body {
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) body {
   background: radial-gradient(ellipse 110% 55% at 50% 0%, var(--gl-glow), transparent 70%), var(--gl-base) !important;
 }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) :is(header, .layout, .sidebar) {
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) :is(header, .layout, .sidebar) {
   background: transparent !important; border-color: transparent !important; box-shadow: none !important;
 }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) header { padding: 12px 20px !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .hdr-brand h1 {
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) header { padding: 12px 20px !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .hdr-brand h1 {
   font-family: var(--font-sans) !important; font-size: 16px !important; font-weight: 650 !important; letter-spacing: -.2px !important;
 }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .app-logo { width: 22px !important; height: auto !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) #btn-git-publish { font-weight: 500 !important; color: var(--text-secondary) !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) #project-label .sidebar-mini-label { display: none !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) :is(.sidebar-action-btn, .sidebar-search-btn) { font-size: 13px !important; padding-left: 8px !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .sidebar-footer { display: none !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .wf-card { border-style: solid !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .wf-status-label { background: none !important; padding: 0 !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .app-logo { width: 22px !important; height: auto !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) #btn-git-publish { font-weight: 500 !important; color: var(--text-secondary) !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) #project-label .sidebar-mini-label { display: none !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) :is(.sidebar-action-btn, .sidebar-search-btn) { font-size: 13px !important; padding-left: 8px !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .sidebar-footer { display: none !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .wf-card { border-style: solid !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .wf-status-label { background: none !important; padding: 0 !important; }
 /* Session boxes: small glass cards on the page. */
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .wf-card {
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .wf-card {
   background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 16px !important;
   box-shadow: var(--gl-shadow), inset 0 1px 0 var(--gl-hi) !important;
 }
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .wf-card.vs-needs { border-color: var(--gl-needs) !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .wf-card.vs-needs { border-color: var(--gl-needs) !important; }
 /* The chat body is never glass: four ways it can sit. */
-html:is([data-chrome="open"], [data-chrome="divided"], [data-chrome="sheet"], [data-chrome="corner"]) .main { background-image: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .main { background-image: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 
-/* ── open: no surface at all, the chat sits on the page ── */
-html[data-chrome="open"] .main { background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+/* The chat body sits on the page: no surface of its own. */
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .main { background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .live-input-bar { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .lm .in { background: var(--gl-card) !important; box-shadow: 0 -15px 0 0 var(--gl-card) !important; }
+html:is([data-chrome="family"], [data-chrome="text"], [data-chrome="hairline"], [data-chrome="lit"]) .live-load-more-btn { background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; }
 
-/* ── divided: on the page, one fine line between the sidebar and the chat ── */
-html[data-chrome="divided"] .main { background: transparent !important; border: 0 !important; border-left: 1px solid var(--gl-edge) !important; border-radius: 0 !important; box-shadow: none !important; }
+/* ── family: every surface in the chat is the same glass ── */
+html[data-chrome="family"] .msg.assistant .msg-body, html[data-chrome="family"] .lm, html[data-chrome="family"] .vn-sb-body, html[data-chrome="family"] .vn-trail {
+  background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 16px !important;
+  box-shadow: var(--gl-shadow), inset 0 1px 0 var(--gl-hi) !important; }
+html[data-chrome="family"] .msg.user .msg-body { background: rgba(124, 124, 255, .14) !important; border: 1px solid rgba(124, 124, 255, .24) !important;
+  border-radius: 18px !important; box-shadow: inset 0 1px 0 var(--gl-hi) !important; }
+html[data-chrome="family"] .vn-card { background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 20px !important;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 12px 40px -12px rgba(0,0,0,.45), inset 0 1px 0 var(--gl-hi) !important; }
+html[data-chrome="family"][data-theme="light"] .vn-card { box-shadow: 0 12px 40px -16px rgba(20,20,60,.25), inset 0 1px 0 var(--gl-hi) !important; }
 
-/* ── sheet: a solid sheet in the page colour, fine edge, lifted off the page ── */
-html[data-chrome="sheet"] { --gl-sheet: #121217; }
-html[data-chrome="sheet"][data-theme="light"] { --gl-sheet: #ffffff; }
-html[data-chrome="sheet"] .main { background: var(--gl-sheet) !important; border: 1px solid var(--gl-edge) !important; border-radius: 20px !important;
-  margin: 0 12px 12px 4px !important; box-shadow: var(--gl-shadow) !important; }
+/* ── text: replies are plain text on the page; only what you act on is glass ── */
+html[data-chrome="text"] .msg.assistant .msg-body { background: transparent !important; border: 0 !important; box-shadow: none !important; padding-left: 2px !important; }
+html[data-chrome="text"] .vn-trail, html[data-chrome="text"] .vn-sb-body { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+html[data-chrome="text"] .lm { background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 20px !important;
+  box-shadow: var(--gl-shadow), inset 0 1px 0 var(--gl-hi) !important; }
+html[data-chrome="text"] .msg.user .msg-body { background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 18px !important;
+  box-shadow: inset 0 1px 0 var(--gl-hi) !important; color: var(--text-primary) !important; }
+html[data-chrome="text"] .vn-card { background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 24px !important;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--gl-shadow), inset 0 1px 0 var(--gl-hi) !important; }
 
-/* ── corner: the same solid sheet, flush to the window, one rounded corner ── */
-html[data-chrome="corner"] { --gl-sheet: #121217; }
-html[data-chrome="corner"][data-theme="light"] { --gl-sheet: #ffffff; }
-html[data-chrome="corner"] .main { background: var(--gl-sheet) !important; border: 0 !important; border-top: 1px solid var(--gl-edge) !important;
-  border-left: 1px solid var(--gl-edge) !important; border-radius: 20px 0 0 0 !important; box-shadow: none !important; }
+/* ── hairline: one fine outline on everything, no fills, one radius ── */
+html[data-chrome="hairline"] .msg.assistant .msg-body, html[data-chrome="hairline"] .msg.user .msg-body, html[data-chrome="hairline"] .lm, html[data-chrome="hairline"] .vn-sb-body,
+html[data-chrome="hairline"] .vn-trail, html[data-chrome="hairline"] .vn-card, html[data-chrome="hairline"] .wf-card {
+  background: transparent !important; border: 1px solid var(--gl-card-edge) !important; border-radius: 14px !important; box-shadow: none !important; }
+html[data-chrome="hairline"] .msg.user .msg-body { border-color: rgba(124, 124, 255, .45) !important; }
+html[data-chrome="hairline"] .wf-card.vs-needs { border-color: var(--gl-needs) !important; }
+html[data-chrome="hairline"] .vn-card:focus-within { border-color: rgba(124, 124, 255, .6) !important; box-shadow: 0 0 0 3px rgba(124, 124, 255, .12) !important; }
+
+/* ── lit: the glass family, lit from above, the composer glowing softly ── */
+html[data-chrome="lit"] body {
+  background: radial-gradient(1000px 520px at 60% -10%, rgba(124, 124, 255, .16), transparent 65%),
+              radial-gradient(900px 400px at 60% 110%, rgba(124, 124, 255, .10), transparent 65%), var(--gl-base) !important; }
+html[data-chrome="lit"] .msg.assistant .msg-body, html[data-chrome="lit"] .lm, html[data-chrome="lit"] .vn-sb-body, html[data-chrome="lit"] .vn-trail {
+  background: var(--gl-tint) !important; border: 1px solid var(--gl-edge) !important; border-radius: 16px !important;
+  box-shadow: var(--gl-shadow), inset 0 1px 0 var(--gl-hi) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+html[data-chrome="lit"] .lm { box-shadow: var(--gl-shadow), inset 0 1px 0 rgba(160, 160, 255, .35) !important; }
+html[data-chrome="lit"] .msg.user .msg-body { background: linear-gradient(180deg, rgba(124,124,255,.24), rgba(124,124,255,.12)) !important;
+  border: 1px solid rgba(140, 140, 255, .35) !important; border-radius: 18px !important; box-shadow: 0 6px 20px -10px rgba(124,124,255,.6) !important; }
+html[data-chrome="lit"] .vn-card { background: var(--gl-tint) !important; border: 1px solid rgba(124, 124, 255, .35) !important; border-radius: 20px !important;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 0 0 4px rgba(124, 124, 255, .08), 0 16px 48px -16px rgba(124, 124, 255, .45), inset 0 1px 0 var(--gl-hi) !important; }

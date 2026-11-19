@@ -37,12 +37,8 @@ async def _drive(url):
                              "--user-data-dir=" + prof, "about:blank"],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        port_file = Path(prof) / "DevToolsActivePort"
-        for _ in range(6000):   # 60 s: a cold Chrome on a GitHub runner took over 10
-            if port_file.exists() and port_file.read_text().strip():
-                break
-            time.sleep(0.01)
-        port = port_file.read_text().split()[0]
+        from tests._browser import devtools_port
+        port = devtools_port(prof)
         tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{port}/json"))
         ws_url = [t for t in tabs if t["type"] == "page"][0]["webSocketDebuggerUrl"]
         async with websockets.connect(ws_url, max_size=2 ** 24) as ws:

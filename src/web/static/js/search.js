@@ -170,7 +170,9 @@ async function _dsRun(overlay) {
 /* All projects view: one search per project, merged into one reply shaped
  * like /api/search's (sessions + stats), so the code below is unchanged. */
 async function _dsSearchAllProjects(params) {
-  const list = (typeof _allProjects !== 'undefined' && _allProjects) || [];
+  // Only the projects the view covers (the picker's Choose list).
+  const list = (window.VNAllProjects && VNAllProjects.shown) ? VNAllProjects.shown()
+    : ((typeof _allProjects !== 'undefined' && _allProjects) || []);
   const parts = await Promise.all(list.map(async p => {
     const ps = new URLSearchParams(params);
     ps.set('project', p.encoded);

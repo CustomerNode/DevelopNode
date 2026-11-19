@@ -361,7 +361,7 @@ def test_the_sheets_number_and_bar_follow_the_run(sheet):
     width = sheet.evaluate("() => document.querySelector('#git-sync-bar > i').style.width")
     assert width == "75%"
     labels = [b.strip() for b in sheet.locator("#git-sync-actions button").all_text_contents()]
-    assert labels == ["Keep working, I’ll tell you"]
+    assert labels == ["Keep working, notify me when done"]
     sheet.evaluate("""() => { __push({type: 'done', result: {ok: true, messages: ['Pushed.'],
       git_status: {ahead: 0, behind: 0, uncommitted: false}}}); __end(); }""")
     _until(sheet, "() => document.getElementById('git-sync-title').textContent === 'Published'")

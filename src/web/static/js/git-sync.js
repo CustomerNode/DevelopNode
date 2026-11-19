@@ -943,7 +943,7 @@ function showGitSyncModal(title, body, btns, opts) {
     el.type = 'button';
     el.className = 'pm-btn ' + (sheet ? 'pm-btn-secondary gs-min-quiet' : 'pm-btn-primary') + ' gs-min-cta';
     el.dataset.minimize = '1';
-    el.textContent = sheet ? 'Keep working, I’ll tell you' : 'Minimize';
+    el.textContent = sheet ? 'Keep working, notify me when done' : 'Minimize';
     el.title = 'Keep it running in the background';
     el.onclick = minimizeGitSyncModal;
     if (!sheet) {

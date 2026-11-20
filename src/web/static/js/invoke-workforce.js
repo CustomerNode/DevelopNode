@@ -1889,6 +1889,18 @@ function _buildBarLeftGroup(ctxHtml, isNewSession, sessionModel, sessionId) {
     '</div></div>';
 }
 
+/** The same control for a screen with no session (the empty Sessions view):
+ *  the usage columns only, opening the panel on its usage details.  There is
+ *  no session to change, so the panel leaves out the Model tile. */
+function _usageStatusTriggerHtml() {
+  const open = !!document.getElementById('vn-status-panel');
+  return '<div class="vn-status vn-status-usage' + (open ? ' open' : '') + '" role="button" tabindex="0" aria-haspopup="dialog"' +
+    ' data-home="1" title="Usage limits"' +
+    ' onclick="_toggleStatusPanel(this)"' +
+    ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_toggleStatusPanel(this)}">' +
+    '<span class="vsu-lbl">Usage</span>' + _usageLimitsPillHtml() + _STATUS_CARET + '</div>';
+}
+
 /** What the panel's session is running, and what is staged on top of it. */
 function _statusState() {
   const c = _statusPanelFor;
@@ -1912,13 +1924,13 @@ function _statusPanelHtml() {
 
   // Model: chips, one row per family.  Selection is strong neutral, never accent.
   let h = '<div class="vsp-sec"><span>Model</span></div><div class="sm-models vsp-models" id="vsp-models">';
-  const models = window._statusModels;
+  const models = c.home ? [] : window._statusModels;   // no Model tab without a session
   if (!models) h += '<span class="spinner"></span>';
   else if (!models.length) h += '<div class="vsp-empty">Model list unavailable.</div>';
   else h += _modelSelectorGroupsHtml(models, st.pModel);
   h += '</div>';
 
-  if (SM) {
+  if (SM && !c.home) {
     h += '<div class="vsp-sec"><span>Thinking</span></div><div class="msel-grid vsp-think">';
     for (const l of SM.THINKING_LEVELS) {
       const on = st.pThink !== null && l.key === st.pThink;
@@ -2009,7 +2021,7 @@ function _statusTilesHtml(st) {
     (pct == null ? '' : '<div class="vsm-mini"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>') +
     '<small>' + small + '</small></div>';
   const SM = st.SM;
-  const modelName = st.model ? _runningModelLabel(st.model, st.sid) : '—';
+  const modelName = (st.model && !_statusPanelFor.home) ? _runningModelLabel(st.model, st.sid) : '—';
   const thinkLbl = st.think === null ? 'Thinking not reported'
     : 'Thinking: ' + ((SM && (SM.THINKING_LEVELS.find(l => l.key === (st.think || '')) || {}).label) || 'Default');
   const rows = _usageRows();
@@ -2027,13 +2039,14 @@ function _statusTilesHtml(st) {
     ? tile('disk', 'disk', 'Disk', _diskUsePct() + '%', _diskUsePct(),
         _fmtBytes(_diskUsed()) + ' of ' + _fmtBytes(_diskAllotted()), _diskCls(_diskUsePct()))
     : tile('disk', 'disk', 'Disk', '—', null, 'Reading…');
-  return '<div class="vsm-tiles" role="tablist">' + tile('model', 'model', 'Model', escHtml(modelName), null, escHtml(thinkLbl)) +
+  return '<div class="vsm-tiles' + (_statusPanelFor.home ? ' vsm-tiles-3' : '') + '" role="tablist">'
+    + (_statusPanelFor.home ? '' : tile('model', 'model', 'Model', escHtml(modelName), null, escHtml(thinkLbl))) +
     wkTile + fhTile + dTile + '</div>';
 }
 
 function _statusModalHtml(st, parts) {
   const tab = _statusPanelFor.tab || 'model';
-  return '<div class="vsm-head"><h2 id="vsm-title">Model &amp; usage</h2>' +
+  return '<div class="vsm-head"><h2 id="vsm-title">' + (_statusPanelFor.home ? 'Usage' : 'Model &amp; usage') + '</h2>' +
     '<button class="vsm-x" data-act="close" aria-label="Close">' +
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
     '<div class="vsm-body">' + _statusTilesHtml(st) +
@@ -2067,7 +2080,7 @@ function _statusPanelClick(e) {
     }
     return;
   }
-  if (!row) return;
+  if (!row || c.home) return;   // no session behind a Home-screen panel
   const st = _statusState();
   if (c.isNew) {
     // A session that has not started: nothing to restart, so a pick applies at
@@ -2148,7 +2161,8 @@ function _closeStatusPanel() {
 
 function _toggleStatusPanel(trig) {
   if (document.getElementById('vn-status-panel')) { _closeStatusPanel(); return; }
-  _statusPanelFor = {isNew: trig.dataset.new === '1', sid: trig.dataset.sid || '', tab: 'model'};
+  const home = trig.dataset.home === '1';
+  _statusPanelFor = {isNew: trig.dataset.new === '1', sid: trig.dataset.sid || '', tab: home ? 'usage' : 'model', home: home};
   const sc = document.createElement('div');
   sc.id = 'vn-status-scrim';
   sc.className = 'vn-status-scrim';

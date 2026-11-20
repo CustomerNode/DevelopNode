@@ -2597,13 +2597,15 @@ function filterSessions() {
   } else if (viewMode === 'sessions' && sessionDisplayMode === 'control') {
     if (typeof renderMissionControl === 'function') renderMissionControl();
   } else if (viewMode === 'sessions' && sessionDisplayMode === 'grid') {
-    _flipReorder('workforce-grid', () =>
-      renderWorkforce(_windowSessions(wfSortedSessions(_applySessionFilters(allSessions)))));
+    const shown = wfSortedSessions(_applySessionFilters(allSessions));
+    _flipReorder('workforce-grid', () => renderWorkforce(_windowSessions(shown)));
     _mountWindowSentinel(document.getElementById('workforce-grid'));
+    _filterAutoFocus(shown);
   } else if (viewMode === 'sessions') {
-    _flipReorder('session-list', () =>
-      renderList(_windowSessions(sortedSessions(_applySessionFilters(allSessions)))));
+    const shown = sortedSessions(_applySessionFilters(allSessions));
+    _flipReorder('session-list', () => renderList(_windowSessions(shown)));
     _mountWindowSentinel(document.getElementById('session-list'));
+    _filterAutoFocus(shown);
   } else if (viewMode === 'compose') {
     // Keep the Subsessions "Ad-hoc" family tree live as session state
     // changes stream in.  No-op when the Structured tab is active or the
@@ -2665,6 +2667,39 @@ function clearSessionFilters() {
   closeFilterMenu();
   _resetSessionWindow();
   filterSessions();
+}
+
+// ── Filter auto-focus ──
+// While a filter is on, the list follows the sessions that come and go:
+//   - the list was empty and a session comes in → open it;
+//   - the open session leaves the list → open the top one in the sort, or
+//     close it when nothing else matches (never show a hidden session).
+// Only a live change does this: turning a filter on/off, switching project or
+// the first draw never moves you.  Nor does it while you are typing.
+let _afPrev = null;
+function _filterAutoFocus(sorted) {
+  const chips = _activeSessionFilters();
+  const proj = (window.VNAllProjects ? VNAllProjects.settingsKey() : (localStorage.getItem('activeProject') || ''));
+  const key = proj + '|' + sessionDisplayMode + '|' + Array.from(chips).sort().join(',');
+  const ids = sorted.map(s => s.id);
+  const prev = _afPrev;
+  _afPrev = {key, ids: new Set(ids)};
+  if (!chips.size || !prev || prev.key !== key) return;
+  const cameIn = prev.ids.size === 0 && ids.length > 0;
+  const wentOut = activeId && prev.ids.has(activeId) && !ids.includes(activeId);
+  if (!cameIn && !wentOut) return;
+  const ae = document.activeElement;
+  if (ae && (ae.isContentEditable || ((ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT') && ae.value))) return;
+  if (!ids.length) {
+    // The open session left and nothing else matches: close it, so the
+    // panel never shows a session the filter hides.  Its row is kept.
+    const left = activeId;
+    setTimeout(() => { if (activeId === left && typeof deselectSession === 'function') deselectSession(); }, 0);
+    return;
+  }
+  const target = ids[0];
+  if (target === activeId) return;
+  setTimeout(() => { if (target !== activeId && typeof openInGUI === 'function') openInGUI(target); }, 0);
 }
 
 /** True when a status change can move a session in or out of the filtered list. */
@@ -3138,6 +3173,8 @@ function openPreferences() {
      hint: 'A pop-up each time 24 hours spend another day of your weekly limit (a seventh of it), with Keep going or Stop all sessions.'},
     {key: 'usagespare', label: 'Spare usage suggestion', on: window._usageSpareSuggest !== false,
      hint: 'A pop-up when the week has twice the usage the days to the reset would normally use, offering to start a long job that runs by itself.'},
+    {key: 'quietnudge', label: 'All-quiet publish reminder', on: !(window.VNQuietNudge && !VNQuietNudge.enabled()),
+     hint: 'When this app’s own project is open and its sessions go from busy to none working or needing you, a small note beside the Publish button says you have changes not published.'},
     {key: 'unread', label: 'Unread indicators', on: unreadOn,
      hint: 'Show a small dot on idle chats that replied while you were looking elsewhere.'},
   ];
@@ -3189,6 +3226,7 @@ function openPreferences() {
     sync('chrome', cfg.chrome_control === true);
     sync('usagepace', cfg.usage_pace_warning !== false);
     sync('usagespare', cfg.usage_spare_suggest !== false);
+    sync('quietnudge', cfg.quiet_publish_nudge !== false && !(window.VNQuietNudge && !VNQuietNudge.enabled()));
   }).catch(() => {});
 
   // Toggle handlers. The modal stays open so several settings can be flipped at once.
@@ -3274,6 +3312,11 @@ function openPreferences() {
           showToast((btn.dataset.toggle === 'usagepace' ? 'Fast usage day warning: ' : 'Spare usage suggestion: ') + (on ? 'On' : 'Off'));
           break;
         }
+        case 'quietnudge':
+          // static/js/quiet-nudge.js: saved per device and in the server's preferences.
+          if (window.VNQuietNudge) VNQuietNudge.setEnabled(on);
+          showToast('All-quiet publish reminder: ' + (on ? 'On' : 'Off'));
+          break;
         case 'unread':
           // localStorage-only, like 'sticky' — this is a per-device display
           // preference, not something the server or other clients need.

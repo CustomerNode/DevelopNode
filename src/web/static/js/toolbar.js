@@ -332,6 +332,8 @@ function _buildDashboard() {
 
     <div class="dx-nums">${nums}</div>
 
+    ${typeof _usageStatusTriggerHtml === 'function' ? `<div class="dx-usage">${_usageStatusTriggerHtml()}</div>` : ''}
+
     ${waitingHtml ? `<div class="dx-sec"><div class="dx-label">Waiting on you</div><div class="dx-list">${waitingHtml}</div></div>` : ''}
 
     <div class="dx-actions">

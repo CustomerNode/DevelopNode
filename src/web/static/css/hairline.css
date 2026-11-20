@@ -20,23 +20,30 @@ html[data-finish="hairline"][data-theme="light"] {
   --hl-line: rgba(20, 20, 50, .06);
   --hl-needs: rgba(225, 125, 0, .55);
   --bg-body: #fff; --bg-sidebar: #fff;
+  /* Slate ink: near-black read as harsh on the white page, so ink, headings and text carry a faint blue cast */
+  --hl-ink: #3a4150; --hl-ink-hover: #495162;
+  --text-heading: #283040; --text-primary: #2a3040;
+  --pm-ink: var(--hl-ink); --pm-ink-hover: var(--hl-ink-hover);
 }
+html[data-finish="hairline"][data-theme="light"] .vn-pin.on { --pin-c: #283040; }
+html[data-finish="hairline"][data-theme="light"] #git-sync-overlay .gs-sheet .pm-btn-primary { background: var(--hl-ink); }
+html[data-finish="hairline"][data-theme="light"] #git-sync-overlay .gs-sheet .pm-btn-primary:hover { background: var(--hl-ink-hover); }
 /* The phone layout (css/mobile-hairline.css) keeps its own light palette: the same white page and outline */
 html.vn-mhl[data-finish][data-theme="light"] { --mh-base: #fff; }
 html.vn-mhl[data-finish][data-theme="light"] .vn-mh-bar,
 html.vn-mhl[data-finish][data-theme="light"] body.mob-drilled .main-toolbar { background: rgba(255, 255, 255, .9) !important; }
-html.vn-mhl[data-finish][data-theme="light"] body .layout .sidebar .wf-card.wf-selected { border-color: rgba(20, 20, 50, .55) !important; }
+html.vn-mhl[data-finish][data-theme="light"] body .layout .sidebar .wf-card.wf-selected { border-color: rgba(50, 60, 90, .38) !important; }
 /* Light: the main buttons are black ink (home New session, the composer's main button, Send while typing), with a
    neutral shadow so no purple glow is left under a black button.  Secondary buttons keep the theme's pale grey. */
 html[data-finish="hairline"][data-theme="light"] .dx-new,
 html[data-finish="hairline"][data-theme="light"] .live-send-btn.vn-primary,
 html[data-finish="hairline"][data-theme="light"] .live-send-btn-send {
-  background: #111 !important; background-image: none !important; border-color: transparent !important;
-  color: #fff !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .18) !important;
+  background: var(--hl-ink) !important; background-image: none !important; border-color: transparent !important;
+  color: #fff !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .12) !important;
 }
 html[data-finish="hairline"][data-theme="light"] .dx-new:hover,
 html[data-finish="hairline"][data-theme="light"] .live-send-btn.vn-primary:hover,
-html[data-finish="hairline"][data-theme="light"] .live-send-btn-send:hover { background: #2a2a2a !important; }
+html[data-finish="hairline"][data-theme="light"] .live-send-btn-send:hover { background: var(--hl-ink-hover) !important; }
 /* Popups dim the white page with a medium neutral grey and no blur: a dark or blurred wash read as dirt on white */
 html[data-finish="hairline"][data-theme="light"] { --overlay: rgba(15, 15, 20, .16); }
 html[data-finish="hairline"][data-theme="light"] .modal-overlay,
@@ -393,12 +400,12 @@ html[data-finish="hairline"] .sidebar .wf-avatar svg.vs-ic { stroke-width: 1.5; 
    strength (dimming them read as noise).  The text box and the search field take the same pane when
    focused, with a brighter neutral line.  No purple, no shadow. ── */
 html[data-finish="hairline"] { --lf-line: rgba(255, 255, 255, .26); --lf-fill: rgba(255, 255, 255, .035); }
-html[data-finish="hairline"][data-theme="light"] { --lf-line: rgba(20, 20, 50, .55); --lf-fill: #fff; }
+html[data-finish="hairline"][data-theme="light"] { --lf-line: rgba(50, 60, 90, .38); --lf-fill: #fff; }
 html[data-finish="hairline"] .sidebar .wf-card.wf-selected {
   border-color: rgba(255, 255, 255, .16) !important; box-shadow: none !important; background: rgba(255, 255, 255, .075) !important;
 }
 html[data-finish="hairline"][data-theme="light"] .sidebar .wf-card.wf-selected {
-  border-color: rgba(20, 20, 50, .55) !important; border-width: 1.5px !important; box-shadow: none !important; background: #fff !important;
+  border-color: rgba(50, 60, 90, .38) !important; border-width: 1.5px !important; box-shadow: none !important; background: #fff !important;
 }
 html[data-finish="hairline"] .sidebar .session-item.active,
 html[data-finish="hairline"][data-theme="light"] .sidebar .session-item.active { box-shadow: inset 0 0 0 1px var(--hl-line); background: var(--lf-fill); }

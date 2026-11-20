@@ -179,6 +179,10 @@
     // A New session counts under Needs you, as the Needs-you filter shows it (session-verb.js filterBucket).
     var needs = (typeof c.needs === 'number' && c.new) ? c.needs + c.new : c.needs;
     set('needs', needs); set('working', c.working); set('standby', c.standby); set('done', c.done);
+    // While anything works, the count's pickaxe swings like the session boxes' (topbar.css, hairline-sync.js keeps
+    // it in step with them).
+    var wk = counts.querySelector('.vn-ct.working');
+    if (wk) wk.classList.toggle('live', Number(c.working) > 0);
     syncCountFilters();
   }
 

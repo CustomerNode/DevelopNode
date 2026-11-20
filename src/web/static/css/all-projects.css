@@ -27,8 +27,18 @@
    content (each grid row takes its tallest card), and the icon never shrinks. */
 .vn-ap > .wf-card[data-sid] { height: 156px; }
 .sidebar #workforce-grid.vn-ap > .wf-card[data-sid] { height: auto !important; min-height: 156px; }
-.vn-ap > .wf-card[data-sid] > :is(.wf-avatar, .wf-status-label, .vn-ap-label) { flex-shrink: 0; }
+.vn-ap > .wf-card[data-sid] > :is(.wf-avatar, .wf-status-label, .wf-name, .vn-ap-label, .wf-meta) { flex-shrink: 0; }
 .vn-ap > .wf-card > .vn-ap-label { display: flex; width: fit-content; margin: 4px auto 1px; max-width: calc(100% - 12px); }
+/* The title always takes its two lines, so the project name sits at the same height on every card of a row,
+   whether the title wraps or not. */
+.vn-ap > .wf-card > .wf-name { min-height: 2lh; }
+/* A card clips its overflow, so in a grid of fixed height its row shrank to the card's minimum and cut the
+   time line off; each row takes its tallest card instead. */
+.sidebar #workforce-grid.vn-ap { grid-auto-rows: max-content; }
+/* Light theme: on white cards the filled, outlined pill read as a button.  There the project is plain grey
+   text, like the date line under it: no box, no initial. */
+[data-theme="light"] .vn-ap > .wf-card > .vn-ap-label { background: none; border-color: transparent; padding: 0; color: var(--text-faint); font-weight: 400; }
+[data-theme="light"] .vn-ap > .wf-card > .vn-ap-label .vn-ap-ic { display: none; }
 
 /* list: the narrow column keeps the title; the pill shrinks to its tile (name on hover) */
 .vn-ap > .session-item .session-col-name { display: flex; align-items: center; min-width: 0; }

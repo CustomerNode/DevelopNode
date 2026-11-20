@@ -264,3 +264,108 @@ def test_name_untitled_button_hidden(browser, status, body):
         assert not app.errors, app.errors
     finally:
         app.close()
+
+
+@pytest.mark.slow
+def test_filter_follows_sessions_in_and_out(browser):
+    """With a filter on and nothing showing, a session that comes in is opened;
+    when the open session leaves the filtered list, the top one is opened."""
+    app = FakeApp(browser, _sessions(), clock=True)
+    try:
+        sessions = app.sessions
+        _click(app, "#sidebar-filter-btn")
+        _click(app, _opt("working"))
+        assert app.eval(CARDS) == 0
+        before = app.eval("() => activeId")
+
+        # One comes in: it is opened.
+        app.push("session_state", {"session_id": sessions[5]["id"], "state": "working", "cwd": CWD})
+        app.page.wait_for_function(f"({CARDS})() === 1", timeout=3000)
+        app.advance(50)
+        app.page.wait_for_function(f"activeId === {json.dumps(sessions[5]['id'])}", timeout=3000)
+        assert before != sessions[5]["id"]
+
+        # Two more come in: the open one stays open.
+        app.push_many("session_state", [{"session_id": s["id"], "state": "working", "cwd": CWD}
+                                        for s in (sessions[2], sessions[9])])
+        app.page.wait_for_function(f"({CARDS})() === 3", timeout=3000)
+        app.advance(50)
+        assert app.eval("() => activeId") == sessions[5]["id"]
+
+        # The open one goes out: the top of the sort is opened.
+        app.push("session_state", {"session_id": sessions[5]["id"], "state": "stopped", "cwd": CWD})
+        app.page.wait_for_function(f"({CARDS})() === 2", timeout=3000)
+        app.advance(50)
+        top = app.eval("() => document.querySelector('#workforce-grid .wf-card[data-sid]').getAttribute('data-sid')")
+        app.page.wait_for_function(f"activeId === {json.dumps(top)}", timeout=3000)
+        assert top in (sessions[2]["id"], sessions[9]["id"])
+
+        # Turning a filter off/on never moves you.
+        _click(app, _opt("working"))
+        _click(app, _opt("needs"))
+        app.advance(50)
+        assert app.eval("() => activeId") == top
+    finally:
+        app.close()
+
+
+@pytest.mark.slow
+def test_open_session_closes_when_it_leaves_an_empty_filter(browser):
+    """With a filter on, the open session leaving the list when nothing else
+    matches closes it: the panel never shows a session the filter hides."""
+    app = FakeApp(browser, _sessions(), clock=True)
+    try:
+        sessions = app.sessions
+        _click(app, "#sidebar-filter-btn")
+        _click(app, _opt("working"))
+        app.push("session_state", {"session_id": sessions[5]["id"], "state": "working", "cwd": CWD})
+        app.page.wait_for_function(f"({CARDS})() === 1", timeout=3000)
+        app.advance(50)
+        app.page.wait_for_function(f"activeId === {json.dumps(sessions[5]['id'])}", timeout=3000)
+
+        # It stops: nothing is left in the filter, so it is closed.
+        app.push("session_state", {"session_id": sessions[5]["id"], "state": "stopped", "cwd": CWD})
+        app.page.wait_for_function(f"({CARDS})() === 0", timeout=3000)
+        app.advance(50)
+        app.page.wait_for_function("activeId === null", timeout=3000)
+        assert app.eval("() => new URLSearchParams(location.search).get('chat')") is None
+        assert not app.errors, app.errors
+    finally:
+        app.close()
+
+
+@pytest.mark.slow
+def test_sit_tight_when_needs_you_is_empty_but_sessions_work(browser):
+    """Needs you on, nothing needs you, sessions working: the empty list shows
+    those working sessions as faded cards under "Sit tight", follows them as
+    they finish, and gives way to the plain empty list when none is left."""
+    app = FakeApp(browser, _sessions(), clock=True)
+    sit = "() => document.querySelectorAll('#workforce-grid .vn-sit-tight .vst-card').length"
+    try:
+        sessions = app.sessions
+        app.push_many("session_state", [{"session_id": s["id"], "state": "working", "cwd": CWD}
+                                        for s in sessions[:3]])
+        app.advance(300)
+        _click(app, "#sidebar-filter-btn")
+        _click(app, _opt("needs"))
+        app.advance(600)
+        assert app.eval(CARDS) == 0
+        assert app.eval(sit) == 3
+        assert "Sit tight" in app.eval("() => document.querySelector('#workforce-grid .vn-sit-tight').textContent")
+        # One finishes: the cards follow the work.
+        app.push("session_state", {"session_id": sessions[0]["id"], "state": "stopped", "cwd": CWD})
+        app.advance(600)
+        assert app.eval(sit) == 2
+        # With Working on too, the working sessions match: no Sit tight.
+        _click(app, _opt("working"))
+        app.advance(600)
+        assert app.eval(sit) == 0 and app.eval(CARDS) == 2
+        _click(app, _opt("working"))
+        # Nothing working any more: the plain empty list.
+        app.push_many("session_state", [{"session_id": s["id"], "state": "stopped", "cwd": CWD}
+                                        for s in sessions[1:3]])
+        app.advance(600)
+        assert app.eval(sit) == 0
+        assert "Nothing matches" in app.eval("() => document.querySelector('#workforce-grid .vn-sess-empty').textContent")
+    finally:
+        app.close()

@@ -97,6 +97,12 @@ svg.vs-ic.vs-done { color: var(--text-faint); }
 .wf-card.vs-standby { border-color: rgba(var(--vs), .45); border-style: dashed; }
 .wf-card.vs-standby .wf-status-label { background: rgba(var(--vs), .13); color: rgb(var(--vs)); }
 .wf-card.wf-sleeping.vs-standby .wf-avatar { filter: none; }
+/* Working is one colour whatever the engine says: a session that ended its
+   turn to wait on its own background work (a Working summary) is idle or
+   asleep to the engine, and the engine-state rules painted its Working label
+   in the idle green or the sleeping grey. */
+.wf-card.vs-working .wf-status-label { background: var(--bg-sort-active); color: var(--accent); }
+.wf-card.wf-sleeping.vs-working .wf-avatar { filter: none; }
 .session-item.vs-row-standby .session-col-name { color: var(--text-secondary); }
 /* The open session's text box on Standby: "Standby · Set aside 12 min ago" in the
    same teal, instead of "Sleeping · Wakes when you send a message". */

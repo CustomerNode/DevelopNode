@@ -1988,6 +1988,10 @@ def screenshot_variants_problems(card: dict, facts: TurnFacts) -> list:
                 if k.lower() != "now"]
         if len(keys) < 2:
             continue
+        # One shared live copy of the app with each option applied inside it
+        # IS the real screen, changed: the sections are only the popup's keys.
+        if handoff_rules._APP_FRAME.search(text) and handoff_rules._one_kept_frame(text):
+            continue
         # Sections are read from the markup only: a style rule or a script
         # naming a key is not a section of the page.
         markup = _STYLE_SCRIPT.sub("", text)

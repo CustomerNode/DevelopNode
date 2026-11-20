@@ -2903,10 +2903,16 @@ function updateLiveInputBar() {
 
   // Don't touch the bar for sessions that haven't started on the server yet.
   // addNewAgent() renders its own input bar with _newSessionSubmit handler.
-  // If neither runningIds nor sessionKinds know about this session, leave it alone.
+  // Only a session nothing has been sent to yet: one this tab opened and then
+  // slept is in guiOpenSessions with no state too, and skipping it left the
+  // panel with no text box at all when it was reopened.
   const isRunning = runningIds.has(id);
   const kind = sessionKinds[id];  // 'question' | 'working' | 'idle' | undefined
-  if (!isRunning && !kind && guiOpenSessions.has(id)) return;
+  if (!isRunning && !kind && guiOpenSessions.has(id)) {
+    const _unsent = typeof _isUnsentNewSession === 'function' && _isUnsentNewSession(id);
+    const _known = typeof allSessions !== 'undefined' && allSessions.some(x => x.id === id && !x.unsent);
+    if (_unsent || !_known) return;
+  }
 
   // Capture any text the user has typed in either textarea so we can
   // preserve it across state transitions (e.g. idle → working, working → idle).
@@ -4189,7 +4195,22 @@ function _restorePendingBubbles(sid, entries) {
   if (!list.length || sid !== liveSessionId) return;
   const users = (entries || []).filter(e => e && e.kind === 'user');
   const lastUser = users[users.length - 1];
+  // A redraw shows only the newest page of the log (100 entries), so a message
+  // sent before a long turn is no longer in it although the server logged it.
+  // Drawing it again put the old message at the bottom, as if it were sent
+  // again. A message is history, not pending, when the log has moved past it:
+  // a delivered one once anything was logged after it, any non-queued one once
+  // the page starts after it (2 min of clock slack between devices either way).
+  // A queued message waits behind the turn, so the log moving on proves nothing.
+  const _SLACK = 120000;
+  const stamps = (entries || []).map(_entryEpochMs).filter(ms => !isNaN(ms));
+  const newestMs = stamps.length ? Math.max.apply(null, stamps) : NaN;
+  const oldestMs = stamps.length ? Math.min.apply(null, stamps) : NaN;
   for (const rec of list.slice()) {
+    const _past = rec.state !== 'queued' && (
+      (rec.state === 'delivered' && newestMs > rec.at + _SLACK) ||
+      oldestMs > rec.at + _SLACK);
+    if (_past) { list.splice(list.indexOf(rec), 1); continue; }
     // A user entry logged at or after the send (2 min of clock slack between
     // devices) with the same words is this message. With no timestamp, only
     // the newest user entry may count, so an older identical "yes" never does.
@@ -4201,6 +4222,7 @@ function _restorePendingBubbles(sid, entries) {
     if (hit) { _confirmPendingSend(sid, rec.text); continue; }
     _addOptimisticBubble(sid, rec.text, rec.voice, {pending: rec, passive: true});
   }
+  if (!list.length) delete _pendingSends[sid];
 }
 
 function _rekeyPendingSends(oldSid, newSid) {

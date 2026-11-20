@@ -166,3 +166,79 @@ def test_a_script_redirect_to_sign_in_is_caught_by_the_browser(server):
     probs = hr.signin_wall_problems(_card(server + "/app/"))
     assert probs and "/accounts/login/" in probs[0]
     assert hr.signin_wall_problems(_card(server + "/app-open/")) == []
+
+
+# A gated address wrapped in a page of this app that frames it shows the user
+# the same sign-in page, so the framed address is judged; so are the other
+# places a card asks the user to open a page.
+def _wrapper(tmp_path, monkeypatch, body):
+    static = tmp_path / "static"
+    (static / "scratch").mkdir(parents=True)
+    (static / "scratch" / "beds-live.html").write_text(body, encoding="utf-8")
+    monkeypatch.setattr(hr, "_STATIC_DIR", static)
+    return "/static/scratch/beds-live.html"
+
+
+def test_a_page_that_frames_a_gated_address_is_sent_back(server, tmp_path, monkeypatch):
+    page = _wrapper(tmp_path, monkeypatch,
+                    f'<html><body><iframe data-keep src="{server}/gated/"></iframe></body></html>')
+    probs = hr.signin_wall_problems(_card(page))
+    assert probs and "frames it" in probs[0] and "/accounts/login/" in probs[0]
+
+
+def test_a_page_that_sets_its_frame_in_script_is_judged_too(server, tmp_path, monkeypatch):
+    page = _wrapper(tmp_path, monkeypatch,
+                    f"<iframe id=f></iframe><script>f.src = '{server}/gated/';</script>")
+    assert hr.signin_wall_problems(_card(page))
+
+
+def test_a_page_that_frames_an_open_address_passes(server, tmp_path, monkeypatch):
+    page = _wrapper(tmp_path, monkeypatch, f'<iframe src="{server}/open/"></iframe>')
+    assert hr.signin_wall_problems(_card(page)) == []
+
+
+def test_a_note_in_a_comment_is_not_a_frame(server, tmp_path, monkeypatch):
+    page = _wrapper(tmp_path, monkeypatch,
+                    f'<!-- was <iframe src="{server}/gated/"> --><iframe src="{server}/open/"></iframe>')
+    assert hr.signin_wall_problems(_card(page)) == []
+
+
+def test_sign_in_work_may_frame_the_sign_in_wall(server, tmp_path, monkeypatch):
+    page = _wrapper(tmp_path, monkeypatch, f'<iframe src="{server}/gated/"></iframe>')
+    card = _card(page, title="Login redirect", zoom={"big": "x", "task": "Fix the login redirect", "now": "y"})
+    assert hr.signin_wall_problems(card) == []
+
+
+def test_a_gated_page_to_look_at_or_link_is_sent_back(server):
+    look = _card("/static/x.html", needs={"kind": "none", "look": [{"label": "Beds", "kind": "link",
+                                                                   "url": server + "/gated/"}]})
+    assert any(p.startswith("needs.look") for p in hr.signin_wall_problems(look))
+    link = _card("/static/x.html", links=[{"label": "Beds", "kind": "link", "url": server + "/gated/"}])
+    assert any(p.startswith("links") for p in hr.signin_wall_problems(link))
+
+
+def test_a_picture_is_never_loaded_as_a_page(monkeypatch):
+    monkeypatch.setattr(hr, "_lands_on_signin", lambda url: pytest.fail("loaded " + url))
+    card = _card("/static/x.html", links=[{"label": "Before", "kind": "image",
+                                           "url": "http://127.0.0.1:7999/shot.png"}])
+    assert hr.signin_wall_problems(card) == []
+
+
+def test_a_locked_cookie_store_lets_history_decide(server, tmp_path, monkeypatch):
+    # A running browser can hold its cookie store locked; its sign-ins are
+    # then unknown, and having been past this port's sign-in page decides.
+    monkeypatch.undo()
+    monkeypatch.setenv("VIBENODE_LINK_CHECK", "1")
+    monkeypatch.setenv("VIBENODE_SIGNIN_CHECK", "1")
+    monkeypatch.setattr(hr, "_signin_cache", {})
+    locked = tmp_path / "Profile" / "Cookies"
+    locked.parent.mkdir()
+    locked.write_bytes(b"not a database")
+    monkeypatch.setattr(hr, "_browser_cookie_dbs", lambda: [locked])
+    assert hr.UNREAD_STORE in hr._signed_in_hosts()
+    monkeypatch.setattr(hr, "_visited_past_signin", lambda origin: origin == server)
+    monkeypatch.setattr(hr, "_lands_on_signin", lambda url: pytest.fail("loaded a page the user got into"))
+    assert hr.signin_wall_problems(_card(server + "/gated/")) == []
+    monkeypatch.setattr(hr, "_visited_past_signin", lambda origin: False)
+    monkeypatch.setattr(hr, "_lands_on_signin", lambda url: url + "accounts/login/")
+    assert hr.signin_wall_problems(_card(server + "/gated/"))

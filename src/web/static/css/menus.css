@@ -1,0 +1,94 @@
+/* ── One colour scheme for every menu and pop-up window ──
+   Every menu, right-click menu and pop-up window takes its colours from the pop-up window tokens (--pm-*,
+   style.css "Pop-up windows"): the one surface, the one thin line, the one shadow and the one dim behind a window.
+   Rows are neutral ink: a hover is a faint fill of the text colour, the current choice a stronger one with the
+   heading colour.  Accent never marks a row, a heading or a selection; status colour stays on status icons and
+   counts only; red only for destructive rows.  The geometry lives in style.css "One menu look everywhere".
+   Loaded last so it settles every older per-menu colour.  The phone layout's own sheets (mobile-hairline.css)
+   keep their palette. */
+
+:root {
+  --pm-bt: 255, 255, 255;
+  --pm-menu-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  --pm-row-hover: rgba(var(--pm-bt), .05);
+  --pm-row-on: rgba(var(--pm-bt), .09);
+}
+[data-theme="light"] {
+  --pm-bt: 0, 0, 0;
+  --pm-menu-shadow: 0 12px 32px rgba(15, 15, 30, .10);
+}
+
+/* The surface */
+html :is(.ws-ctx-menu, .session-ctx-menu, .sidebar-menu-dropdown, .sidebar-sort-dropdown, .hdr-sys-dropdown,
+  .kanban-context-menu, .kanban-context-submenu, .kanban-status-menu, .kanban-history-dropdown,
+  .kanban-col-config-dropdown, .compose-ctx-menu, .compose-sort-menu, .compose-settings-popover, .grp-popup,
+  .vn-jump-menu, .vn-more-menu:not(.vn-more-sheet), .lm-copy-menu, .lm-dvmenu, .vn-pick-menu) {
+  background: var(--pm-surface) !important;
+  border: 1px solid var(--pm-line) !important;
+  box-shadow: var(--pm-menu-shadow) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu {
+  background: var(--pm-surface); border-color: var(--pm-line); box-shadow: var(--pm-menu-shadow);
+}
+
+/* Rows: neutral hover, neutral current choice */
+html :is(.ws-ctx-menu .ws-ctx-item, .sidebar-menu-dropdown .sidebar-sort-opt, .sidebar-menu-dropdown .sidebar-menu-sub,
+  .sidebar-sort-dropdown .sidebar-sort-opt, .hdr-sys-dropdown button, .kanban-context-item, .kanban-context-submenu-item,
+  .kanban-status-menu-item, .compose-ctx-item, .compose-sort-item, .grp-popup .btn, .vn-jump-menu-item,
+  .session-ctx-menu .vn-ctx-st):is(:hover, :focus-visible, .open) {
+  background: var(--pm-row-hover) !important; color: var(--text-heading);
+}
+html :is(.sidebar-menu-dropdown .sidebar-sort-opt, .sidebar-sort-dropdown .sidebar-sort-opt, .kanban-status-menu-item,
+  .compose-sort-item, .session-ctx-menu .vn-ctx-st):is(.active, .on, .cur, .current, [aria-checked="true"]) {
+  background: var(--pm-row-on) !important; color: var(--text-heading);
+}
+html[data-finish="hairline"] #live-log .lm > .hl-edge .hl-menu button:hover { background: var(--pm-row-hover); }
+/* Ticks and row icons in ink, not accent; a status row keeps its coloured status icon only */
+html .session-ctx-menu .vn-ctx-st .vn-ctx-tick { color: var(--text-heading); }
+html :is(.sidebar-menu-dropdown, .sidebar-sort-dropdown, .session-ctx-menu, .compose-sort-menu) :is(.active, .on)::after { color: var(--text-heading) !important; }
+html .vn-jump-menu-item svg, html .grp-popup .btn:hover svg { color: var(--text-muted); }
+/* Destructive rows keep red, on a faint red fill */
+html :is(.ws-ctx-item.danger, .ws-ctx-danger, .kanban-context-danger, .compose-ctx-danger, .grp-popup .btn.danger,
+  .hdr-sys-dropdown button.danger, .sidebar-sort-opt.danger):hover { background: var(--pm-danger-hover) !important; color: var(--pm-danger) !important; }
+/* Dividers and quiet headings */
+html :is(.ws-ctx-menu .ws-ctx-divider, .sidebar-menu-dropdown .sort-divider, .hdr-sys-dropdown .hdr-sys-divider,
+  .hdr-sys-dropdown .sys-separator, .kanban-context-separator) { background: var(--pm-line) !important; border-color: var(--pm-line) !important; }
+html :is(.sidebar-menu-dropdown .sidebar-menu-section-label, .ws-ctx-bulk-header) { color: var(--text-faint); }
+
+
+/* ── The Projects window (#project-overlay): a pop-up window like every other ── */
+html #project-overlay { background: var(--pm-scrim) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html #project-overlay .project-card {
+  --pm-bt: 255, 255, 255;
+  background: var(--pm-surface) !important; border: 1px solid var(--pm-line) !important; border-radius: 14px !important;
+  box-shadow: var(--pm-shadow) !important;
+}
+html[data-theme="light"] #project-overlay .project-card { --pm-bt: 0, 0, 0; }
+/* the count over the title: a quiet label, not accent */
+html #project-overlay .project-sub { color: var(--text-faint) !important; }
+html #project-overlay .project-header { border-bottom-color: var(--pm-line) !important; }
+/* close: the settings window's plain close, no ring */
+html #project-overlay .overlay-close { width: 30px !important; height: 30px !important; border: 0 !important; border-radius: 9px !important; color: var(--text-muted); }
+html #project-overlay .overlay-close:hover { background: rgba(var(--pm-bt), .08); color: var(--text-heading); }
+/* rows: one line colour; the open project is a neutral fill, not an accent bar */
+html #project-overlay .project-item { border-bottom-color: var(--pm-line) !important; }
+@media (hover: hover) { html #project-overlay .project-item:hover { background: var(--pm-row-hover) !important; border-radius: 10px; } }
+html #project-overlay .project-item.active,
+html #project-overlay .project-item.active:hover,
+html #project-overlay .project-list.project-choosing .project-item:hover {
+  background: var(--pm-row-on) !important; border-radius: 10px !important; box-shadow: none !important;
+}
+html #project-overlay .project-item-check { color: var(--text-heading); }
+/* project initials: neutral tiles (colour on this window means status, as on the session boxes) */
+html #project-overlay .project-item-mark { color: var(--text-secondary) !important; background: rgba(var(--pm-bt), .06) !important; border: 0; }
+html #project-overlay .project-item-add .project-item-mark,
+html #project-overlay .project-item-all .project-item-mark { background: none !important; border: 1px dashed rgba(var(--pm-bt), .25); color: var(--text-muted) !important; }
+/* Choose…: a quiet ink link */
+html #project-overlay .ap-choose { color: var(--text-secondary); }
+html #project-overlay .ap-choose:hover { color: var(--text-heading); background: var(--pm-row-hover); }
+html #project-overlay .ap-sub input { accent-color: var(--pm-ink); }
+html #project-overlay .project-act-btn:hover { background: rgba(var(--pm-bt), .08); }
+
+/* The settings window: its nav and pane draw the same line as every other window */
+html #pm-overlay.sx :is(.sx-nav, .pm-card) { border-color: var(--pm-line) !important; }

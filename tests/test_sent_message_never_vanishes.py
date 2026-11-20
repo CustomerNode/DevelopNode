@@ -110,6 +110,65 @@ def test_an_older_identical_message_does_not_count_as_this_one(browser):
 
 
 @pytest.mark.slow
+def test_a_message_from_before_the_page_is_never_drawn_again_at_the_bottom(browser):
+    """A redraw shows only the newest page of the log. After a long turn the
+    message that started it is no longer on that page, and it was drawn again
+    at the bottom of the thread, as if it had been sent a second time. Once
+    the log has moved past a delivered message, it is history."""
+    import time
+    from tests._fake_app import CWD, FakeApp, fake_sessions, init_script
+    s = fake_sessions(1)
+    a = s[0]["id"]
+    app = FakeApp(browser, s, init=init_script("sessions", "grid"),
+                  viewport={"width": 1200, "height": 900},
+                  extra_routes={"/api/session/": lambda r: (200, {"id": a, "display_title": "T", "messages": []})})
+    try:
+        app.push("session_state", {"session_id": a, "state": "idle", "cwd": CWD})
+        _open(app, a)
+        app.push("session_log", _log(a, [{"kind": "asst", "text": "Ready."}]))
+        app.eval(f"() => _liveSubmitDirect('{a}', 'Rename the export button', {{skipWrongSessionCheck: true}})")
+        app.push("message_ack", {"session_id": a})
+        assert app.eval(STATE, a)["state"].endswith("Delivered")
+
+        # Ten minutes of work later, the page the thread is redrawn from starts
+        # after the message (offset 97 of 197): it is not on it.
+        later = time.time() + 600
+        page = [{"kind": "tool_use", "name": "Read", "timestamp": later},
+                {"kind": "asst", "text": "All done.", "timestamp": later + 5}]
+        app.push("session_log", {"session_id": a, "total": 197, "offset": 97, "has_more": True, "entries": page})
+        got = app.eval(STATE, a)
+        assert got == {"count": 0, "pending": 0, "state": ""}, got
+        assert app.eval(f"() => _pendingSendsApi.list('{a}').length") == 0
+        assert not app.errors, app.errors
+    finally:
+        app.close()
+
+
+@pytest.mark.slow
+def test_a_queued_message_stays_while_the_turn_it_waits_behind_runs_on(browser):
+    import time
+    from tests._fake_app import CWD, FakeApp, fake_sessions, init_script
+    s = fake_sessions(1)
+    a = s[0]["id"]
+    app = FakeApp(browser, s, init=init_script("sessions", "grid"),
+                  viewport={"width": 1200, "height": 900},
+                  extra_routes={"/api/session/": lambda r: (200, {"id": a, "display_title": "T", "messages": []})})
+    try:
+        app.push("session_state", {"session_id": a, "state": "idle", "cwd": CWD})
+        _open(app, a)
+        app.push("session_log", _log(a, [{"kind": "asst", "text": "Ready."}]))
+        app.eval(f"() => _liveSubmitDirect('{a}', 'Rename the export button', {{skipWrongSessionCheck: true}})")
+        app.push("message_ack", {"session_id": a, "queued": True})
+        later = time.time() + 600
+        app.push("session_log", {"session_id": a, "total": 197, "offset": 97, "has_more": True,
+                                 "entries": [{"kind": "asst", "text": "Still going.", "timestamp": later}]})
+        got = app.eval(STATE, a)
+        assert got["count"] == 1 and got["state"].endswith("Queued"), got
+    finally:
+        app.close()
+
+
+@pytest.mark.slow
 def test_a_new_sessions_first_message_shows_at_once_even_while_the_agent_list_loads(browser):
     """Send on a new session waited on the agent list (a scan of the project
     that took seconds) before drawing anything: the box emptied and the

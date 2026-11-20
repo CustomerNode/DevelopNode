@@ -1516,6 +1516,8 @@ def get_kanban_config():
         # Weekly usage pace pop-ups (src/web/usage_pace.py): on unless turned off.
         "usage_pace_warning": cfg.get("usage_pace_warning", True) is not False,
         "usage_spare_suggest": cfg.get("usage_spare_suggest", True) is not False,
+        # The all-quiet bubble beside the Publish button (static/js/quiet-nudge.js).
+        "quiet_publish_nudge": cfg.get("quiet_publish_nudge", True) is not False,
     })
 
 
@@ -1553,6 +1555,7 @@ def update_kanban_config():
                      "smart_termination",
                      "chrome_control",
                      "usage_pace_warning", "usage_spare_suggest",
+                     "quiet_publish_nudge",
                      "validation_url_enabled", "validation_url_dismissed",
                      "file_tracking_enabled"):
         if pref_key in data:

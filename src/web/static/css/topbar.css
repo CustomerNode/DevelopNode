@@ -278,3 +278,18 @@ html.vn-has-topbar .vn-foot-counts .vn-ct-ic > svg { width: var(--ct-d); height:
 html.vn-has-topbar .vn-foot-counts .standby .vn-ct-ic > svg { --k: 1.5; }   /* two bars read heavier than one mark: kept shorter */
 html.vn-has-topbar .vn-foot-counts .vn-ct-ic > svg circle { display: none; }
 html.vn-has-topbar .vn-foot-counts .vn-ct-ic > img { width: calc(var(--ct-d) * .6); height: calc(var(--ct-d) * .6); }   /* a thin diagonal reads smaller than an upright mark of the same box */
+
+/* ── While any session works, the Working count's pickaxe swings and throws chips like the session boxes' (hl-swing,
+   hl-chips in hairline.css; js/hairline-sync.js pins every one of them to the same clock, so they strike together). ── */
+html[data-finish="hairline"] .vn-foot-counts .vn-ct.working.live .vn-ct-ic { position: relative; overflow: visible; }
+html[data-finish="hairline"] .vn-foot-counts .vn-ct.working.live .vn-ct-ic > img { transform-origin: 80% 80%; animation: hl-swing 1.6s linear infinite; }
+html[data-finish="hairline"] .vn-foot-counts .vn-ct.working.live .vn-ct-ic::after {
+  content: ''; position: absolute; left: 4px; top: 10px; width: 2px; height: 2px; border-radius: 50%;
+  background: currentColor; pointer-events: none; opacity: 0;
+  box-shadow: -5px -5px 0 0 currentColor, -7px -1px 0 -.3px currentColor, -2px -7px 0 -.3px currentColor, -8px -6px 0 0 currentColor;
+  animation: hl-chips 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-finish="hairline"] .vn-foot-counts .vn-ct.working.live .vn-ct-ic > img { animation: none; }
+  html[data-finish="hairline"] .vn-foot-counts .vn-ct.working.live .vn-ct-ic::after { animation: none; display: none; }
+}

@@ -827,9 +827,12 @@ def framed_app_problem(card: dict) -> Optional[str]:
     for u in dict.fromkeys(re.sub(r"[?#].*$", "", u) for u in urls if _MOCKUP_PAGE.match(u)):
         try:
             f = (_SCRATCH_DIR / u.rsplit("/", 1)[-1]).resolve()
-            if f.parent == _SCRATCH_DIR.resolve() and f.is_file() and \
-                    _APP_FRAME.search(f.read_text(encoding="utf-8", errors="replace")):
-                hits.append(u)
+            if f.parent == _SCRATCH_DIR.resolve() and f.is_file():
+                text = f.read_text(encoding="utf-8", errors="replace")
+                # One shared copy (<iframe data-keep>) boots once, never per
+                # choice: the variants pattern live_app_reboot_problem asks for.
+                if _APP_FRAME.search(text) and not _one_kept_frame(text):
+                    hits.append(u)
         except OSError:
             continue
     themed = _one_theme_pages(urls)
@@ -1014,6 +1017,16 @@ def _option_element(text: str, m) -> str:
         if depth == 0:
             return text[begin:begin + t.end()]
     return text[begin:begin + 20_000]
+
+
+def _one_kept_frame(text: str) -> bool:
+    """The page frames the live app exactly once, as a shared <iframe data-keep>
+    outside every option section, and makes no frames in script."""
+    if not _KEEP_FRAME.search(text) or text.count("<iframe") != 1:
+        return False
+    if re.search(r"""createElement\(\s*["']iframe["']""", text, re.I):
+        return False
+    return not any("<iframe" in _option_element(text, m) for m in _OPTION_ATTR.finditer(text))
 
 
 def live_app_reboot_problem(card: dict) -> Optional[str]:
@@ -3095,9 +3108,11 @@ Validate row with nothing to open, or one that only opens DevelopNode's front \
 page (the app the user is already in), is sent back. The page must open \
 where the user is already signed in: one that lands on a sign-in page (a \
 server you started on a new port, a second copy, an address the user's browser \
-holds no sign-in for) leaves the user a job and is sent back. Link the copy and \
-address the user already uses, or bring the change there; only when the work is \
-sign-in itself may "url" be the sign-in page. Never tell the user which \
+holds no sign-in for) leaves the user a job and is sent back. So does any \
+page the card shows (a link, a page to look at, a choice's screen), and a \
+scratch page that frames such an address shows the same sign-in page, so it is \
+sent back too. Link the copy and address the user already uses, or bring the \
+change there; only when the work is sign-in itself may a link be the sign-in page. Never tell the user which \
 device to use ("open it on your phone"): the user may be at the computer. A \
 change that shows only at phone size is shown at that size here: a page that \
 frames the live page at phone width in "url", plus a phone-size screenshot.
@@ -3515,9 +3530,15 @@ def _browser_cookie_dbs():
             continue
 
 
+#: In ``_signed_in_hosts()``: some browser's cookie store exists but could
+#: not be read, so any host may be signed in there; the browser history
+#: (readable while the browser runs) then decides alone.
+UNREAD_STORE = "*"
+
+
 def _signed_in_hosts() -> Optional[set]:
     """Hosts those browsers hold a sign-in cookie for, or None when no
-    cookie store could be read (then nothing is judged)."""
+    cookie store was found (then nothing is judged)."""
     import sqlite3
     found, read_any = set(), False
     for path in _browser_cookie_dbs():
@@ -3529,6 +3550,10 @@ def _signed_in_hosts() -> Optional[set]:
             finally:
                 db.close()
         except Exception:
+            # A running Chrome on Windows locks its cookie store: that
+            # browser's sign-ins are unknown, not absent (UNREAD_STORE).
+            found.add(UNREAD_STORE)
+            read_any = True
             continue
         read_any = True
         for host, name in rows:
@@ -3620,47 +3645,114 @@ def _browser_lands_on_signin(url: str) -> Optional[str]:
     return None
 
 
+# A page of this app that frames another address: wrapping a gated address in
+# a scratch page (an <iframe> filling the window) shows the user the same
+# sign-in page, so the framed address is what is judged.  Comments are dropped
+# first, so a note naming a port is never read as a frame.
+_FRAME_SRC = re.compile(
+    r"""<i?frame\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']|\.src\s*=\s*["'`]([^"'`$]+)["'`]""", re.I)
+# How many distinct addresses one card may make the check load: each can
+# start a headless browser, and the stop must stay quick.
+_SIGNIN_MAX_PAGES = 4
+
+
+def _framed_addresses(url: str) -> list:
+    """Addresses a ``/static/….html`` page of this app frames, else []."""
+    u = re.sub(r"^https?://(?:localhost|127\.0\.0\.1|\[::1\]):5050(?=/static/)", "", _s(url).strip())
+    if not u.startswith("/static/"):
+        return []
+    rel = urllib.parse.unquote(re.sub(r"[?#].*$", "", u)[len("/static/"):])
+    if not re.search(r"\.html?$", rel, re.I):
+        return []
+    try:
+        f = (_STATIC_DIR / rel).resolve()
+        f.relative_to(_STATIC_DIR.resolve())
+        text = f.read_text(encoding="utf-8", errors="replace")[:400_000]
+    except (OSError, ValueError):
+        return []
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    return [a or b for a, b in _FRAME_SRC.findall(text)]
+
+
+def _signin_candidates(card: dict):
+    """(where, address) for every page the card asks the user to open that
+    is on another port of this machine: the Validate page, a page to look at,
+    a choice's screen, a page link; each through the preview proxy and through
+    a page of this app that frames it."""
+    pages = []
+    v = card.get("validate")
+    if isinstance(v, dict):
+        pages.append(("validate.url", _s(v.get("url"))))
+    needs = card.get("needs") if isinstance(card.get("needs"), dict) else {}
+    for key, items in (("needs.look", needs.get("look")), ("links", card.get("links"))):
+        for it in items if isinstance(items, list) else []:
+            if isinstance(it, dict) and _s(it.get("kind")).lower() != "image":
+                pages.append((key, _s(it.get("url"))))
+    for r in needs.get("replies") if isinstance(needs.get("replies"), list) else []:
+        for sc in (r.get("screens") if isinstance(r, dict) and isinstance(r.get("screens"), list) else []):
+            if isinstance(sc, dict):
+                pages.append(("a choice's screen", _s(sc.get("url"))))
+
+    def unwrap(url):
+        m = re.search(r"/api/preview/proxy\?(?:.*&)?u=([^&#]+)", url)
+        return urllib.parse.unquote(m.group(1)) if m else url
+
+    seen = set()
+    for where, url in pages:
+        url = unwrap(url)
+        inner = _framed_addresses(url)
+        targets = [(f"{where} (the page {url} frames it)", unwrap(x)) for x in inner] if inner else [(where, url)]
+        for w, t in targets:
+            lm = _LOOPBACK_URL.match(t)
+            if lm and lm.group(2) and lm.group(2) != "5050" and t not in seen:
+                seen.add(t)
+                yield w, t, lm
+
+
 def signin_wall_problems(card: dict) -> list[str]:
     if (not isinstance(card, dict) or os.environ.get("VIBENODE_SIGNIN_CHECK") == "0"
             or os.environ.get("VIBENODE_LINK_CHECK") == "0"):
         return []
-    v = card.get("validate")
-    url = _s(v.get("url")) if isinstance(v, dict) else ""
-    m = re.search(r"/api/preview/proxy\?(?:.*&)?u=([^&#]+)", url)
-    if m:
-        url = urllib.parse.unquote(m.group(1))
-    lm = _LOOPBACK_URL.match(url)
-    if not lm or not lm.group(2) or lm.group(2) == "5050":
-        return []
-    if _SIGNIN_PATH.search(urllib.parse.urlsplit(url).path):
-        return []   # the sign-in page itself, linked on purpose
     zoom = card.get("zoom") if isinstance(card.get("zoom"), dict) else {}
     about = " ".join(_s(x) for x in (card.get("title"), card.get("headline"), zoom.get("task")))
     if _SIGNIN_WORK.search(about):
         return []   # the work is sign-in itself
-    host = lm.group(1).lower().strip("[]")
+    candidates = []
+    for where, url, lm in _signin_candidates(card):
+        if _SIGNIN_PATH.search(urllib.parse.urlsplit(url).path):
+            continue   # the sign-in page itself, linked on purpose
+        candidates.append((where, url, lm))
+    if not candidates:
+        return []
     signed = _signed_in_hosts()
     if signed is None:
         return []
-    # A cookie is the host's, whatever the port, so a sign-in on the copy the
-    # user uses (one port) says nothing about a second copy (another port)
-    # with its own sign-in.  The host's cookie counts only when the user's
-    # browser has also been past the sign-in page on this exact port.
-    if host in signed and _visited_past_signin(f"{url.split(':')[0].lower()}://{lm.group(1)}:{lm.group(2)}"):
-        return []
     import time
-    hit = _signin_cache.get(url)
-    if not hit or time.monotonic() - hit[0] > 60:
-        hit = (time.monotonic(), _lands_on_signin(url))
-        _signin_cache[url] = hit
-    landed = hit[1]
-    if not landed:
-        return []
-    return [f"validate.url ({url}) opens on a sign-in page ({landed}): the user's browser has never "
-            f"been signed in at {lm.group(1)}:{lm.group(2)}, so the user would have to sign in before trying anything, a job left to the user "
-            "(and on a second copy of an app, signing in there can sign the user out of the copy the user "
-            "uses). Link the page on the copy and address the user is already signed in to, or bring the "
-            "change there. Only when the work is sign-in itself may the link be the sign-in page."]
+    out = []
+    for where, url, lm in candidates[:_SIGNIN_MAX_PAGES]:
+        host = lm.group(1).lower().strip("[]")
+        # A cookie is the host's, whatever the port, so a sign-in on the copy
+        # the user uses (one port) says nothing about a second copy (another
+        # port) with its own sign-in.  The host's cookie counts only when the
+        # user's browser has also been past the sign-in page on this port.
+        if (host in signed or UNREAD_STORE in signed) and _visited_past_signin(f"{url.split(':')[0].lower()}://{lm.group(1)}:{lm.group(2)}"):
+            continue
+        hit = _signin_cache.get(url)
+        if not hit or time.monotonic() - hit[0] > 60:
+            hit = (time.monotonic(), _lands_on_signin(url))
+            _signin_cache[url] = hit
+        landed = hit[1]
+        if not landed:
+            continue
+        out.append(
+            f"{where} ({url}) opens on a sign-in page ({landed}): the user's browser has never "
+            f"been signed in at {lm.group(1)}:{lm.group(2)}, so the user would have to sign in before seeing "
+            "anything, a job left to the user (and on a second copy of an app, signing in there can sign the "
+            "user out of the copy the user uses). Wrapping the address in a page that frames it, or moving it "
+            "to another field, shows the same sign-in page and is sent back the same way. Link the page on "
+            "the copy and address the user is already signed in to, or bring the change there. Only when the work is sign-in itself may a link be "
+            "the sign-in page.")
+    return out
 
 
 def review(message: str, facts=None) -> Optional[str]:

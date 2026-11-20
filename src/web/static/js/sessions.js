@@ -1249,7 +1249,10 @@ function _showSubsessionBadgeToast(parentSid) {
  *  filters hide them → "Show all sessions"; the project has none → "New session". */
 function _emptySessionsHtml() {
   const total = (typeof allSessions !== 'undefined' && allSessions) ? allSessions.length : 0;
-  const filtered = total > 0 && typeof _activeSessionFilters === 'function' && _activeSessionFilters().size > 0;
+  const active = (total > 0 && typeof _activeSessionFilters === 'function') ? _activeSessionFilters() : new Set();
+  const filtered = active.size > 0;
+  const sit = filtered ? _sitTightHtml(active) : '';
+  if (sit) return sit;
   const t = filtered
     ? { h: 'Nothing matches these filters',
         s: 'Your other ' + total + ' session' + (total === 1 ? ' is' : 's are') + ' hidden, not gone.',
@@ -1264,6 +1267,28 @@ function _emptySessionsHtml() {
     + '<div class="vn-sess-ghosts" aria-hidden="true">' + cards + '</div>'
     + '<div class="vn-sess-empty-msg"><b>' + t.h + '</b>' + escHtml(t.s)
     + '<button type="button" class="vn-sess-empty-btn" onclick="' + t.on + '">' + t.b + '</button></div></div>';
+}
+
+/** "Sit tight": the filters hide everything, but sessions are working and will
+ *  land in the list when they need you.  The ghost cards become those working
+ *  sessions (faded, a slow shimmer, tap to peek) above one calm line.  Only
+ *  with the Needs you filter on (where a working session lands next) and the
+ *  Working filter off (with it on, a working session would match).
+ *  A status change while a state filter is on re-renders the list
+ *  (_renderSessionStateChange), so the cards follow the work live. */
+function _sitTightHtml(active) {
+  if (!active.has('needs') || active.has('working') || !window.SessionVerb || !SessionVerb.shown) return '';
+  const work = allSessions.filter(s => SessionVerb.shown(SessionVerb.display(s.id)) === 'working');
+  if (!work.length) return '';
+  const cards = work.slice(0, 4).map(s =>
+    '<div class="vst-card" role="button" tabindex="0" data-sid="' + escHtml(s.id) + '" title="Peek at this session"'
+    + ' onclick="openInGUI(this.dataset.sid)" onkeydown="if(event.key===\'Enter\')openInGUI(this.dataset.sid)">'
+    + '<i class="vst-spin" aria-hidden="true"></i><em>Working</em><span>'
+    + escHtml(s.display_title || s.id.slice(0, 8)) + '</span></div>').join('');
+  const n = work.length;
+  return '<div class="vn-sess-empty vn-sit-tight"><div class="vst-cards">' + cards + '</div>'
+    + '<div class="vn-sess-empty-msg"><b>Sit tight</b>Nothing needs you yet. '
+    + (n > 4 ? n + ' sessions are' : n === 1 ? 'This one is' : 'These are') + ' on it.</div></div>';
 }
 
 function renderList(sessions) {

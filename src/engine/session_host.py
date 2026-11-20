@@ -55,6 +55,21 @@ HARD_CAP = 512 * 1024 * 1024
 CLI_EXIT_GRACE = 60.0
 SHUTDOWN_GRACE = 1.5
 
+# Sessions run below the person's own apps. Many sessions' test suites, type
+# checks and dev servers at normal priority beside the browser, the remote
+# desktop and a meeting window make the laptop lag. The CLI starts below
+# normal and everything it runs inherits that (Windows priority class, POSIX
+# nice), so session work takes only the CPU nobody in front of the screen is
+# using. VIBENODE_SESSION_PRIORITY=normal opts out.
+BELOW_NORMAL_PRIORITY = 0x00004000   # BELOW_NORMAL_PRIORITY_CLASS
+POSIX_BACKGROUND_NICE = 5
+
+
+def session_runs_in_background(env=None) -> bool:
+    """False only when VIBENODE_SESSION_PRIORITY says normal."""
+    value = (env if env is not None else os.environ).get("VIBENODE_SESSION_PRIORITY", "")
+    return value.strip().lower() not in ("normal", "0", "off")
+
 
 class LineBuffer:
     """The CLI's output since the last finished, acknowledged turn.
@@ -210,8 +225,10 @@ class CLIProcess:
         env = dict(os.environ)
         env.update({str(k): str(v) for k, v in (self.spec.get("env") or {}).items()})
         kwargs = {}
+        background = session_runs_in_background()
         if os.name == "nt":
-            kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            kwargs["creationflags"] = (getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                                       | (BELOW_NORMAL_PRIORITY if background else 0))
         else:
             kwargs["start_new_session"] = True
         argv, self.prompt_files = argv_with_prompt_files(
@@ -221,6 +238,11 @@ class CLIProcess:
             stderr=subprocess.DEVNULL, cwd=self.spec.get("cwd") or None, env=env,
             limit=shp.FRAME_LIMIT, **kwargs)
         self.pid = int(self.proc.pid)
+        if background and os.name != "nt":
+            try:
+                os.setpriority(os.PRIO_PROCESS, self.pid, POSIX_BACKGROUND_NICE)
+            except (OSError, AttributeError):
+                pass
 
     async def read_messages(self):
         """Each stdout line that parses as a JSON object (the CLI's

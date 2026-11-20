@@ -1,0 +1,35 @@
+/* quiet-nudge.css — the "All your sessions are quiet" bubble beside the Publish button (quiet-nudge.js). */
+.vn-quiet-nudge {
+  position: fixed; z-index: 9000; box-sizing: border-box; width: 236px;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 10px 13px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text-secondary); font-size: 12.5px; line-height: 1.4;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .3);
+  opacity: 0; transform: translateX(-6px); transition: opacity .35s ease, transform .35s ease;
+}
+.vn-quiet-nudge[data-side="below"] { transform: translateY(-6px); }
+.vn-quiet-nudge.in { opacity: 1; transform: none; }
+.vn-quiet-nudge::before {
+  content: ''; position: absolute; width: 10px; height: 10px; background: inherit;
+  border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.vn-quiet-nudge[data-side="right"]::before { left: -6px; top: var(--qn-arrow, calc(50% - 6px)); transform: rotate(45deg); }
+.vn-quiet-nudge[data-side="below"]::before { top: -6px; left: var(--qn-arrow, calc(50% - 6px)); transform: rotate(135deg); }
+.vn-quiet-nudge .qn-t { color: var(--text-heading); font-weight: 500; padding-right: 16px; }
+.vn-quiet-nudge .qn-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+.vn-quiet-nudge .qn-x {
+  position: absolute; top: 5px; right: 5px; background: none; border: 0; color: inherit;
+  opacity: .55; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 5px;
+}
+.vn-quiet-nudge .qn-x:hover { opacity: 1; }
+.vn-quiet-nudge .qn-go {
+  background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 6px;
+  padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+}
+.vn-quiet-nudge .qn-go:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.vn-quiet-nudge .qn-stop {
+  background: none; border: 0; padding: 0; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 11.5px;
+  text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+.vn-quiet-nudge .qn-stop:hover { color: var(--text-secondary); }
+@media (prefers-reduced-motion: reduce) { .vn-quiet-nudge { transition: opacity .2s; transform: none; } }

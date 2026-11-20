@@ -37,6 +37,7 @@
 <link rel="stylesheet" href="{{ versioned_static('style.css') }}">
 <link rel="stylesheet" href="{{ versioned_static('css/mobile.css') }}">   <!-- mobile responsive layer (<=768px only) -->
 <link rel="stylesheet" href="{{ versioned_static('css/usage-pace.css') }}">   <!-- weekly usage pace pop-ups (usage-pace.js) -->
+<link rel="stylesheet" href="{{ versioned_static('css/quiet-nudge.css') }}">   <!-- all-quiet publish bubble (quiet-nudge.js) -->
 <link rel="stylesheet" href="{{ versioned_static('css/rebrand.css') }}">   <!-- DevelopNode rename notice (rebrand.js) -->
 <link rel="stylesheet" href="{{ versioned_static('css/session-status.css') }}">   <!-- sidebar status oriented to the person (session-verb.js) -->
 <link rel="stylesheet" href="{{ versioned_static('css/phone-a-friend.css') }}">   <!-- Phone a Friend (DevelopNode Orgs) -->
@@ -938,6 +939,7 @@ html[data-theme="light"] .vn-splash .vns-tile.old b { background: rgba(0,0,0,.08
 <script src="{{ versioned_static('js/mobile-hairline.js') }}" defer></script>
 <link rel="stylesheet" href="{{ versioned_static('css/topbar.css') }}">   <!-- one top bar across the session list and the chat (desktop hairline) -->
 <link rel="stylesheet" href="{{ versioned_static('css/home.css') }}">   <!-- the Home screen: a project chooser (_buildHomepageContent in toolbar.js) -->
+<link rel="stylesheet" href="{{ versioned_static('css/menus.css') }}">   <!-- one colour scheme for every menu and pop-up window (last: settles older per-menu colours) -->
 <script src="{{ versioned_static('js/topbar.js') }}" defer></script>
 
 <script src="{{ versioned_static('js/live-panel.js') }}"></script>
@@ -966,6 +968,7 @@ html[data-theme="light"] .vn-splash .vns-tile.old b { background: rgba(0,0,0,.08
 <script src="{{ versioned_static('js/notify.js') }}"></script>
 <script src="{{ versioned_static('js/socket.js') }}"></script>
 <script src="{{ versioned_static('js/phone-a-friend.js') }}"></script>   <!-- Phone a Friend (DevelopNode Orgs) -->
+<script src="{{ versioned_static('js/quiet-nudge.js') }}"></script>   <!-- all-quiet publish bubble beside the Publish button -->
 <script src="{{ versioned_static('js/usage-pace.js') }}"></script>   <!-- weekly usage pace pop-ups; uses socket.js's socket -->
 <script src="{{ versioned_static('js/composer-history.js') }}"></script>   <!-- Up/Down recall sent messages per session; wraps the submit functions, so after app.js, live-panel.js and socket.js -->
 <script src="{{ versioned_static('js/rebrand.js') }}"></script>   <!-- one-time DevelopNode rename of this computer's shortcuts -->

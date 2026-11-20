@@ -52,6 +52,23 @@ def test_a_page_built_from_markup_passes(scratch, markup):
     assert hr.framed_app_problem(_card("looks.html")) is None
 
 
+def test_one_shared_kept_copy_of_the_app_passes(scratch):
+    """The variants pattern the instructions ask for: the app framed once, as
+    <iframe data-keep> outside the option sections, each option applied inside it."""
+    page = ('<iframe id="app" data-keep></iframe><section data-option="now"></section>'
+            '<section data-option="A"></section><section data-option="B"></section>'
+            "<script>app.src = location.origin + '/';</script>")
+    (scratch / "looks.html").write_text(page, encoding="utf-8")
+    assert hr.framed_app_problem(_card("looks.html")) is None
+
+
+def test_a_kept_frame_inside_an_option_is_still_sent_back(scratch):
+    page = ('<section data-option="now"></section>'
+            '<section data-option="A"><iframe data-keep src="/"></iframe></section>')
+    (scratch / "looks.html").write_text(page, encoding="utf-8")
+    assert "frames the whole app" in (hr.framed_app_problem(_card("looks.html")) or "")
+
+
 def test_the_rule_runs_in_the_card_review(scratch):
     (scratch / "looks.html").write_text('<iframe src="/"></iframe>', encoding="utf-8")
     assert any("frames the whole app" in p for p in hr.format_problems(_card("looks.html")))

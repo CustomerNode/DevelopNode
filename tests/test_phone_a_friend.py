@@ -59,7 +59,7 @@ class _Resp:
 
 
 def _fake_post(pg):
-    def post(url, json=None, headers=None, timeout=None):
+    def post(url, json=None, headers=None, timeout=None, verify=None):
         assert url.startswith(URL + "/rest/v1/rpc/")
         fn = url.rsplit("/", 1)[1]
         role = "service_role" if headers["apikey"] == SERVICE else "anon"

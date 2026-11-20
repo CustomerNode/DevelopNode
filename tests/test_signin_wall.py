@@ -242,3 +242,56 @@ def test_a_locked_cookie_store_lets_history_decide(server, tmp_path, monkeypatch
     monkeypatch.setattr(hr, "_visited_past_signin", lambda origin: False)
     monkeypatch.setattr(hr, "_lands_on_signin", lambda url: url + "accounts/login/")
     assert hr.signin_wall_problems(_card(server + "/gated/"))
+
+
+# Every page a card opens is held to the same rule, not only the Validate row:
+# a Decide choice whose live screen lands on a sign-in page asks the user to
+# sign in before the user can even look at the options.
+
+def _decide(urls):
+    return {"type": "needs_you", "title": "Seed packet labels", "headline": "Pick a label style.",
+            "zoom": {"big": "Garden planner", "task": "Label style", "now": "Three styles built"},
+            "needs": {"kind": "decision", "ask": "Pick a label style for the seed packets.",
+                      "replies": [{"key": k, "label": f"Style {k}", "reply": f"Use style {k}",
+                                   "screens": [{"label": "Seed shelf", "url": u,
+                                                "image": "/static/scratch/x.png"}]}
+                                  for k, u in zip("ABC", urls)]}}
+
+
+def test_a_choice_screen_behind_a_sign_in_page_is_sent_back(server):
+    probs = hr.signin_wall_problems(_decide([server + "/gated/?s=a", server + "/gated/?s=b"]))
+    assert len(probs) == 1, "one problem per copy, naming the extra pages"
+    assert "screen" in probs[0] and "sign-in page" in probs[0] and "1 more page" in probs[0]
+
+
+def test_open_choice_screens_pass(server):
+    assert hr.signin_wall_problems(_decide([server + "/open/?s=a", server + "/open/?s=b"])) == []
+
+
+def test_needs_look_and_links_are_checked_too(server):
+    look = {"type": "needs_you", "title": "Seed shelf", "headline": "Approve the shelf.",
+            "needs": {"kind": "approve", "ask": "Ship it?", "look": [{"label": "Shelf", "url": server + "/gated/"}]}}
+    assert hr.signin_wall_problems(look)
+    links = {"type": "explain", "title": "Seed shelf", "headline": "How it works.",
+             "links": [{"label": "Shelf", "kind": "link", "url": server + "/gated/"},
+                       {"label": "Picture", "kind": "image", "url": server + "/gated/"}]}
+    probs = hr.signin_wall_problems(links)
+    assert len(probs) == 1 and probs[0].startswith("links")
+
+
+def test_a_screen_the_user_is_signed_in_to_is_never_loaded(server, monkeypatch):
+    monkeypatch.setattr(hr, "_signed_in_hosts", lambda: {"127.0.0.1"})
+    monkeypatch.setattr(hr, "_visited_past_signin", lambda origin: origin == server)
+    monkeypatch.setattr(hr, "_lands_on_signin", lambda url: pytest.fail("loaded a signed-in page"))
+    assert hr.signin_wall_problems(_decide([server + "/gated/"])) == []
+
+
+def test_loads_are_capped_per_card(server, monkeypatch):
+    calls = []
+    monkeypatch.setattr(hr, "_lands_on_signin", lambda url: calls.append(url))
+    # Distinct ports that all refuse: nothing is walled, but no more than the cap is loaded.
+    urls = [f"http://127.0.0.1:{9000 + i}/p" for i in range(8)]
+    card = {"type": "explain", "title": "x", "headline": "y",
+            "links": [{"label": str(i), "kind": "link", "url": u} for i, u in enumerate(urls)]}
+    assert hr.signin_wall_problems(card) == []
+    assert len(calls) == hr._SIGNIN_MAX_LOADS

@@ -140,9 +140,12 @@ def test_session_env_wires_python_and_node_once():
 
 
 def _session_env(tmp_path):
+    # A session's CLI is never a pytest worker. When this suite runs in
+    # parallel, its workers set PYTEST_XDIST_*; a child inheriting them looks
+    # like a worker of an outer run, and runq rightly stands aside for those.
     env = {k: v for k, v in os.environ.items()
-           if k not in ("RUNQ_LEASE", "RUNQ_DISABLE", "PYTEST_PLUGINS", "PYTEST_ADDOPTS",
-                        "PYTHONPATH", "NODE_OPTIONS")}
+           if k not in ("PYTEST_PLUGINS", "PYTEST_ADDOPTS", "PYTHONPATH", "NODE_OPTIONS")
+           and not k.startswith(("PYTEST_XDIST_", "RUNQ_"))}
     env = package.session_env(env)
     env["RUNQ_STATE_DIR"] = str(tmp_path / "state")
     return env

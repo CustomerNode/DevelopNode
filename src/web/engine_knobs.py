@@ -108,6 +108,11 @@ KNOBS = [
      "Each new session's CLI runs inside its own Session Host process, so a Session Engine restart reattaches the session (turn in flight, pending permission, timers) instead of resuming it. Costs about 0.2 s on a session's first connect and about 36 MB per live session. Set to 0 to run new CLIs inside the engine as before; hosts already running are reattached whatever this says."),
     ("VIBENODE_HOST_ORPHAN_MINUTES", "Session Engine", "30",
      "Minutes a Session Host waits with no Session Engine attached and no turn in flight before it closes its CLI and exits. A host mid-turn never exits on this timer. Fractions allowed; the floor is 1 second."),
+    ("VIBENODE_SESSION_PRIORITY", "Session Engine", "",
+     "Each session's CLI, and everything it runs, starts below normal priority so session work only takes CPU the person's own apps are not using. Set to normal to run sessions at normal priority."),
+    # Resource queue for heavy jobs sessions start (src/engine/runq/)
+    ("VIBENODE_RUNQ", "Session Engine", "1",
+     "Sessions' test runs, type checks and builds wait for room on the machine, and an identical run on unchanged code that just passed is replayed instead of run again. Set to 0 to run them straight away."),
     ("VIBENODE_HOST_FORBID_REAL_CLI", "Tests", "",
      "Set by the test suite: a Session Host refuses to launch the real Claude CLI (tests pass a fake one). Not for manual use."),
     ("VIBENODE_HOST_TEST_OWNER", "Tests", "",

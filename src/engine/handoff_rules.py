@@ -3106,7 +3106,8 @@ only happens later (the next time something occurs), build a demo page that \
 shows it happening, link it in "url", and put the real moment in "later". A \
 Validate row with nothing to open, or one that only opens DevelopNode's front \
 page (the app the user is already in), is sent back. The page must open \
-where the user is already signed in: one that lands on a sign-in page (a \
+where the user is already signed in, and so must every page a card opens \
+(each Decide choice's screens, needs.look, links): one that lands on a sign-in page (a \
 server you started on a new port, a second copy, an address the user's browser \
 holds no sign-in for) leaves the user a job and is sent back. So does any \
 page the card shows (a link, a page to look at, a choice's screen), and a \
@@ -3651,9 +3652,10 @@ def _browser_lands_on_signin(url: str) -> Optional[str]:
 # first, so a note naming a port is never read as a frame.
 _FRAME_SRC = re.compile(
     r"""<i?frame\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']|\.src\s*=\s*["'`]([^"'`$]+)["'`]""", re.I)
-# How many distinct addresses one card may make the check load: each can
-# start a headless browser, and the stop must stay quick.
-_SIGNIN_MAX_PAGES = 4
+# At most this many pages are loaded per card: each can start a headless
+# browser and the stop must stay quick, and a page behind a sign-in wall
+# usually means its whole copy is, so one hit per copy is enough.
+_SIGNIN_MAX_LOADS = 4
 
 
 def _framed_addresses(url: str) -> list:
@@ -3674,39 +3676,48 @@ def _framed_addresses(url: str) -> list:
     return [a or b for a, b in _FRAME_SRC.findall(text)]
 
 
-def _signin_candidates(card: dict):
-    """(where, address) for every page the card asks the user to open that
-    is on another port of this machine: the Validate page, a page to look at,
-    a choice's screen, a page link; each through the preview proxy and through
-    a page of this app that frames it."""
-    pages = []
+def _pages_opened(card: dict):
+    """(where, url) for every page the card opens for the user to look at or
+    try: the Validate row, each Decide choice's screens, needs.look and links
+    (pictures left out: an image loads with no sign-in)."""
     v = card.get("validate")
     if isinstance(v, dict):
-        pages.append(("validate.url", _s(v.get("url"))))
+        yield "validate.url", _s(v.get("url"))
     needs = card.get("needs") if isinstance(card.get("needs"), dict) else {}
-    for key, items in (("needs.look", needs.get("look")), ("links", card.get("links"))):
-        for it in items if isinstance(items, list) else []:
-            if isinstance(it, dict) and _s(it.get("kind")).lower() != "image":
-                pages.append((key, _s(it.get("url"))))
-    for r in needs.get("replies") if isinstance(needs.get("replies"), list) else []:
-        for sc in (r.get("screens") if isinstance(r, dict) and isinstance(r.get("screens"), list) else []):
+    for r in _items(needs.get("replies")):
+        if not isinstance(r, dict):
+            continue
+        for sc in _items(r.get("screens")):
             if isinstance(sc, dict):
-                pages.append(("a choice's screen", _s(sc.get("url"))))
+                yield f"the screen \"{_s(sc.get('label')) or _s(r.get('label'))}\" of a choice", _s(sc.get("url"))
+    for where, items in (("needs.look", needs.get("look")), ("links", card.get("links"))):
+        for it in _items(items):
+            if isinstance(it, dict) and _s(it.get("kind")).lower() != "image":
+                yield where, _s(it.get("url"))
+
+
+def _signin_candidates(card: dict):
+    """(where, address, match) for every page the card opens that is on
+    another port of this machine, each through the preview proxy and through
+    a page of this app that frames it; the sign-in page itself is left out."""
 
     def unwrap(url):
         m = re.search(r"/api/preview/proxy\?(?:.*&)?u=([^&#]+)", url)
         return urllib.parse.unquote(m.group(1)) if m else url
 
     seen = set()
-    for where, url in pages:
+    for where, url in _pages_opened(card):
         url = unwrap(url)
         inner = _framed_addresses(url)
         targets = [(f"{where} (the page {url} frames it)", unwrap(x)) for x in inner] if inner else [(where, url)]
         for w, t in targets:
             lm = _LOOPBACK_URL.match(t)
-            if lm and lm.group(2) and lm.group(2) != "5050" and t not in seen:
-                seen.add(t)
-                yield w, t, lm
+            if not lm or not lm.group(2) or lm.group(2) == _own_port() or t in seen:
+                continue
+            if _SIGNIN_PATH.search(urllib.parse.urlsplit(t).path):
+                continue   # the sign-in page itself, linked on purpose
+            seen.add(t)
+            yield w, t, lm
 
 
 def signin_wall_problems(card: dict) -> list[str]:
@@ -3717,41 +3728,49 @@ def signin_wall_problems(card: dict) -> list[str]:
     about = " ".join(_s(x) for x in (card.get("title"), card.get("headline"), zoom.get("task")))
     if _SIGNIN_WORK.search(about):
         return []   # the work is sign-in itself
-    candidates = []
-    for where, url, lm in _signin_candidates(card):
-        if _SIGNIN_PATH.search(urllib.parse.urlsplit(url).path):
-            continue   # the sign-in page itself, linked on purpose
-        candidates.append((where, url, lm))
-    if not candidates:
+    targets = list(_signin_candidates(card))
+    if not targets:
         return []
     signed = _signed_in_hosts()
     if signed is None:
         return []
     import time
-    out = []
-    for where, url, lm in candidates[:_SIGNIN_MAX_PAGES]:
-        host = lm.group(1).lower().strip("[]")
+    walled, loads = {}, 0
+    for where, url, lm in targets:
+        origin = f"{url.split(':')[0].lower()}://{lm.group(1)}:{lm.group(2)}"
+        if origin in walled:
+            walled[origin][2].append(where)
+            continue
         # A cookie is the host's, whatever the port, so a sign-in on the copy
         # the user uses (one port) says nothing about a second copy (another
         # port) with its own sign-in.  The host's cookie counts only when the
         # user's browser has also been past the sign-in page on this port.
-        if (host in signed or UNREAD_STORE in signed) and _visited_past_signin(f"{url.split(':')[0].lower()}://{lm.group(1)}:{lm.group(2)}"):
+        host = lm.group(1).lower().strip("[]")
+        if (host in signed or UNREAD_STORE in signed) and _visited_past_signin(origin):
+            continue
+        if loads >= _SIGNIN_MAX_LOADS:
             continue
         hit = _signin_cache.get(url)
         if not hit or time.monotonic() - hit[0] > 60:
+            loads += 1
             hit = (time.monotonic(), _lands_on_signin(url))
             _signin_cache[url] = hit
-        landed = hit[1]
-        if not landed:
-            continue
+        if hit[1]:
+            walled[origin] = (url, hit[1], [where])
+    out = []
+    for origin, (url, landed, wheres) in walled.items():
+        what = wheres[0] + (f" and {len(wheres) - 1} more page(s) on the same copy" if len(wheres) > 1 else "")
         out.append(
-            f"{where} ({url}) opens on a sign-in page ({landed}): the user's browser has never "
-            f"been signed in at {lm.group(1)}:{lm.group(2)}, so the user would have to sign in before seeing "
-            "anything, a job left to the user (and on a second copy of an app, signing in there can sign the "
-            "user out of the copy the user uses). Wrapping the address in a page that frames it, or moving it "
-            "to another field, shows the same sign-in page and is sent back the same way. Link the page on "
-            "the copy and address the user is already signed in to, or bring the change there. Only when the work is sign-in itself may a link be "
-            "the sign-in page.")
+            f"{what} ({url}) opens on a sign-in page ({landed}): the user's browser has never "
+            f"been signed in at {origin.split('://', 1)[1]}, so the user would have to sign in before "
+            "looking at or trying anything, a job left to the user (and on a second copy of an app, "
+            "signing in there can sign the user out of the copy the user uses). Every page a card "
+            "opens (Validate, each choice's screens, needs.look, links) must open signed in, and "
+            "wrapping the address in a page that frames it, or moving it to another field, shows the "
+            "same sign-in page and is sent back the same way: link the page on the copy and address "
+            "the user is already signed in to, or bring the change there (a copy that signs requests "
+            "in for the user, if the project has one, counts). Only when the work is sign-in itself "
+            "may a link be the sign-in page.")
     return out
 
 

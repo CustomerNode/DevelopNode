@@ -224,6 +224,13 @@ class CLIProcess:
         import subprocess
         env = dict(os.environ)
         env.update({str(k): str(v) for k, v in (self.spec.get("env") or {}).items()})
+        # Heavy jobs the session starts (tests, type checks, builds) queue for
+        # the machine's memory instead of all starting at once.
+        try:
+            from engine import runq
+            env = runq.session_env(env)
+        except Exception as exc:
+            logger.warning("resource queue not wired into the session: %s", exc)
         kwargs = {}
         background = session_runs_in_background()
         if os.name == "nt":

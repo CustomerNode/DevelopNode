@@ -29,6 +29,8 @@ def _priority_of_started_cli(tmp_path, monkeypatch, setting):
         "    if os.name == 'nt':\n"
         "        import ctypes\n"
         "        k = ctypes.windll.kernel32\n"
+        "        k.GetCurrentProcess.restype = ctypes.c_void_p\n"
+        "        k.GetPriorityClass.argtypes = [ctypes.c_void_p]\n"
         "        return k.GetPriorityClass(k.GetCurrentProcess())\n"
         "    return os.getpriority(os.PRIO_PROCESS, 0)\n"
         "if len(sys.argv) > 1:\n"
@@ -40,7 +42,7 @@ def _priority_of_started_cli(tmp_path, monkeypatch, setting):
     script.write_text(probe)
 
     async def run():
-        cli = sh.CLIProcess({"argv": [sys.executable, str(script)], "sid": "prio"}, folder=tmp_path)
+        cli = sh.CLIProcess({"argv": [sys.executable, str(script)], "sid": "prio", "test_cli": True}, folder=tmp_path)
         await cli.start()
         out = await asyncio.wait_for(cli.proc.stdout.readline(), 60)
         await cli.proc.wait()
@@ -66,5 +68,7 @@ def test_normal_setting_keeps_normal_priority(tmp_path, monkeypatch):
     # work); "normal" means: not lowered further than the parent.
     import ctypes
     k = ctypes.windll.kernel32
+    k.GetCurrentProcess.restype = ctypes.c_void_p
+    k.GetPriorityClass.argtypes = [ctypes.c_void_p]
     parent = k.GetPriorityClass(k.GetCurrentProcess())
     assert int(own) in (NORMAL, parent)

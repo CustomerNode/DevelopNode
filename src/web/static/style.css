@@ -14095,8 +14095,8 @@ header #git-badge-push, header #git-badge-pull, header #git-badge-sync { color: 
 header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync svg { display: block; }
 header #btn-git-publish[data-count]::after, header #btn-git-update[data-count]::after {
   content: attr(data-count); position: absolute; top: -3px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px;
-  box-sizing: border-box; border-radius: 999px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700;
-  line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--bg-header); }
+  box-sizing: border-box; background: none; color: inherit; font-size: 10px; font-weight: 700;
+  line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; }
 header #btn-git-sync::after {
   content: ''; position: absolute; top: 3px; right: 5px; width: 8px; height: 8px; border-radius: 999px;
   background: var(--accent); box-shadow: 0 0 0 2px var(--bg-header); }

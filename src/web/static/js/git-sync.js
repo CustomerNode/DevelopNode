@@ -905,7 +905,28 @@ function _testThenAction(mode, actionType, actionLabel, btnId, resume) {
 
   _gsTlBegin(true, true, W.ing);
   _gsTlEnter('tests');
-  showGitSyncModal(W.ing, typeof _testRunnerHtml === 'function' ? _testRunnerHtml(desc) : '<p>' + desc + '</p>', [], {center: true});
+  // Stopping: 'cancel' ends the run and uploads nothing; 'skip' ends it and
+  // goes on to publish, the commit's gate line saying the tests were stopped
+  // early.  The server marks the run cancelled, so onDone below sees it.
+  let stopIntent = null;
+  const stopRun = (intent, btn) => {
+    if (stopIntent) return;
+    stopIntent = intent;
+    if (btn) { btn.disabled = true; btn.textContent = intent === 'skip' ? 'Stopping tests…' : 'Stopping…'; }
+    fetch('/api/cancel-tests', {method: 'POST'}).then(r => r.json()).then(j => {
+      // Nothing was running any more (it ended meanwhile): onDone has or will
+      // handle the real result, so forget the intent.
+      if (!j || !j.ok) stopIntent = null;
+    }).catch(() => { stopIntent = null; if (btn) { btn.disabled = false; btn.textContent = 'Stop'; } });
+  };
+  showGitSyncModal(W.ing, typeof _testRunnerHtml === 'function' ? _testRunnerHtml(desc) : '<p>' + desc + '</p>', [], {
+    center: true,
+    runBtns: [
+      {label: 'Stop', title: 'Stop the tests. Nothing is ' + verb + 'ed.',
+       onclick: e => stopRun('cancel', e.currentTarget)},
+      {label: 'Skip tests, ' + verb + ' now', title: 'Stop the tests and ' + verb + ' now. The commit says the tests were skipped.',
+       onclick: e => stopRun('skip', e.currentTarget)},
+    ]});
   _gsJobStart({phase: 'tests', mode, actionType, actionLabel, btnId, summary: _publishSummary,
                runId: resume && resume.runId || null});
 
@@ -935,6 +956,28 @@ function _testThenAction(mode, actionType, actionLabel, btnId, resume) {
       // without reuse keeps the gate's old shape.
       if (d.reused_from) _publishGate.reused_from = d.reused_from;
       if (d.ab_reused_from) _publishGate.ab_reused_from = d.ab_reused_from;
+      if (d.cancelled && !d.ok) {
+        _publishGate.stopped = true;
+        if (stopIntent === 'skip') {
+          // Skip tests: go straight on; the gate line reads "stopped early
+          // ... published anyway" with the counts so far.
+          _publishGate.anyway = true;
+          executeGitAction('both', btnId, actionLabel, false, {continued: true});
+          return;
+        }
+        // Stopped here, or from another tab: nothing was uploaded.
+        showGitSyncModal('Stopped', _gsRing({pct: 100, tone: 'bad', big: 'Stopped',
+          desc: 'Nothing was ' + (verb === 'publish' ? 'uploaded' : 'synced') + '.',
+          counts: (d.passed || 0).toLocaleString() + ' passed, ' + ((d.failed || 0) + (d.errors || 0)) + ' failed before it stopped.'}), [
+          {label: 'Close', onclick: closeGitSyncModal},
+          {label: Verb + ' anyway', onclick: () => {
+            if (_publishGate) _publishGate.anyway = true;
+            executeGitAction('both', btnId, actionLabel);
+          }},
+          {label: 'Run again', primary: true, onclick: () => _testThenAction(mode, actionType, actionLabel, btnId)},
+        ], {center: true, tone: 'bad'});
+        return;
+      }
       if (d.ok) {
         const reuseNote = d.reused_from
           ? 'Reused the full run that passed at ' + escHtml(d.reused_from) + ' on identical files.'
@@ -1067,6 +1110,17 @@ function showGitSyncModal(title, body, btns, opts) {
   if (!_gsKind) _gsSheetFrame(false);
   acts.classList.toggle('gs-running', running);
   if (running) {
+    // opts.runBtns: quiet buttons that act on the work in progress (stop the
+    // Publish gate's tests, or skip them), drawn before Minimize.
+    (opts.runBtns || []).forEach(b => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'pm-btn pm-btn-secondary gs-run-btn';
+      el.textContent = b.label;
+      if (b.title) el.title = b.title;
+      el.onclick = b.onclick;
+      acts.appendChild(el);
+    });
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'pm-btn ' + (sheet ? 'pm-btn-secondary gs-min-quiet' : 'pm-btn-primary') + ' gs-min-cta';

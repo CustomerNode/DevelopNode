@@ -241,7 +241,8 @@ def shared_browser():
 # Only one user at a time: anything asked for while the page is out gets its own
 # context, as every page did before.
 class _WarmState:
-    __slots__ = ("key", "ctx", "in_use", "disposables", "events", "origins", "retire", "cdp")
+    __slots__ = ("key", "ctx", "in_use", "disposables", "events", "origins", "retire",
+                 "drop_context", "cdp")
 
     def __init__(self, key, ctx):
         self.key, self.ctx = key, ctx
@@ -250,6 +251,7 @@ class _WarmState:
         self.events = None
         self.origins: set = set()
         self.retire = False
+        self.drop_context = False   # something the context keeps was changed
         self.cdp = None
 
 
@@ -295,8 +297,13 @@ def _warm_class(page_class):
             return page_class.route_from_har(self, *a, **k)
 
         @property
-        def clock(self):        # Playwright's clock cannot be taken off a page
+        def clock(self):
+            # Playwright's clock is the context's, and cannot be taken off it:
+            # a new page in the same context still runs fake timers and a fake
+            # `performance` whose getEntriesByType() returns [].  So the whole
+            # context goes, not only the page.
             self._vn.retire = True
+            self._vn.drop_context = True
             return page_class.clock.fget(self)
 
         def close(self, *a, **k):
@@ -424,8 +431,9 @@ def warm_page(browser, options: dict, size: dict):
                     state.cdp.send("Storage.clearDataForOrigin", {"origin": "file://", "storageTypes": CLEARED})
             _drop_warm_page(page)
             page = None
-            if http_foreign or real_closed:
-                # Its HTTP cache holds another server's answers: as a new context would not.
+            if http_foreign or real_closed or state.drop_context:
+                # Its HTTP cache holds another server's answers, or it keeps
+                # Playwright's clock: as a new context would not.
                 with contextlib.suppress(Exception):
                     state.ctx.close()
                 _shared["warm"].pop(key, None)

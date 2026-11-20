@@ -447,8 +447,9 @@ function openProjectOverlay() {
   const overlay = document.getElementById('project-overlay');
   const card = document.getElementById('project-card');
 
-  // The Choose list under All projects starts closed each time.
-  _apChooseOpen = false;
+  // The Choose list under All projects stays as it was left (per device), so
+  // the projects picked there are in view whenever the picker opens again.
+  try { _apChooseOpen = localStorage.getItem('vnApChooseOpen') === '1'; } catch (e) { _apChooseOpen = false; }
   // The Add flow pads the list differently; put it back.
   const list = document.getElementById('project-list');
   if (list) list.style.padding = '';
@@ -667,8 +668,11 @@ function _renderProjectOverlay(fromStatus) {
       <span class="project-item-mark" aria-hidden="true">+</span>
       <div class="project-item-info"><div class="project-item-name">Add project</div></div>
     </div>`;
-  // All projects sits first, then the projects, then Add project.
-  list.innerHTML = _head + _allRow + _allProjects.map(p => {
+  // All projects sits first, then the projects, then Add project.  Asking
+  // which project from All projects (New Session, Workflow, Subsessions)
+  // offers only the projects that view covers.
+  const _rows = (_asking && _apHas && VNAllProjects.on()) ? _apShown : _allProjects;
+  list.innerHTML = _head + _allRow + _rows.map(p => {
     const shortName = _projectShortName(p);
     const isActive = !_inAll && !_asking && p.encoded === saved;
     return `
@@ -702,6 +706,7 @@ function _renderProjectOverlay(fromStatus) {
     e.stopPropagation();
     const closing = _apChooseOpen;
     _apChooseOpen = !_apChooseOpen;
+    try { if (_apChooseOpen) localStorage.setItem('vnApChooseOpen', '1'); else localStorage.removeItem('vnApChooseOpen'); } catch (e2) {}
     if (closing && !VNAllProjects.on()) { selectProjectFromOverlay(VNAllProjects.ALL); return; }
     _renderProjectOverlay(true);
   };
@@ -1808,6 +1813,9 @@ async function _newSessionSubmit(sessionId) {
   const _liveAtSubmit = liveSessionId;
   const _sentRow = SessionStore.get(sessionId);
   if (_sentRow) delete _sentRow.unsent;   // the server knows it from here on
+  // The sidebar row turns Working at Send too, not after the agent list
+  // below is ready (seconds on a large project) or the server's first state.
+  if (typeof _updateRowState === 'function') _updateRowState(sessionId, 'working');
 
   // Get skill from current folder (if in workplace mode with folder tree)
   let systemPrompt = null;

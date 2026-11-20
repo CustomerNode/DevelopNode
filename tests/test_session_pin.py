@@ -104,6 +104,26 @@ def test_a_pin_is_broadcast(client, proj, monkeypatch):
     assert sent[-1] == ("session_pin_order", {"order": ["deck"], "project": proj.name})
 
 
+def test_marking_a_session_done_unpins_it(client, proj, monkeypatch):
+    """Done leaves the pinned group; Standby does not."""
+    import web as appmod
+    sent = []
+    monkeypatch.setattr(appmod.socketio, "emit", lambda ev, data=None, **kw: sent.append((ev, data)))
+    for sid in ("deck", "other"):
+        client.post(f"/api/session-pin/{sid}", json={"pinned": True, "project": proj.name})
+    client.post("/api/session-hold/other", json={"state": "standby", "project": proj.name})
+    assert _list(client, proj)["other"]["pinned"] is True
+    sent.clear()
+    client.post("/api/session-hold/deck", json={"state": "done", "project": proj.name})
+    rows = _list(client, proj)
+    assert "pinned" not in rows["deck"] and rows["other"]["pinned"] is True
+    assert ("session_pin", {"session_id": "deck", "pinned": False, "rank": None, "project": proj.name}) in sent
+    # Done on an unpinned session sends no pin event.
+    sent.clear()
+    client.post("/api/session-hold/deck", json={"state": "done", "project": proj.name})
+    assert not [e for e, _ in sent if e == "session_pin"]
+
+
 def test_a_new_pin_goes_to_the_top_and_a_drag_order_is_kept(client, proj):
     for sid in ("deck", "other"):
         client.post(f"/api/session-pin/{sid}", json={"pinned": True, "project": proj.name})
@@ -192,6 +212,31 @@ def _pin_route(log, status=200):
         log.append(json.loads(req.post_data or "{}"))
         return status, ({"ok": True} if status == 200 else {"error": "nope"})
     return {"/api/session-pin/": handler}
+
+
+@pytest.mark.slow
+def test_marking_a_pinned_session_done_unpins_it_on_screen(browser):
+    rows = _sessions(pinned_index=2)
+    for s in rows:
+        s.pop("hold", None)
+    ids = _ids(rows)
+    posts = []
+    routes = _pin_route(posts)
+    routes["/api/session-hold/"] = lambda req: (200, {"ok": True})
+    app = FakeApp(browser, rows, extra_routes=routes, clock=True)
+    try:
+        assert app.eval(CARD_ORDER)[0] == ids[2]
+        app.eval("(id) => SessionVerb.setHold(id, 'done')", ids[2])
+        app.page.wait_for_function("(id) => !isSessionPinned(id)", arg=ids[2])
+        assert posts and posts[-1]["pinned"] is False
+        assert app.eval("() => document.querySelectorAll('.wf-card .vn-pin.on').length") == 0
+        # Standby keeps a pin.
+        app.eval("(id) => toggleSessionPin(id)", ids[4])
+        app.eval("(id) => SessionVerb.setHold(id, 'standby')", ids[4])
+        assert app.eval("(id) => isSessionPinned(id)", ids[4])
+        assert not app.errors, app.errors
+    finally:
+        app.close()
 
 
 @pytest.mark.slow

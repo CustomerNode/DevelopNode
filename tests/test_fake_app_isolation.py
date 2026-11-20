@@ -105,6 +105,19 @@ def test_a_second_page_load_comes_from_the_cache(browser):
     assert cached[0] > 20 and cached[1] == cached[0], cached
 
 
+def test_playwrights_clock_does_not_outlive_its_test(browser):
+    # Playwright's clock belongs to the context: a later test on the same
+    # long-lived context ran fake timers and a fake `performance` that lists
+    # no resources at all.
+    app = _ready(browser)
+    app.page.clock.install()
+    app.close()
+    app = _ready(browser)
+    seen = app.eval("() => [performance.getEntriesByType('resource').length, String(setTimeout).includes('[native code]')]")
+    app.close()
+    assert seen[0] > 20 and seen[1], seen
+
+
 def test_an_outside_address_never_reaches_the_network(browser):
     app = _ready(browser)
     failed = app.eval("() => fetch('https://example.com/').then(() => false, () => true)")

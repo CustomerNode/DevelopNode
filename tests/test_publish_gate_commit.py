@@ -7,6 +7,7 @@ recorded, and no mode may claim to include tests it does not run.
 """
 
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,6 +43,19 @@ class TestCommitMessage:
         line = git_ops.format_publish_gate({"mode": "fast", "passed": 400, "skipped": 1,
                                             "failed": 2, "seconds": 90, "anyway": True})
         assert line == "Publish gate: fast (400 passed, 1 skipped, 2 failed, 90s), published anyway"
+
+    def test_a_run_stopped_early_says_its_counts_are_partial(self):
+        line = git_ops.format_publish_gate({"mode": "full", "passed": 120, "skipped": 0,
+                                            "failed": 3, "seconds": 40, "stopped": True,
+                                            "anyway": True})
+        assert line == ("Publish gate: full, stopped early (120 passed, 0 skipped, "
+                        "3 failed so far, 40s), published anyway")
+
+    def test_the_dialog_offers_stop_and_skip_while_tests_run(self):
+        src = (Path(__file__).resolve().parents[1] / "src" / "web" / "static" / "js"
+               / "git-sync.js").read_text(encoding="utf-8")
+        assert "runBtns" in src and "/api/cancel-tests" in src
+        assert "_publishGate.stopped = true" in src
 
     def test_bad_counts_do_not_break_the_message(self):
         line = git_ops.format_publish_gate({"mode": "full", "passed": "x", "seconds": None})

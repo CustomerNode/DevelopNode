@@ -167,6 +167,54 @@ def test_publish_anyway_after_failures_marks_the_gate(page):
                             "seconds": 90, "anyway": True}
 
 
+def _hold_the_run(page):
+    """A test run that waits; /api/cancel-tests ends it as the server does,
+    with a done event marked cancelled."""
+    page.evaluate("""() => {
+      window.__cancels = 0;
+      _streamTestRun = (mode, h) => { window.__run = h; window.__mode = mode; };
+      const inner = window.fetch;
+      window.fetch = (url, opts) => {
+        if (url === '/api/cancel-tests') {
+          window.__cancels++;
+          setTimeout(() => window.__run.onDone({mode: window.__mode, ok: false, cancelled: true,
+            passed: 120, failed: 3, errors: 0, skipped: 0, seconds: 40, exit_code: -15}, ['...F']), 0);
+          return Promise.resolve({ok: true, json: () => Promise.resolve({ok: true})});
+        }
+        return inner(url, opts);
+      };
+    }""")
+    page.evaluate("() => openGitPublish()")
+    page.wait_for_selector("#git-publish-summary")
+    _gate(page, "full")
+    _click(page, "Publish")
+    _until(page, "() => !!window.__run")
+
+
+def test_skip_tests_while_running_publishes_with_a_stopped_gate(page):
+    _hold_the_run(page)
+    _click(page, "Skip tests, publish now")
+    _until(page, "() => window.__posts.length === 1")
+    assert page.evaluate("() => window.__cancels") == 1
+    assert page.evaluate("() => window.__posts[0].gate") == {
+        "mode": "full", "passed": 120, "skipped": 0, "failed": 3, "seconds": 40,
+        "anyway": True, "stopped": True}
+
+
+def test_stop_while_running_uploads_nothing_and_offers_a_way_on(page):
+    _hold_the_run(page)
+    _click(page, "Stop")
+    _until(page, "() => document.getElementById('git-sync-title').textContent === 'Stopped'")
+    page.clock.run_for(2000)
+    assert page.evaluate("() => window.__posts.length") == 0, "Stop must not publish"
+    labels = [b.strip() for b in page.locator("#git-sync-actions button").all_text_contents()]
+    assert labels == ["Close", "Publish anyway", "Run again"]
+    _click(page, "Publish anyway")
+    _until(page, "() => window.__posts.length === 1")
+    gate = page.evaluate("() => window.__posts[0].gate")
+    assert gate["stopped"] is True and gate["anyway"] is True
+
+
 def test_minimized_during_the_tests_stays_minimized_through_the_upload(page):
     """A publish is one job: Minimize pressed while the tests run must hold
     through the scan and upload, not pop the dialog back up for phase two."""
@@ -179,7 +227,8 @@ def test_minimized_during_the_tests_stays_minimized_through_the_upload(page):
     page.wait_for_selector("#git-publish-summary")
     _click(page, "Publish")
     _until(page, "() => !!window.__finishTests")
-    assert [b.strip() for b in page.locator("#git-sync-actions button").all_text_contents()] == ["Minimize"]
+    assert [b.strip() for b in page.locator("#git-sync-actions button").all_text_contents()] == [
+        "Stop", "Skip tests, publish now", "Minimize"]
     _click(page, "Minimize")
     page.evaluate("() => window.__finishTests()")
     shown = "() => document.getElementById('git-sync-overlay').classList.contains('show')"

@@ -241,8 +241,14 @@ def format_publish_gate(gate) -> str:
             return int(gate.get(key) or 0)
         except (TypeError, ValueError):
             return 0
-    line = "Publish gate: %s (%d passed, %d skipped, %d failed, %ds)" % (
-        mode, _n("passed"), _n("skipped"), _n("failed"), _n("seconds"))
+    if gate.get("stopped"):
+        # The person stopped the run before it finished: the counts are only
+        # what ran by then, and the line says so.
+        line = "Publish gate: %s, stopped early (%d passed, %d skipped, %d failed so far, %ds)" % (
+            mode, _n("passed"), _n("skipped"), _n("failed"), _n("seconds"))
+    else:
+        line = "Publish gate: %s (%d passed, %d skipped, %d failed, %ds)" % (
+            mode, _n("passed"), _n("skipped"), _n("failed"), _n("seconds"))
     # Reuse (src/web/gate_reuse.py): the run was not repeated on identical files,
     # or the A/B tests were left out because nothing they depend on changed.
     # The commit says so; nothing is skipped silently.

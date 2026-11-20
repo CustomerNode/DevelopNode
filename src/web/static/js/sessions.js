@@ -714,6 +714,13 @@ function toggleSessionPin(sid) {
     });
 }
 
+/** Unpin a session if it is pinned (a session marked Done leaves the pinned
+ *  group: SessionVerb.setHold calls this).  Same save rule as a tap. */
+function unpinSession(sid) {
+  if (!sid || !isSessionPinned(sid)) return Promise.resolve(true);
+  return toggleSessionPin(sid);
+}
+
 /** The pinned sessions, top first, as the sidebar shows them now. */
 function _pinnedOrder() {
   const list = typeof allSessions !== 'undefined' ? allSessions : [];

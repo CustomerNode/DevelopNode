@@ -4237,21 +4237,36 @@ html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; bo
   display:flex; align-items:center; gap:var(--sp-4); justify-content:space-between;
 }
 
-/* ===== Premium Modal System ===== */
+/* ===== Pop-up windows (showAlert / showConfirm / showPrompt and every .pm-card) =====
+   The hairline finish: a plain surface with one thin line, no blur, a white main button in dark (black in light),
+   outlined secondary and danger buttons.  The --pm-* values carry the two themes. */
+:root {
+  --pm-surface: #0d0d11; --pm-line: rgba(255,255,255,.08); --pm-field-line: rgba(255,255,255,.08);
+  --pm-shadow: 0 18px 50px rgba(0,0,0,.45); --pm-scrim: rgba(5,5,8,.55);
+  --pm-ink: #fff; --pm-ink-text: #111; --pm-ink-hover: #e6e6e6;
+  --pm-quiet-line: rgba(255,255,255,.1); --pm-quiet-text: #c8c8d0; --pm-quiet-hover: rgba(255,255,255,.04);
+  --pm-danger: #ff6b6b; --pm-danger-line: rgba(255,107,107,.45); --pm-danger-hover: rgba(255,107,107,.08);
+}
+[data-theme="light"] {
+  --pm-surface: #fff; --pm-line: rgba(20,20,50,.12); --pm-field-line: rgba(20,20,50,.14);
+  --pm-shadow: 0 18px 50px rgba(15,15,30,.12); --pm-scrim: rgba(15,15,20,.16);
+  --pm-ink: #111; --pm-ink-text: #fff; --pm-ink-hover: #2a2a2a;
+  --pm-quiet-line: rgba(20,20,50,.14); --pm-quiet-text: #3a3a44; --pm-quiet-hover: rgba(0,0,0,.03);
+  --pm-danger: #d13438; --pm-danger-line: rgba(209,52,56,.45); --pm-danger-hover: rgba(209,52,56,.06);
+}
 #pm-overlay {
   display:none; position:fixed; inset:0;
-  background: var(--overlay);
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  background: var(--pm-scrim);
   z-index:5000;
   align-items:center; justify-content:center;
 }
 #pm-overlay.show { display:flex; }
 
 .pm-card {
-  background: var(--bg-modal);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: var(--r-2xl);
-  padding: 28px 32px 24px;
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  border-radius: 14px;
+  padding: 24px 24px 20px;
   width: 420px;
   max-width: 90vw;
   /* Never exceed the viewport: tall modals (e.g. the per-session model +
@@ -4261,9 +4276,7 @@ html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; bo
   max-height: 88dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
-  backdrop-filter: blur(40px) saturate(1.6);
-  -webkit-backdrop-filter: blur(40px) saturate(1.6);
+  box-shadow: var(--pm-shadow);
   transform: scale(1); opacity: 1;
   transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.2s var(--ease-out);
 }
@@ -4276,17 +4289,16 @@ html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; bo
   line-height: 1;
 }
 .pm-title {
-  font-size: var(--fs-2xl);
-  font-weight: 600;
+  font: 600 17px/1.3 Geist, var(--font-sans);
+  letter-spacing: -.01em;
   color: var(--text-heading);
-  margin-bottom: 8px;
-  line-height: 1.3;
+  margin-bottom: 4px;
 }
 .pm-body {
-  font-size: var(--fs-lg);
+  font-size: 13.5px;
   color: var(--text-secondary);
   line-height: 1.6;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .pm-body p { margin: 0 0 8px; }
 .pm-body p:last-child { margin-bottom: 0; }
@@ -4294,17 +4306,17 @@ html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; bo
 
 .pm-input {
   width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-input);
-  border-radius: var(--r-md);
-  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--pm-field-line);
+  border-radius: 10px;
+  padding: 10px 12px;
   color: var(--text-primary);
-  font-size: var(--fs-xl);
+  font-size: 14px;
   outline: none;
-  margin-bottom: 20px;
-  transition: border-color 0.15s;
+  margin-bottom: 18px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.pm-input:focus { border-color: var(--border-focus); }
+.pm-input:focus { border-color: rgba(124,124,255,.6); box-shadow: 0 0 0 3px rgba(124,124,255,.12); }
 .pm-input::placeholder { color: var(--text-faint); }
 
 .pm-actions {
@@ -4339,14 +4351,14 @@ html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; bo
   flex: 0 0 auto;     /* never shrink or grow — always visible at bottom */
   padding-top: 16px;
   margin-top: 4px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--pm-line);
 }
 
 .pm-btn {
-  padding: 8px 20px;
-  border-radius: var(--r-md);
-  font-size: var(--fs-lg);
-  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
@@ -4357,25 +4369,25 @@ html[data-theme] #live-log .msg.user.vn-tap-msg .msg-body { background: none; bo
 .pm-btn:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 
 .pm-btn-primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+  background: var(--pm-ink);
+  color: var(--pm-ink-text);
+  border-color: transparent;
 }
-.pm-btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.pm-btn-primary:hover { background: var(--pm-ink-hover); border-color: transparent; }
 
 .pm-btn-secondary {
-  background: var(--bg-btn);
-  color: var(--text-secondary);
-  border-color: var(--border-btn);
+  background: transparent;
+  color: var(--pm-quiet-text);
+  border-color: var(--pm-quiet-line);
 }
-.pm-btn-secondary:hover { background: var(--bg-btn-hover); color: var(--text-heading); border-color: var(--border-btn-hover); }
+.pm-btn-secondary:hover { background: var(--pm-quiet-hover); color: var(--text-heading); border-color: var(--pm-quiet-line); }
 
 .pm-btn-danger {
-  background: #cc3333;
-  color: #fff;
-  border-color: #cc3333;
+  background: transparent;
+  color: var(--pm-danger);
+  border-color: var(--pm-danger-line);
 }
-.pm-btn-danger:hover { background: #dd4444; border-color: #dd4444; }
+.pm-btn-danger:hover { background: var(--pm-danger-hover); border-color: var(--pm-danger); }
 
 /* ===== Message Timeline Picker ===== */
 .msg-timeline {

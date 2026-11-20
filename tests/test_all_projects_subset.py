@@ -65,3 +65,17 @@ def test_the_choose_list_narrows_all_projects():
     assert out["newIsIn"] is True
     # Ticking everything back clears the stored list.
     assert out["back"] == {"label": "All projects", "stored": None}
+
+
+APP_JS = ROOT / "src" / "web" / "static" / "js" / "app.js"
+
+
+def test_the_choose_list_stays_open_and_the_chooser_offers_only_chosen_projects():
+    src = APP_JS.read_text(encoding="utf-8")
+    # The Choose list is remembered per device, not closed on every open.
+    assert "_apChooseOpen = false;\n  // The Add flow" not in src
+    assert "localStorage.getItem('vnApChooseOpen') === '1'" in src
+    assert "localStorage.setItem('vnApChooseOpen', '1')" in src
+    # Asking which project from All projects lists only the projects it covers.
+    assert "const _rows = (_asking && _apHas && VNAllProjects.on()) ? _apShown : _allProjects;" in src
+    assert "_allRow + _rows.map(p =>" in src

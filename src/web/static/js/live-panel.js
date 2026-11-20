@@ -3891,6 +3891,9 @@ async function _liveSubmitDirect(sid, text, opts) {
   if (!wasPermission) {
     sessionKinds[sid] = 'working';
   }
+  // The sidebar row follows the send at once, as the composer does, instead
+  // of waiting for the server's first state event.
+  if (typeof _updateRowState === 'function') _updateRowState(sid, 'working');
   liveBarState = null;
   updateLiveInputBar();
 

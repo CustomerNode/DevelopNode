@@ -211,3 +211,35 @@ def test_a_slow_reply_for_an_earlier_click_does_not_draw_over_the_later_one(brow
         assert not app.errors, app.errors
     finally:
         app.close()
+
+
+LABEL = "(id) => { const c = document.querySelector('.wf-card[data-sid=\"' + id + '\"]'); return c && c.querySelector('.wf-status-label').textContent; }"
+
+
+def test_the_card_turns_working_at_send_even_while_the_agent_list_loads(browser):
+    # The send waits on the agent catalog (seconds on a large project); the
+    # card used to stay "New" until that wait and the server's first state.
+    app, s = _app(browser)
+    try:
+        app.eval("() => { window._ensureAgentCatalog = () => new Promise(r => setTimeout(r, 5000)); }")
+        new_id = app.eval("() => { addNewAgent(); return activeId; }")
+        app.page.fill("#live-input-ta", "build me a thing")
+        got = app.eval(f"(id) => {{ _newSessionSubmit(id); return ({LABEL})(id); }}", new_id)
+        assert got == "Working", got
+        assert not app.eval("() => window.__emits.some(e => e[0] === 'start_session')")
+        assert not app.errors, app.errors
+    finally:
+        app.close()
+
+
+def test_sending_to_an_existing_session_turns_its_card_working_at_once(browser):
+    app, s = _app(browser)
+    sid = s[5]["id"]
+    try:
+        _open(app, sid)
+        assert app.eval(LABEL, sid) != "Working"
+        got = app.eval(f"(id) => {{ _liveSubmitDirect(id, 'carry on please'); return ({LABEL})(id); }}", sid)
+        assert got == "Working", got
+        assert not app.errors, app.errors
+    finally:
+        app.close()

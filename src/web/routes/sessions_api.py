@@ -787,7 +787,30 @@ def api_session_hold(session_id):
                                        "since": _time.time() if state else None})
     except Exception as e:  # SocketIO not wired (unit tests): non-fatal
         log.debug("session_hold emit failed: %s", e)
+    if state == "done":
+        _unpin_done(project, sdir, session_id)
     return jsonify({"ok": True, "state": state})
+
+
+def _unpin_done(project: str, sdir, session_id: str) -> None:
+    """A session marked Done leaves the pinned group: drop its pin (and one
+    saved under its launch id) and tell every open sidebar."""
+    from .. import session_pins
+    try:
+        old_ids = [o for o, n in _pin_aliases(project).items() if n == session_id]
+        pins = session_pins.load(sdir)
+        if session_id not in pins and not any(o in pins for o in old_ids):
+            return
+        session_pins.set_pin(sdir, session_id, False, old_ids)
+    except Exception as e:
+        log.debug("unpin on done failed: %s", e)
+        return
+    try:
+        from .. import socketio
+        socketio.emit("session_pin", {"session_id": session_id, "pinned": False, "rank": None,
+                                      "project": project})
+    except Exception as e:  # SocketIO not wired (unit tests): non-fatal
+        log.debug("session_pin emit failed: %s", e)
 
 
 @bp.route("/api/session-pin/<session_id>", methods=["POST"])

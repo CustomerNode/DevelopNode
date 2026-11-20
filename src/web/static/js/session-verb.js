@@ -215,6 +215,11 @@
     return _postHold(sid, state, project)
       .then(ok => ok ? true : new Promise(res => setTimeout(res, _HOLD_RETRY_MS)).then(() => _postHold(sid, state, project)))
       .then(ok => {
+        // A session marked Done leaves the pinned group (the server unpins it
+        // too, for tabs running older code; sessions_api.api_session_hold).
+        if (ok && state === 'done' && typeof window !== 'undefined' && typeof window.unpinSession === 'function') {
+          window.unpinSession(sid);
+        }
         // A newer choice for this session owns the screen now; leave it be.
         if (ok || _holdSeq.get(sid) !== seq) return ok;
         applyHold(sid, prev, prevSince);

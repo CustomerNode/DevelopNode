@@ -224,6 +224,9 @@ def _staged_paths(proj) -> list:
     return []
 
 
+COMMIT_TIMEOUT_S = 300  # the commit hook scans every staged file
+
+
 def format_publish_gate(gate) -> str:
     """One line recording how the publish gate went.
 
@@ -755,8 +758,13 @@ def do_git_sync(action: str, confirm_branch: bool = False,
             staged = _staged_paths(proj)
             detail("Saving %d changed file%s as a new version" % (len(staged), "" if len(staged) == 1 else "s"), 100, force=True)
             msg = build_commit_message(summary, gate, staged)
+            # The commit runs the repository's own commit hook (the security
+            # scan over every staged file), which takes well over 10 seconds on
+            # a large change: a 10 s limit crashed Publish after the commit was
+            # already made, so nothing was uploaded.
             commit = subprocess.run(["git", "-C", str(proj), "commit", "-m", msg],
-                                    capture_output=True, text=True, timeout=10, creationflags=_NO_WINDOW)
+                                    capture_output=True, text=True, timeout=COMMIT_TIMEOUT_S,
+                                    creationflags=_NO_WINDOW)
             if commit.returncode != 0:
                 err = (commit.stderr.strip() or commit.stdout.strip() or
                        "git commit failed with no output")

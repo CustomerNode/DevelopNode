@@ -51,6 +51,13 @@ class TestCommitMessage:
         assert line == ("Publish gate: full, stopped early (120 passed, 0 skipped, "
                         "3 failed so far, 40s), published anyway")
 
+    def test_the_commit_waits_for_its_hook(self):
+        # The commit hook scans every staged file; 10 s crashed a real Publish
+        # after the commit was made, leaving it unuploaded.
+        assert git_ops.COMMIT_TIMEOUT_S >= 120
+        src = Path(git_ops.__file__).read_text(encoding="utf-8")
+        assert "timeout=COMMIT_TIMEOUT_S" in src
+
     def test_the_dialog_offers_stop_and_skip_while_tests_run(self):
         src = (Path(__file__).resolve().parents[1] / "src" / "web" / "static" / "js"
                / "git-sync.js").read_text(encoding="utf-8")

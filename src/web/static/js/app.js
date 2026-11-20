@@ -733,7 +733,68 @@ function _renderProjectOverlay(fromStatus) {
     item.onclick = () => selectProjectFromOverlay(enc);
     item.querySelector('.project-rename-btn').onclick = e => { e.stopPropagation(); renameProjectOverlay(enc, name); };
     item.querySelector('.project-delete-btn').onclick = e => { e.stopPropagation(); deleteProjectOverlay(enc, name); };
+    // Right-click offers the same Rename and Delete as the row's hover buttons,
+    // in the session menu's look. Not while asking which project to use: that
+    // list hides rename and delete.
+    if (!_asking) item.oncontextmenu = e => _projectContextMenu(e, enc, name);
   });
+}
+
+// Right-click menu on a project row: Rename and Delete, drawn with the session
+// right-click menu's classes so the two menus look the same.
+function _projectContextMenu(e, encoded, name) {
+  e.preventDefault();
+  e.stopPropagation();
+  const old = document.querySelector('.session-ctx-menu');
+  if (old) old.remove();
+  const icons = (typeof _ICONS !== 'undefined') ? _ICONS : {};
+  const items = [
+    { label: 'Rename', icon: icons.rename, action: 'rename' },
+    { divider: true },
+    { label: 'Delete', icon: icons.trash, action: 'delete', danger: true },
+  ];
+  const run = action => {
+    const m = document.querySelector('.session-ctx-menu');
+    if (m) m.remove();
+    if (typeof _closeSessionSheet === 'function') _closeSessionSheet();
+    if (action === 'rename') renameProjectOverlay(encoded, name);
+    else if (action === 'delete') deleteProjectOverlay(encoded, name);
+  };
+  if (typeof _isMobileCtx === 'function' && _isMobileCtx() && typeof _openSessionSheet === 'function') {
+    _openSessionSheet(items, run);
+    return;
+  }
+  const icon = i => (i && typeof _iconDesktop === 'function') ? _iconDesktop(i) : '';
+  const menu = document.createElement('div');
+  menu.className = 'session-ctx-menu ws-ctx-menu project-ctx-menu';
+  menu.innerHTML = items.map(it => it.divider
+    ? '<div class="ws-ctx-divider"></div>'
+    : '<div class="ws-ctx-item' + (it.danger ? ' danger' : '') + '" data-action="' + it.action + '">'
+      + icon(it.icon) + '<span class="vn-ctx-lbl">' + escHtml(it.label) + '</span></div>').join('');
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  menu.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const row = ev.target.closest('[data-action]');
+    if (row) run(row.dataset.action);
+  });
+  document.body.appendChild(menu);
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth) menu.style.left = (window.innerWidth - r.width - 8) + 'px';
+    if (r.bottom > window.innerHeight) menu.style.top = (window.innerHeight - r.height - 8) + 'px';
+  });
+  const closer = ev => {
+    if (!menu.contains(ev.target)) {
+      menu.remove();
+      document.removeEventListener('click', closer, true);
+      document.removeEventListener('contextmenu', closer, true);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener('click', closer, true);
+    document.addEventListener('contextmenu', closer, true);
+  }, 0);
 }
 
 async function _refreshProjectsAndRerender() {
@@ -2917,7 +2978,8 @@ async function openModelSelector() {
   } catch (e) {
     // Fallback list uses full model IDs — same as server aliases
     models = [
-      {id: 'claude-fable-5-1', name: 'Fable 5.1',  desc: 'Most capable, 1M context'},
+      {id: 'claude-fable-5-2', name: 'Fable 5.2',  desc: 'Most capable, 1M context'},
+      {id: 'claude-fable-5-1', name: 'Fable 5.1',  desc: 'Previous Fable, 1M context'},
       {id: 'claude-fable-5',   name: 'Fable 5',    desc: 'Deep reasoning, 1M context'},
       {id: 'claude-opus-5-5',  name: 'Opus 5.5',   desc: 'Newest Opus, Fable-level, faster + cheaper'},
       {id: 'claude-opus-5',    name: 'Opus 5',     desc: 'Agentic coding, 1M context'},
@@ -2927,6 +2989,7 @@ async function openModelSelector() {
       {id: 'claude-sonnet-5-5',name: 'Sonnet 5.5', desc: 'Newest Sonnet, 1M context'},
       {id: 'claude-sonnet-5',  name: 'Sonnet 5',   desc: 'Fast + capable, 1M context'},
       {id: 'claude-sonnet-4-6',name: 'Sonnet 4.6', desc: 'Fast, capable, balanced'},
+      {id: 'claude-haiku-5-5', name: 'Haiku 5.5',  desc: 'Newest Haiku, fastest, 1M context'},
       {id: 'claude-haiku-4-5', name: 'Haiku 4.5',  desc: 'Fastest, most cost-efficient'},
     ];
   }

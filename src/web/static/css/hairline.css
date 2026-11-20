@@ -660,3 +660,18 @@ html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-stop {
 html[data-finish="hairline"] #live-input-bar #live-st-card > .vn-st > .vn-stop:hover { background: rgba(220, 38, 38, .12); color: #f26d6d; }
 html[data-finish="hairline"][data-theme="light"] #live-input-bar #live-st-card > .vn-st > .vn-stop:hover { color: #dc2626; }
 html[data-finish="hairline"] #live-input-bar #live-st-card .live-textarea { padding-right: 16px; }
+
+/* The band between the last message and the text box is only the room the
+   Auto scroll chip needs: 41px, down from 75.  The chip (26px) hangs above its
+   zero-height wrapper, and its sticky `bottom` lifts the wrapper by whatever the
+   log's end padding plus `bottom` leaves, so both are small and the reserve
+   covers the lift: last message 8 + reserve 32 + sentinel 1, chip 11px clear of
+   the message and 4px above the text box when scrolled up.  The last message is
+   matched with #live-log.live-log to beat quiet-chat.css, which loads later.
+   Desktop only: the phone chip is taller and keeps mobile.css's reserve. */
+@media (min-width: 769px) {
+  html[data-finish="hairline"] #live-log.live-log { padding-bottom: 0; }
+  html[data-finish="hairline"] #live-log.live-log > .vn-jump-wrap:not(.vn-classic) { margin-top: 32px; bottom: 4px; }
+  html[data-finish="hairline"] #live-log.live-log > .msg:not(:has(~ .msg)) { margin-bottom: 8px; }
+  html[data-finish="hairline"] #live-input-bar { padding-top: 0; }
+}

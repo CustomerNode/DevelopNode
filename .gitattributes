@@ -2,3 +2,6 @@
 *.sh text eol=lf
 *.command text eol=lf
 scripts/git-hooks/* text eol=lf
+# Session command stand-ins run under sh: LF; their .cmd twins stay CRLF
+src/engine/runq/shims/* text eol=lf
+src/engine/runq/shims/*.cmd text eol=crlf

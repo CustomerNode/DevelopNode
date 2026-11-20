@@ -14876,14 +14876,17 @@ html #project-overlay .project-list.project-picked .project-item.project-picking
 .vn-sit-tight .vst-card:nth-child(3)::after { animation-delay: 1s; }
 .vn-sit-tight .vst-card:nth-child(4)::after { animation-delay: 1.5s; }
 @keyframes vstSweep { to { transform: translateX(100%); } }
-.vn-sit-tight .vst-spin { width: 18px; height: 18px; flex: none; box-sizing: border-box; border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); animation: vstSpin .9s linear infinite; }
-@keyframes vstSpin { to { transform: rotate(360deg); } }
+.vn-sit-tight .vst-pick { width: 18px; height: 18px; flex: none; }
 .vn-sit-tight .vst-card em { font-style: normal; font-size: 10.5px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 1px 8px; border-radius: 99px; }
 .vn-sit-tight .vst-card span { font-size: 11.5px; line-height: 1.35; color: var(--text-secondary); text-align: center;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .vn-sit-tight .vn-sess-empty-msg b { font-size: 14px; color: var(--text-primary); }
-@media (prefers-reduced-motion: reduce) { .vn-sit-tight .vst-card::after, .vn-sit-tight .vst-spin { animation: none; } }
+/* Cards view: the working cards ARE the real cards (workforce.js _wfCardHtml), only faded;
+   the message spans the grid's whole row under them. */
+.wf-card.vn-sit-peek { opacity: .62; }
+.wf-card.vn-sit-peek:hover, .wf-card.vn-sit-peek:focus-visible { opacity: 1; }
+.vn-sit-grid { flex-basis: 100%; padding-top: 6px; }
+@media (prefers-reduced-motion: reduce) { .vn-sit-tight .vst-card::after { animation: none; } }
 
 
 /* ══ Theme-switch splash (see _themeFlash in theme.js).  Background and text colour are set inline from the

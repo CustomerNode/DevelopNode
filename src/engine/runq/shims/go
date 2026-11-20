@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stand-in for go on a VibeNode session's PATH: heavy subcommands queue (see ../runq_shim.py).
+exec "${RUNQ_PYTHON:-python3}" -E -s "$(dirname "$0")/../runq_shim.py" go "$@"

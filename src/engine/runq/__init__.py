@@ -4,8 +4,9 @@ builds).
 Agents do not know how many other sessions share the machine, so each one
 starts its test suite with a worker per core and the machine runs out of
 memory and stalls. Every session VibeNode launches gets this queue in its
-environment: pytest (any project, any virtualenv) and Node's vitest, tsc and
-vite build ask for admission first, wait while the machine is full, and an
+environment: pytest (any project, any virtualenv); Node's vitest, jest,
+playwright test, tsc, vite build and webpack; and go, cargo and docker
+builds and tests (through the shims folder on PATH) ask for admission first, wait while the machine is full, and an
 identical run on unchanged code that just passed is replayed instead of run
 again. See runq.py for the rules and knobs; VIBENODE_RUNQ=0 turns it off.
 """
@@ -18,6 +19,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 BOOT_DIR = HERE / "boot"
 NODE_PRELOAD = HERE / "runq_node.cjs"
+SHIMS_DIR = HERE / "shims"
 
 
 def console_python() -> str:
@@ -48,4 +50,9 @@ def session_env(env: dict) -> dict:
     if NODE_PRELOAD.as_posix() not in node:
         out["NODE_OPTIONS"] = (node + " " + preload).strip()
     out.setdefault("RUNQ_PYTHON", console_python())
+    # go, cargo and docker stand-ins first on PATH (heavy subcommands queue).
+    path_key = next((k for k in out if k.upper() == "PATH"), "PATH")
+    entries = [p for p in out.get(path_key, "").split(os.pathsep) if p]
+    if str(SHIMS_DIR) not in entries:
+        out[path_key] = os.pathsep.join([str(SHIMS_DIR), *entries])
     return out

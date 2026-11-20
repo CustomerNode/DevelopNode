@@ -88,6 +88,49 @@ def test_a_single_file_run_never_waits_behind_a_suite(rq, tmp_path):
     rq.finish(got["suite2"][1], 1)
 
 
+def test_tree_memory_counts_children(rq):
+    import sys as _sys
+    child = subprocess.Popen([_sys.executable, "-c", "x = bytearray(150 * 1024 * 1024); import time; time.sleep(30)"])
+    try:
+        # Wait for the child to have allocated, not for a fixed time.
+        deadline = time.time() + 30
+        own = None
+        while time.time() < deadline:
+            own = rq.tree_mb(child.pid)
+            if own is not None and own >= 140:
+                break
+            time.sleep(0.1)
+        assert own is not None and own >= 140, own
+        assert rq.tree_mb(os.getpid()) >= own          # the child is in our tree
+    finally:
+        child.kill()
+
+
+def test_a_running_job_only_holds_back_what_it_has_not_used_yet(rq):
+    now = time.time()
+    assert rq._still_to_grow({"weight": 5000, "cur": 4000, "t": now}, now) == 1000
+    assert rq._still_to_grow({"weight": 5000, "cur": 6000, "t": now}, now) == 0
+    assert rq._still_to_grow({"weight": 5000, "t": now}, now) == 5000          # not measured yet
+    assert rq._still_to_grow({"weight": 5000, "t": now - 600}, now) == 0      # old, never measured
+
+
+def test_budgets_are_learned_from_real_use(rq, tmp_path):
+    """A suite estimated at 14.9 GB that really peaks at 3 GB is budgeted near
+    3.5 GB next time; a bigger run raises the budget at once."""
+    est = 14900
+    assert rq.learned_weight("pytest", tmp_path, est) == est             # nothing learned yet
+    with rq.state_lock():
+        rq._learn({"kind": "pytest", "cwd": str(tmp_path), "est": est, "peak": 3000, "samples": 5})
+    w = rq.learned_weight("pytest", tmp_path, est)
+    assert 3000 < w < 4000, w
+    with rq.state_lock():
+        rq._learn({"kind": "pytest", "cwd": str(tmp_path), "est": est, "peak": 9000, "samples": 5})
+    assert rq.learned_weight("pytest", tmp_path, est) > 9000
+    other = tmp_path / "other"
+    other.mkdir()
+    assert rq.learned_weight("pytest", other, est) == est                 # per project
+
+
 def test_memory_reserve_is_kept(rq):
     rq.RESERVE_MB = 3000
     settled = [{"weight": 5000, "t": time.time() - 1000}]
@@ -164,6 +207,22 @@ def test_a_sessions_pytest_run_goes_through_the_queue(tmp_path):
     assert "replaying" in two.stderr, two.stderr
 
 
+def test_a_sessions_run_is_measured_and_its_budget_learned(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "test_slow.py").write_text(
+        "import time\ndef test_slow():\n    x = bytearray(120 * 1024 * 1024)\n    time.sleep(8)\n")
+    _commit(repo)
+    env = _session_env(tmp_path)
+    r = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_slow.py"],
+                       cwd=repo, capture_output=True, text=True, env=env, timeout=120)
+    assert r.returncode == 0, r.stdout + r.stderr
+    import json as _json
+    profiles = _json.loads((tmp_path / "state" / "profiles.json").read_text())
+    (key, prof), = [(k, v) for k, v in profiles.items() if k.startswith("pytest|")]
+    # peak ~ 120 MB + interpreter, against an estimate of 1400 MB
+    assert 0.05 < prof["ratio"] < 0.5, prof
+
+
 def test_a_projects_own_sitecustomize_still_runs(tmp_path):
     own = tmp_path / "own"
     own.mkdir()
@@ -173,6 +232,102 @@ def test_a_projects_own_sitecustomize_still_runs(tmp_path):
     out = subprocess.run([PY, "-c", "import os; print(os.environ.get('OWN_SITE'))"],
                          capture_output=True, text=True, env=env, timeout=60)
     assert out.stdout.strip() == "ran", out.stderr
+
+
+def test_session_env_puts_the_tool_stand_ins_first_on_path():
+    env = package.session_env({"PATH": os.pathsep.join(["a", "b"])})
+    assert env["PATH"].split(os.pathsep) == [str(package.SHIMS_DIR), "a", "b"]
+
+
+def test_heavy_subcommands_of_go_cargo_and_docker():
+    from engine.runq import runq_shim as shim
+    assert shim.heavy("go", ["test", "./..."])[0] == "go-test"
+    assert shim.heavy("go", ["version"]) is None
+    assert shim.heavy("cargo", ["+nightly", "test"])[0] == "cargo-test"
+    assert shim.heavy("cargo", ["fmt"]) is None
+    assert shim.heavy("docker", ["build", "-t", "x", "."])[0] == "docker-build"
+    assert shim.heavy("docker", ["buildx", "build", "."])[0] == "docker-build"
+    assert shim.heavy("docker", ["compose", "build"])[0] == "docker-build"
+    assert shim.heavy("docker", ["ps"]) is None
+
+
+def test_the_real_tool_is_found_past_the_stand_ins(tmp_path):
+    from engine.runq import runq_shim as shim
+    real = tmp_path / ("go.cmd" if os.name == "nt" else "go")
+    real.write_text("@echo real\n" if os.name == "nt" else "#!/bin/sh\necho real\n")
+    real.chmod(0o755)
+    path = os.pathsep.join([str(package.SHIMS_DIR), str(tmp_path)])
+    assert Path(shim.real_tool("go", path)).resolve() == real.resolve()
+
+
+def _fake_go(tmp_path):
+    fake = tmp_path / "fakebin"
+    fake.mkdir()
+    if os.name == "nt":
+        (fake / "go.cmd").write_text("@echo off\r\necho ok  example/pkg %*\r\nexit /b 0\r\n")
+    else:
+        g = fake / "go"
+        g.write_text("#!/bin/sh\necho \"ok  example/pkg $*\"\n")
+        g.chmod(0o755)
+    return fake
+
+
+@pytest.mark.parametrize("shell", ["native", "sh"])
+def test_a_sessions_go_test_goes_through_the_queue(tmp_path, shell):
+    if shell == "sh" and os.name == "nt" and not shutil_which("bash"):
+        pytest.skip("no bash")
+    repo = _git_repo(tmp_path / "repo")
+    env = _session_env(tmp_path)
+    env["PATH"] = os.pathsep.join([str(package.SHIMS_DIR), str(_fake_go(tmp_path)),
+                                   os.environ.get("PATH", "")])
+    if shell == "native":
+        cmd = "go test ./..." if os.name == "nt" else ["go", "test", "./..."]
+        run = lambda: subprocess.run(cmd, cwd=repo, capture_output=True, text=True, env=env,
+                                     timeout=120, shell=(os.name == "nt"))
+    else:
+        bash = shutil_which("bash") or "bash"
+        run = lambda: subprocess.run([bash, "-c", "go test ./..."], cwd=repo,
+                                     capture_output=True, text=True, env=env, timeout=120)
+    one, two = run(), run()
+    assert one.returncode == 0 and "ok  example/pkg test ./..." in one.stdout, one.stdout + one.stderr
+    assert two.returncode == 0 and "ok  example/pkg" in two.stdout
+    assert "replaying" in two.stderr, two.stderr
+    plain = (subprocess.run("go version" if os.name == "nt" else ["go", "version"], cwd=repo,
+                            capture_output=True, text=True, env=env, timeout=60, shell=(os.name == "nt")))
+    assert "ok  example/pkg version" in plain.stdout and "runq" not in plain.stderr
+
+
+def shutil_which(name):
+    """A POSIX shell for the sh stand-ins. On Windows that is Git's bash,
+    never System32's bash.exe, which runs WSL Linux instead."""
+    import shutil
+    if os.name != "nt":
+        return shutil.which(name)
+    git = shutil.which("git")
+    if not git:
+        return None
+    for base in Path(git).resolve().parents[:3]:
+        cand = base / "bin" / "bash.exe"
+        if cand.is_file():
+            return str(cand)
+    return None
+
+
+@pytest.mark.parametrize("pkg,script,args,cap", [
+    ("jest/bin", "jest.js", ["--ci"], "--maxWorkers="),
+    ("@playwright/test", "cli.js", ["test"], "--workers="),
+])
+def test_a_sessions_js_test_run_is_capped_queued_and_replayed(tmp_path, pkg, script, args, cap):
+    repo = _git_repo(tmp_path / "repo")
+    fake = repo / "node_modules" / pkg
+    fake.mkdir(parents=True)
+    (fake / script).write_text("console.log('tool args ' + process.argv.slice(2).join(' '));\n")
+    env = _session_env(tmp_path)
+    cmd = ["node", str(fake / script), *args]
+    one = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, env=env, timeout=120)
+    two = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, env=env, timeout=120)
+    assert one.returncode == 0 and cap in one.stdout, one.stdout + one.stderr
+    assert "replaying" in two.stderr and "tool args" in two.stdout, two.stderr
 
 
 def test_a_sessions_node_job_goes_through_the_queue(tmp_path):

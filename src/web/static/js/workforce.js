@@ -869,7 +869,7 @@ function wfSortedSessions(sessions) {
 function renderWorkforce(sessions) {
   const grid = document.getElementById('workforce-grid');
   if (!sessions.length) {
-    grid.innerHTML = (typeof _emptySessionsHtml === 'function') ? _emptySessionsHtml()
+    grid.innerHTML = (typeof _emptySessionsHtml === 'function') ? _emptySessionsHtml({ grid: true })
       : '<div style="padding:20px;color:var(--text-muted);font-size:12px;">No sessions found</div>';
     return;
   }
@@ -883,7 +883,15 @@ function renderWorkforce(sessions) {
     sessions = _fam.ordered;
     _roleOf = _fam.roleOf;
   }
-  const _html = sessions.map(s => {
+  const _html = sessions.map(s => _wfCardHtml(s, _roleOf)).join('');
+  // Unchanged markup in the same order: keep the cards (app.js _vnWriteRows).
+  if (typeof _vnWriteRows === 'function') _vnWriteRows(grid, _html); else grid.innerHTML = _html;
+}
+
+/** One session card in the grid.  Also used by "Sit tight" (_sitTightHtml,
+ *  sessions.js), so its working cards are the real cards: same pickaxe, same size. */
+function _wfCardHtml(s, _roleOf, extraCls) {
+    _roleOf = _roleOf || new Map();
     const st = getSessionStatus(s.id);
     const { emoji, label, hint: _dblTitle, cls: _vsCls, foot: _vsFoot } = _wfCardStatusParts(s.id, st);
     const selClass = s.id === activeId ? ' wf-selected' : '';
@@ -919,16 +927,13 @@ function renderWorkforce(sessions) {
     // Pinned sessions (sessions.js _pinButtonHtml): faint pin on hover, purple once pinned.
     const _pinned = typeof isSessionPinned === 'function' && isSessionPinned(s.id);
     const pinBtn = typeof _pinButtonHtml === 'function' ? _pinButtonHtml(s.id) : '';
-    return `<div class="wf-card wf-${st}${_vsCls ? ' ' + _vsCls : ''}${selClass}${msClass}${familyClass}${unreadClass}${_pinned ? ' is-pinned' : ''}" data-sid="${s.id}"${typeof _pinDragAttrs === 'function' ? _pinDragAttrs(s.id) : ''} onmousedown="_sessionRowMouseDown(event,'${s.id}')" onclick="singleOrDouble('${s.id}',event)" ondblclick="_dblclickSleepIfIdle('${s.id}',event)" oncontextmenu="sessionContextMenu(event,'${s.id}')" title="${escHtml(s.display_title)} \u2014 ${_dblTitle}">
+    return `<div class="wf-card wf-${st}${_vsCls ? ' ' + _vsCls : ''}${extraCls ? ' ' + extraCls : ''}${selClass}${msClass}${familyClass}${unreadClass}${_pinned ? ' is-pinned' : ''}" data-sid="${s.id}"${typeof _pinDragAttrs === 'function' ? _pinDragAttrs(s.id) : ''} onmousedown="_sessionRowMouseDown(event,'${s.id}')" onclick="singleOrDouble('${s.id}',event)" ondblclick="_dblclickSleepIfIdle('${s.id}',event)" oncontextmenu="sessionContextMenu(event,'${s.id}')" title="${escHtml(s.display_title)} \u2014 ${_dblTitle}">
       ${unreadDot}${pinBtn}
       <div class="wf-avatar">${emoji}</div>
       <div class="wf-status-label">${label}</div>
       <div class="wf-name">${childGlyph}${name}</div>
       ${_vsFoot || `<div class="wf-meta">${escHtml(date)}</div>`}
     </div>`;
-  }).join('');
-  // Unchanged markup in the same order: keep the cards (app.js _vnWriteRows).
-  if (typeof _vnWriteRows === 'function') _vnWriteRows(grid, _html); else grid.innerHTML = _html;
 }
 
 const _WF_STATUS_SVG = {

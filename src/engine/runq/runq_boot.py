@@ -124,6 +124,7 @@ def _run():
         return
     lease, capture = a, b
     os.environ["RUNQ_LEASE"] = lease          # nested runs never queue behind us
+    runq.start_sampler(lease, os.getpid())    # what this run really uses, for its budget
     sink = open(capture, "w", encoding="utf-8", errors="replace")
     sys.stdout = _Tee(sys.stdout, sink)
     sys.stderr = _Tee(sys.stderr, sink)

@@ -1247,11 +1247,11 @@ function _showSubsessionBadgeToast(parentSid) {
 /** The empty sessions list (list and cards views): still, fading ghost cards
  *  and a message that says WHY it is empty.  Sessions exist but the funnel's
  *  filters hide them → "Show all sessions"; the project has none → "New session". */
-function _emptySessionsHtml() {
+function _emptySessionsHtml(opts) {
   const total = (typeof allSessions !== 'undefined' && allSessions) ? allSessions.length : 0;
   const active = (total > 0 && typeof _activeSessionFilters === 'function') ? _activeSessionFilters() : new Set();
   const filtered = active.size > 0;
-  const sit = filtered ? _sitTightHtml(active) : '';
+  const sit = filtered ? _sitTightHtml(active, !!(opts && opts.grid)) : '';
   if (sit) return sit;
   const t = filtered
     ? { h: 'Nothing matches these filters',
@@ -1276,19 +1276,27 @@ function _emptySessionsHtml() {
  *  Working filter off (with it on, a working session would match).
  *  A status change while a state filter is on re-renders the list
  *  (_renderSessionStateChange), so the cards follow the work live. */
-function _sitTightHtml(active) {
+function _sitTightHtml(active, grid) {
   if (!active.has('needs') || active.has('working') || !window.SessionVerb || !SessionVerb.shown) return '';
   const work = allSessions.filter(s => SessionVerb.shown(SessionVerb.display(s.id)) === 'working');
   if (!work.length) return '';
+  const n = work.length;
+  const msg = '<div class="vn-sess-empty-msg"><b>Sit tight</b>Nothing needs you yet. '
+    + (n > 4 ? n + ' sessions are' : n === 1 ? 'This one is' : 'These are') + ' on it.</div>';
+  // Cards view: the real session cards (workforce.js _wfCardHtml), faded, as the grid's own
+  // children, so the pickaxe, the size and every card look match the cards above and below.
+  if (grid && typeof _wfCardHtml === 'function') {
+    return work.slice(0, 4).map(s => _wfCardHtml(s, null, 'vn-sit-peek')).join('')
+      + '<div class="vn-sess-empty vn-sit-tight vn-sit-grid">' + msg + '</div>';
+  }
+  const pick = '<img class="vst-pick" src="/static/svg/pickaxe.svg" width="18" height="18" alt="" aria-hidden="true"'
+    + ' style="filter:brightness(0) saturate(100%) invert(55%) sepia(78%) saturate(1000%) hue-rotate(215deg);">';
   const cards = work.slice(0, 4).map(s =>
     '<div class="vst-card" role="button" tabindex="0" data-sid="' + escHtml(s.id) + '" title="Peek at this session"'
     + ' onclick="openInGUI(this.dataset.sid)" onkeydown="if(event.key===\'Enter\')openInGUI(this.dataset.sid)">'
-    + '<i class="vst-spin" aria-hidden="true"></i><em>Working</em><span>'
+    + pick + '<em>Working</em><span>'
     + escHtml(s.display_title || s.id.slice(0, 8)) + '</span></div>').join('');
-  const n = work.length;
-  return '<div class="vn-sess-empty vn-sit-tight"><div class="vst-cards">' + cards + '</div>'
-    + '<div class="vn-sess-empty-msg"><b>Sit tight</b>Nothing needs you yet. '
-    + (n > 4 ? n + ' sessions are' : n === 1 ? 'This one is' : 'These are') + ' on it.</div></div>';
+  return '<div class="vn-sess-empty vn-sit-tight"><div class="vst-cards">' + cards + '</div>' + msg + '</div>';
 }
 
 function renderList(sessions) {

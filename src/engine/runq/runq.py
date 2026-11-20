@@ -27,10 +27,16 @@ Knobs (environment):
   RUNQ_NO_REUSE=1         never replay; still queue
   RUNQ_KEY_ENV=A,B        extra env vars that make two runs different
   RUNQ_RESERVE_MB         memory left free beside heavy jobs (default 2500)
-  RUNQ_MAX_JOBS           heavy jobs at once                 (default 2)
+  RUNQ_MAX_JOBS           heavy jobs at once                 (default 4)
   RUNQ_LIGHT_MB           largest light job                  (default 2000)
   RUNQ_LIGHT_RESERVE_MB   memory left free beside light jobs (default 1000)
-  RUNQ_LIGHT_JOBS         light jobs at once                 (default 3)
+  RUNQ_LIGHT_JOBS         light jobs at once                 (default 6)
+
+Budgets are learned: every running job reports its real memory every few
+seconds, and the next run of the same tool in the same folder is budgeted
+from what such runs really used (an estimate from its worker count until
+then).  A running job only holds back the memory it has budgeted but not
+used yet; what it uses is already gone from free memory.
   RUNQ_MAX_WAIT_S         after this long, the head of a lane starts even
                           without room, still one at a time  (default 2700)
   RUNQ_REUSE_S        how long a finished run is replayed (default 600)
@@ -65,11 +71,15 @@ def _env_int(name, default):
 
 
 RESERVE_MB = _env_int("RUNQ_RESERVE_MB", 2500)
-MAX_JOBS = _env_int("RUNQ_MAX_JOBS", 2)
+# Free memory is the real limit; the counts only stop a burst of tiny jobs
+# from all starting in the same second before any of them has grown.
+MAX_JOBS = _env_int("RUNQ_MAX_JOBS", 4)
 # The light lane: one-process jobs, a smaller reserve, their own count.
 LIGHT_MB = _env_int("RUNQ_LIGHT_MB", 2000)
 LIGHT_RESERVE_MB = _env_int("RUNQ_LIGHT_RESERVE_MB", 1000)
-LIGHT_JOBS = _env_int("RUNQ_LIGHT_JOBS", 3)
+LIGHT_JOBS = _env_int("RUNQ_LIGHT_JOBS", 6)
+PROFILES = STATE / "profiles.json"
+LEARN_MARGIN = 1.15   # learned peak x this = the budget
 MAX_WAIT_S = _env_int("RUNQ_MAX_WAIT_S", 2700)
 REUSE_S = _env_int("RUNQ_REUSE_S", 600)
 FRESH_S = 90          # a lease this young has not reached its full memory yet
@@ -270,6 +280,14 @@ def light(weight):
     return weight <= LIGHT_MB
 
 
+def _still_to_grow(r, now):
+    """Memory a running job has budgeted but not used yet. Free memory already
+    counts what it uses; only the rest is still coming."""
+    if "cur" in r:
+        return max(0, r.get("weight", 0) - r["cur"])
+    return r.get("weight", 0) if now - r.get("t", now) < FRESH_S else 0
+
+
 def _fits(weight, leases, avail):
     lane = [r for r in leases if light(r.get("weight", 0)) == light(weight)]
     if not lane:
@@ -280,9 +298,168 @@ def _fits(weight, leases, avail):
     if avail is None:
         return True
     now = time.time()
-    pending = sum(r.get("weight", 0) for r in leases if now - r.get("t", now) < FRESH_S)
+    pending = sum(_still_to_grow(r, now) for r in leases)
     reserve = LIGHT_RESERVE_MB if light(weight) else RESERVE_MB
     return avail - pending - weight >= reserve
+
+
+# --- learning what jobs really use --------------------------------------------
+
+def _profile_key(kind, cwd):
+    return f"{kind}|{str(Path(cwd).resolve()).lower()}"
+
+
+def learned_weight(kind, cwd, estimate):
+    """The budget for a job: its estimate, scaled by how this tool's runs in
+    this folder actually compared with their estimates. A project whose test
+    workers are small stops being budgeted like one whose workers are large."""
+    prof = (_read(PROFILES) or {}).get(_profile_key(kind, cwd))
+    if not prof or not prof.get("ratio"):
+        return estimate
+    ratio = min(1.5, max(0.1, float(prof["ratio"])))
+    return max(200, int(estimate * ratio * LEARN_MARGIN))
+
+
+def _learn(rec):
+    peak, est = rec.get("peak"), rec.get("est")
+    if not peak or not est or rec.get("samples", 0) < 2:
+        return
+    profiles = _read(PROFILES) or {}
+    k = _profile_key(rec["kind"], rec["cwd"])
+    ratio = peak / est
+    old = profiles.get(k)
+    # The biggest recent run matters most: a new ratio above the old one is
+    # taken at once, a lower one only eases in.
+    if old and old.get("ratio"):
+        ratio = ratio if ratio > old["ratio"] else 0.7 * old["ratio"] + 0.3 * ratio
+    profiles[k] = {"ratio": round(ratio, 4), "n": (old or {}).get("n", 0) + 1, "t": time.time()}
+    if len(profiles) > 400:
+        for key in sorted(profiles, key=lambda x: profiles[x].get("t", 0))[:100]:
+            profiles.pop(key, None)
+    _write(PROFILES, profiles)
+
+
+def tree_mb(pid):
+    """Physical memory of ``pid`` and all its descendants, MB (None if unknown)."""
+    try:
+        if os.name == "nt":
+            return _tree_mb_windows(int(pid))
+        return _tree_mb_posix(int(pid))
+    except Exception:
+        return None
+
+
+def _tree_mb_windows(root):
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.windll.kernel32
+    psapi = ctypes.windll.psapi
+
+    class PE(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_void_p),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    class PMC(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
+    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.POINTER(PE)]
+    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.POINTER(PE)]
+    k.CloseHandle.argtypes = [ctypes.c_void_p]
+    k.OpenProcess.restype = ctypes.c_void_p
+    psapi.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.POINTER(PMC), wintypes.DWORD]
+    snap = k.CreateToolhelp32Snapshot(0x2, 0)
+    children = {}
+    try:
+        e = PE()
+        e.dwSize = ctypes.sizeof(PE)
+        ok = k.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            children.setdefault(e.th32ParentProcessID, []).append(e.th32ProcessID)
+            ok = k.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k.CloseHandle(snap)
+    total, todo, seen = 0, [root], set()
+    while todo:
+        p = todo.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        todo.extend(children.get(p, []))
+        h = k.OpenProcess(0x1000, False, p)
+        if not h:
+            continue
+        try:
+            m = PMC()
+            m.cb = ctypes.sizeof(PMC)
+            if psapi.GetProcessMemoryInfo(h, ctypes.byref(m), m.cb):
+                total += m.WorkingSetSize
+        finally:
+            k.CloseHandle(h)
+    return int(total // (1024 * 1024))
+
+
+def _tree_mb_posix(root):
+    children = {}
+    rss = {}
+    page = os.sysconf("SC_PAGE_SIZE")
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            stat = Path(f"/proc/{d}/stat").read_text().rsplit(")", 1)[1].split()
+            children.setdefault(int(stat[1]), []).append(int(d))
+            rss[int(d)] = int(stat[21]) * page
+        except (OSError, IndexError, ValueError):
+            continue
+    total, todo = 0, [root]
+    while todo:
+        p = todo.pop()
+        total += rss.get(p, 0)
+        todo.extend(children.get(p, []))
+    return int(total // (1024 * 1024))
+
+
+def sample(lease_id, pid):
+    """Record what a running job uses now (called every few seconds by its owner)."""
+    mb = tree_mb(pid)
+    if mb is None:
+        return
+    try:
+        with state_lock():
+            p = LEASES / f"{lease_id}.json"
+            rec = _read(p)
+            if not rec:
+                return
+            rec["cur"] = mb
+            rec["peak"] = max(mb, rec.get("peak", 0))
+            rec["samples"] = rec.get("samples", 0) + 1
+            _write(p, rec)
+    except Exception:
+        pass
+
+
+def start_sampler(lease_id, pid, every=3.0):
+    """A daemon thread in the job's own process that samples it until exit."""
+    import threading
+
+    def loop():
+        while True:
+            time.sleep(every)
+            sample(lease_id, pid)
+    threading.Thread(target=loop, name="runq-sampler", daemon=True).start()
+
+
+#: Builds leave files behind (a bundle, a binary, an image): replaying their
+#: printed output would skip the files, so they queue but are never replayed.
+NO_REUSE_KINDS = {"vite-build", "webpack", "go-build", "cargo-build", "docker-build"}
 
 
 def admit(kind, weight, cwd, args, pid=None, label=""):
@@ -302,10 +479,13 @@ def admit(kind, weight, cwd, args, pid=None, label=""):
 
 def _admit(kind, weight, cwd, args, pid, label):
     started = process_started(pid)
-    key = None if os.environ.get("RUNQ_NO_REUSE") == "1" else job_key(kind, cwd, args)
+    key = (None if os.environ.get("RUNQ_NO_REUSE") == "1" or kind in NO_REUSE_KINDS
+           else job_key(kind, cwd, args))
     ticket = f"{time.time():.6f}-{pid}"
-    me = {"pid": pid, "started": started, "kind": kind, "weight": weight, "cwd": str(cwd),
-          "label": label, "key": key, "t": time.time()}
+    estimate = weight
+    weight = learned_weight(kind, cwd, estimate)
+    me = {"pid": pid, "started": started, "kind": kind, "weight": weight, "est": estimate,
+          "cwd": str(cwd), "label": label, "key": key, "t": time.time()}
     t0 = time.time()
     told = 0.0
     with state_lock():
@@ -363,6 +543,8 @@ def finish(lease_id, code):
             p = LEASES / f"{lease_id}.json"
             rec = _read(p)
             p.unlink(missing_ok=True)
+            if rec:
+                _learn(rec)
             # Only a PASSING run is replayed: a failure always runs again, so
             # re-running to check a flaky test still means something.
             if rec and rec.get("key") and code == 0:
@@ -390,7 +572,9 @@ def status():
     print(f"free memory: {available_mb()} MB  reserve: {RESERVE_MB} MB  max jobs: {MAX_JOBS}")
     print(f"running ({len(leases)}):")
     for r in leases:
-        print(f"  {r['kind']:<10} {r['weight']:>6} MB  {now - r['t']:>5.0f}s  pid {r['pid']}  {r['label'][:90]}")
+        used = f"{r['cur']:>6}" if "cur" in r else "     ?"
+        print(f"  {r['kind']:<10} {r['weight']:>6} MB budget {used} MB used  {now - r['t']:>5.0f}s  "
+              f"pid {r['pid']}  {r['label'][:80]}")
     print(f"waiting ({len(waiting)}):")
     for r in waiting:
         print(f"  {r['kind']:<10} {r['weight']:>6} MB  {now - r['t']:>5.0f}s  pid {r['pid']}  {r['label'][:90]}")
@@ -407,6 +591,9 @@ def main(argv=None):
     if cmd == "admit":      # admit KIND WEIGHT PID CWD JSON_ARGS LABEL
         kind, weight, pid, cwd, args, label = argv[1], int(argv[2]), int(argv[3]), argv[4], json.loads(argv[5]), argv[6]
         print(json.dumps(admit(kind, weight, cwd, args, pid=pid, label=label)))
+        return 0
+    if cmd == "sample":     # sample LEASE PID
+        sample(argv[1], int(argv[2]))
         return 0
     if cmd == "finish":     # finish LEASE CODE
         finish(argv[1], int(argv[2]))

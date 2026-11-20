@@ -30,7 +30,7 @@ from tests._fake_app import CWD, PROJECT, FakeApp, fake_sessions, init_script
 XDIST_SPLITTABLE = True
 
 N = 300
-CARDS = "() => document.querySelectorAll('#workforce-grid .wf-card').length"
+CARDS = "() => document.querySelectorAll('#workforce-grid .wf-card:not(.vn-sit-peek)').length"
 ROWS = "() => document.querySelectorAll('#session-list .session-item').length"
 
 
@@ -340,7 +340,7 @@ def test_sit_tight_when_needs_you_is_empty_but_sessions_work(browser):
     those working sessions as faded cards under "Sit tight", follows them as
     they finish, and gives way to the plain empty list when none is left."""
     app = FakeApp(browser, _sessions(), clock=True)
-    sit = "() => document.querySelectorAll('#workforce-grid .vn-sit-tight .vst-card').length"
+    sit = "() => document.querySelectorAll('#workforce-grid > .wf-card.vn-sit-peek').length"
     try:
         sessions = app.sessions
         app.push_many("session_state", [{"session_id": s["id"], "state": "working", "cwd": CWD}
@@ -352,6 +352,16 @@ def test_sit_tight_when_needs_you_is_empty_but_sessions_work(browser):
         assert app.eval(CARDS) == 0
         assert app.eval(sit) == 3
         assert "Sit tight" in app.eval("() => document.querySelector('#workforce-grid .vn-sit-tight').textContent")
+        # They are the real working cards: the pickaxe, and the same size as any other card.
+        assert app.eval("() => [...document.querySelectorAll('#workforce-grid > .wf-card.vn-sit-peek')]"
+                        ".every(c => c.querySelector('.wf-avatar img[src$=\"pickaxe.svg\"]'))")
+        _click(app, _opt("needs"))
+        app.advance(600)
+        real_h = app.eval("() => document.querySelector('#workforce-grid > .wf-card:not(.vn-sit-peek)').getBoundingClientRect().height")
+        _click(app, _opt("needs"))
+        app.advance(600)
+        peek_h = app.eval("() => document.querySelector('#workforce-grid > .wf-card.vn-sit-peek').getBoundingClientRect().height")
+        assert abs(real_h - peek_h) < 0.5, (real_h, peek_h)
         # One finishes: the cards follow the work.
         app.push("session_state", {"session_id": sessions[0]["id"], "state": "stopped", "cwd": CWD})
         app.advance(600)

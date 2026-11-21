@@ -1577,6 +1577,36 @@ html[data-finish="hairline"] body #live-log .lm.lm-answered > .hl-edge .hl-do.hl
 
 /* ── Pairs: Same or Not the same, side by side (_openPairs, last-card.js).
    The left panel is the form's (.lm-fm-rail). */
+/* ── Matrix: several parts of one page picked together (_SPLIT.matrix,
+   last-card.js).  The open part's options on top, the one live page with
+   every pick applied under them. */
+.lm-mx-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lm-mx .lm-fm-pane { flex: none; overflow: visible; padding-bottom: 14px; }
+.lm-mx-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.lm-mx-op { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border-radius: 10px;
+  font-size: 13.5px; font-weight: 600; color: var(--text-secondary); box-shadow: inset 0 0 0 1px rgba(var(--bt), .18); }
+.lm-mx-op .ok { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-size: 11.5px; font-weight: 700;
+  color: var(--text-muted); background: rgba(var(--bt), .08); }
+.lm-mx-op:hover { color: var(--text-heading); box-shadow: inset 0 0 0 1px rgba(var(--bt), .32); }
+.lm-mx-op.on { color: var(--text-heading); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.lm-mx-op.on .ok { color: #fff; background: var(--accent); }
+.lm-mx-op:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lm-mx-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 28px 24px; border-radius: 12px; overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(var(--bt), .14); background: rgba(var(--bt), .02); }
+.lm-mx-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 7px 10px 7px 12px; border-bottom: 1px solid rgba(var(--bt), .1); }
+.lm-mx-combo { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-muted); }
+.lm-mx-combo b { font-weight: 600; color: var(--text-heading); }
+.lm-mx-combo .d b { font-weight: 500; color: var(--text-secondary); }
+.lm-mx-dev { flex: none; display: inline-flex; padding: 2px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(var(--bt), .16); }
+.lm-mx-dev button { all: unset; cursor: pointer; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.lm-mx-dev button.on { color: var(--text-heading); background: rgba(var(--bt), .1); }
+.lm-mx-view { flex: 1; min-height: 0; display: flex; justify-content: center; background: var(--bg-body); }
+.lm-mx-view iframe { border: 0; width: 100%; height: 100%; display: block; }
+.lm-mx-stage.phone .lm-mx-view { padding: 12px 0; }
+.lm-mx-stage.phone iframe { width: 390px; max-width: 100%; border-radius: 14px; box-shadow: 0 0 0 1px rgba(var(--bt), .16); }
+@media (max-width: 700px) {
+  .lm-mx-stage { margin: 0 12px 12px; }
+}
 .lm-fm-ri .rp.no { color: #e5534b; }
 .lm-pr .lm-fm-pane { display: flex; flex-direction: column; }
 .lm-pr-pair { flex: 1; min-height: 260px; display: flex; gap: 12px; margin-top: 14px; }

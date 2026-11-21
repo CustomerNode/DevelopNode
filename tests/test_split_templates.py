@@ -27,7 +27,7 @@ def _js_table():
 
 def test_both_tables_name_the_same_templates_prefixes_and_sizes():
     js = _js_table()
-    assert set(js) == set(hr.SPLIT_TEMPLATES) == {"form", "pairs"}
+    assert set(js) == set(hr.SPLIT_TEMPLATES) == {"form", "pairs", "matrix"}
     for k, t in hr.SPLIT_TEMPLATES.items():
         assert js[k] == {"prefix": t["prefix"], "min": t["min"]}, k
 
@@ -41,6 +41,20 @@ def test_every_template_has_a_check_and_is_outside_the_word_count():
 def test_sessions_are_told_each_templates_field_and_prefix():
     for k, t in hr.SPLIT_TEMPLATES.items():
         assert f"needs.{k}" in st.INSTRUCTIONS and t["prefix"] in st.INSTRUCTIONS
+
+
+def test_a_matrix_needs_its_page_and_one_switch_per_axis():
+    axis = lambda i, p: {"id": f"a{i}", "question": "The part it varies", "param": p,
+                         "options": [{"key": "A", "label": "How it is today", "value": "a"},
+                                     {"key": "B", "label": "Another look here", "value": "b"}]}
+    good = {"needs": {"kind": "decision", "matrix_page": "http://127.0.0.1:8000/", "matrix": [axis(1, "oneLook"), axis(2, "twoLook")]}}
+    assert hr.split_problems(good) == [] and hr.split_usable(good["needs"])
+    no_page = {"needs": {"kind": "decision", "matrix": good["needs"]["matrix"]}}
+    assert any("matrix_page" in p for p in hr.split_problems(no_page)) and not hr.split_usable(no_page["needs"])
+    same = {"needs": {"kind": "decision", "matrix_page": "/static/x.html", "matrix": [axis(1, "oneLook"), axis(2, "oneLook")]}}
+    assert any("share one" in p for p in hr.split_problems(same))
+    bare = {"needs": {"kind": "decision", "matrix_page": "/static/x.html", "matrix": [axis(1, "oneLook"), dict(axis(2, "two"), param="")]}}
+    assert any("needs \"param\"" in p for p in hr.split_problems(bare))
 
 
 def test_two_templates_on_one_card_are_sent_back():
@@ -88,6 +102,10 @@ def _fill(v, key=""):
     if isinstance(v, str) and v.startswith("<"):
         if key == "url":
             return "/static/sample.png"
+        if key == "matrix_page":
+            return "/static/sample.html"
+        if key in ("param", "anchor"):
+            return "sampleWord"
         if key == "id":
             return "sample-" + "".join(c for c in v if c.isdigit())
         return f"sample words for the {key} field here"
@@ -105,6 +123,9 @@ def test_each_templates_blank_has_its_items_and_once_filled_passes():
         for q in filled["needs"].get("form", []):
             for o in q["options"]:
                 o["verdict"] += " " + o["key"]
+        # each axis switches its own part of the page
+        for i, a in enumerate(filled["needs"].get("matrix", [])):
+            a["param"] += str(i)
         assert hr.split_problems(filled) == [], k
         assert hc.start_text(k).count(f'"{k}": [') == 1
 

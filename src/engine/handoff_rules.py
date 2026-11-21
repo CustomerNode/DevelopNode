@@ -2013,6 +2013,23 @@ SPLIT_TEMPLATES = {
         "rules": "a side's kind is image or page (with \"url\", an address this app shows), "
                  "html (with \"html\", drawn with no scripts) or text (with \"text\")",
     },
+    "matrix": {
+        "prefix": "My picks for the", "title": "question", "min": 2, "max": 4,
+        "when": "one design has several independent parts to vary, judged together on one live page "
+                "(a section's look, its drawing, its call to action)",
+        "does": "the popup lists the axes down the left and shows ONE live page with the pick of every axis "
+                "applied at once; choosing an option of the open axis switches only that part of the page, "
+                "so every combination can be seen",
+        "example": {"id": "<short id>", "question": "<the part being varied, at most 15 words>",
+                    "param": "<the page's address word that switches this part, e.g. aiLook>",
+                    "anchor": "<optional: the id of this part on the page, so the page scrolls to it>",
+                    "options": [{"key": "A", "label": "<today's look, at most 8 words>", "value": "a"},
+                                {"key": "B", "label": "<another look, at most 8 words>", "value": "b"}]},
+        "rules": "the card also gives needs.matrix_page, the live page every axis switches (an address this app "
+                 "shows); each axis gives the address word (\"param\") the page reads and 2 to 6 options, each a "
+                 "\"label\" of 2 to 8 words and the \"value\" its word takes; the first option of each axis is "
+                 "how it is today. The page must draw every combination: build each axis as its own switch",
+    },
 }
 
 
@@ -2066,6 +2083,40 @@ def form_screen_words(q: dict) -> int:
 # more words.  Decimals ("2.4") and abbreviations without a space pass.
 _INNER_SENTENCE = re.compile(r"[.?!;]\s+\S")
 PAIR_KINDS = {"image": "url", "page": "url", "html": "html", "text": "text"}
+# A matrix axis is switched by one word in the page's address (?aiLook=b).
+_MATRIX_PARAM = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,39}$")
+_MATRIX_VALUE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def _matrix_axis_faults(name: str, a: dict) -> list:
+    faults = []
+    question = _s(a.get("question"))
+    if not question:
+        faults.append(f"{name} has no \"question\" naming the part it varies")
+    elif _words(question) > FORM_QUESTION_MAX_WORDS:
+        faults.append(f"{name}: \"question\" is at most {FORM_QUESTION_MAX_WORDS} words")
+    if "anchor" in a and not _MATRIX_PARAM.match(_s(a.get("anchor"))):
+        faults.append(f"{name}: \"anchor\" is the id of the part on the page (letters, digits, - or _), without #")
+    if not _MATRIX_PARAM.match(_s(a.get("param"))):
+        faults.append(f"{name} needs \"param\": the address word the page reads (letters and digits, e.g. aiLook)")
+    opts = [o for o in _items(a.get("options")) if isinstance(o, dict)]
+    if not (FORM_MIN_OPTIONS <= len(opts) <= FORM_MAX_OPTIONS):
+        return faults + [f"{name} needs {FORM_MIN_OPTIONS} to {FORM_MAX_OPTIONS} options"]
+    keys = [_s(o.get("key")) or chr(65 + j) for j, o in enumerate(opts)]
+    if len(set(keys)) != len(keys):
+        faults.append(f"{name} repeats an option key")
+    values = [_s(o.get("value")) for o in opts]
+    if not all(_MATRIX_VALUE.match(v) for v in values):
+        faults.append(f"{name}: every option needs a \"value\", the word its \"param\" takes (letters, digits, - or _)")
+    elif len(set(values)) != len(values):
+        faults.append(f"{name}: two options share one \"value\"")
+    for k, o in zip(keys, opts):
+        lw = _words(_s(o.get("label")))
+        if lw < 2:
+            faults.append(f"{name}, option {k}: spell the choice out in \"label\"")
+        elif lw > FORM_LABEL_MAX_WORDS:
+            faults.append(f"{name}, option {k}: \"label\" is at most {FORM_LABEL_MAX_WORDS} words (now {lw})")
+    return faults
 FORM_ANSWER_PREFIX = SPLIT_TEMPLATES["form"]["prefix"]
 PAIRS_ANSWER_PREFIX = SPLIT_TEMPLATES["pairs"]["prefix"]
 
@@ -2164,6 +2215,10 @@ _SPLIT_CHECKS = {
              "Each question is one short sentence, gives its \"context\" (why it matters to the user, at most 30 words), and each option a short \"label\", a \"gain\" (what it "
              "gets the user) and a \"verdict\" (recommended: why it wins; any other: why the recommended one beats "
              "it), with exactly one option recommended per question."),
+    "matrix": (_matrix_axis_faults, "axis",
+               "{\"id\", \"question\", \"param\", \"options\": [{\"key\", \"label\", \"value\"}]}",
+               "Each axis names the part it varies (\"question\"), the page's address word that switches it "
+               "(\"param\") and 2 to 6 options, each a short \"label\" and the \"value\" its word takes."),
     "pairs": (_pair_faults, "pair",
               "{\"id\", \"title\", \"a\": {\"kind\": \"image|page|html|text\", \"url|html|text\": ..., \"label\"}, \"b\": {...}}",
               "Each pair has a \"title\" and two sides, each a kind with its content."),
@@ -2178,7 +2233,15 @@ def split_problems(card: dict) -> list[str]:
         return []
     t = SPLIT_TEMPLATES[field]
     check, noun, shape, complete = _SPLIT_CHECKS[field]
+    nouns = noun[:-2] + "es" if noun.endswith("is") else noun + "s"
     out = []
+    if field == "matrix" and not _VALIDATE_URL.match(_s(needs.get("matrix_page"))):
+        out.append("needs.matrix needs needs.matrix_page: the live page every axis switches, an address this app "
+                   "shows (\"http://127.0.0.1:<port>/...\" or \"/static/...\"), never a file path.")
+    if field == "matrix":
+        params = [_s(a.get("param")) for a in split_items(needs, field)]
+        if len(set(params)) != len(params):
+            out.append("Two axes of needs.matrix share one \"param\": each axis switches its own part of the page.")
     if needs.get("kind") != "decision":
         out.append(f"needs.{field} belongs on a decision (needs.kind \"decision\").")
     others = [f"needs.{k}" for k in ("replies", *SPLIT_TEMPLATES) if k != field and (k in needs if k != "replies" else _items(needs.get(k)))]
@@ -2188,7 +2251,7 @@ def split_problems(card: dict) -> list[str]:
     items = split_items(needs, field)
     lo, hi = t["min"], t["max"]
     if not isinstance(needs.get(field), list) or not (lo <= len(items) <= hi):
-        return out + [f"needs.{field} is a list of {lo} to {hi} {noun}s, each {shape}."
+        return out + [f"needs.{field} is a list of {lo} to {hi} {nouns}, each {shape}."
                       + (" For one question use needs.replies." if field == "form" else "")]
     ids, faults = set(), []
     for i, x in enumerate(items):
@@ -2201,7 +2264,7 @@ def split_problems(card: dict) -> list[str]:
         ids.add(xid)
         faults += check(name, x)
     if faults:
-        out.append(f"The {noun}s need fixing: " + "; ".join(faults[:8]) + ". " + complete)
+        out.append(f"The {nouns} need fixing: " + "; ".join(faults[:8]) + ". " + complete)
     seen = form_visual_problem(card) if field == "form" else None
     return out + _split_on_face(card, field, items) + ([seen] if seen else [])
 
@@ -2296,6 +2359,10 @@ def split_usable(needs) -> bool:
     if field == "form":
         ok = [q for q in items if _s(q.get("question"))
               and len([o for o in _items(q.get("options")) if isinstance(o, dict)]) >= FORM_MIN_OPTIONS]
+    elif field == "matrix":
+        ok = [a for a in items if _s(a.get("question")) and _MATRIX_PARAM.match(_s(a.get("param")))
+              and len([o for o in _items(a.get("options")) if isinstance(o, dict)]) >= FORM_MIN_OPTIONS] \
+            if _VALIDATE_URL.match(_s(needs.get("matrix_page"))) else []
     else:
         ok = [p for p in items if _s(p.get("title")) and all(
             isinstance(p.get(s), dict) and p[s].get("kind") in PAIR_KINDS for s in ("a", "b"))]

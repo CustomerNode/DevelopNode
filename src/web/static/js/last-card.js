@@ -2600,6 +2600,26 @@
       line: (q, st) => { const o = q.options.find(x => x.key === st.pick[q.id]), nt = String(st.note[q.id] || '').trim();
         return q.question + '\n   ' + (o ? o.label + (o.recommended ? ' (recommended)' : '') : 'No answer') + (nt ? '\n   Note: ' + nt : ''); },
     },
+    matrix: {
+      prefix: 'My picks for the', min: 2, one: 'axis', many: 'axes', cls: 'lm-mx', hint: 'pick each part; the page shows them together',
+      button: n => 'Pick across the ' + n + ' parts', send: 'Send picks', sent: n => 'Sent your picks for the ' + n + ' parts',
+      parse: n => { const page = _str(n.matrix_page);
+        if (!_PAIR_URL.test(page)) return [];
+        return (Array.isArray(n.matrix) ? n.matrix : []).filter(a => a && typeof a === 'object').map((a, i) => ({
+          id: _str(a.id) || 'a' + (i + 1), question: _str(a.question), param: _str(a.param), page,
+          anchor: /^[A-Za-z][\w-]*$/.test(_str(a.anchor)) ? _str(a.anchor) : '',
+          options: (Array.isArray(a.options) ? a.options : []).filter(o => o && typeof o === 'object').map((o, j) => ({
+            key: _str(o.key) || String.fromCharCode(65 + j), label: _str(o.label), value: _str(o.value) })).filter(o => o.value),
+        })).filter(a => a.question && /^[A-Za-z][\w-]*$/.test(a.param) && a.options.length >= 2); },
+      title: a => a.question,
+      status: (a, st) => { const o = a.options.find(x => x.key === st.pick[a.id]); return o ? '<span class="rp ok">' + I.check + inl(o.label) + '</span>' : '<span class="rp">' + inl(a.options[0].label) + ' (not picked)</span>'; },
+      pane: a => '<div class="lm-mx-opts">' + a.options.map(o => '<button type="button" class="lm-mx-op" data-pick="' + esc(o.key) + '">' +
+          '<span class="ok">' + esc(o.key) + '</span>' + inl(o.label) + '</button>').join('') + '</div>',
+      stage: _matrixStage,
+      advance: () => false,
+      line: (a, st) => { const o = a.options.find(x => x.key === st.pick[a.id]);
+        return a.question + '\n   ' + (o ? o.key + ': ' + o.label : 'No pick'); },
+    },
     pairs: {
       prefix: 'My review of the', min: 1, one: 'pair', many: 'pairs', cls: 'lm-pr', hint: 'mark each Same or Not the same',
       button: n => 'Review the ' + (n > 1 ? n + ' pairs' : 'pair'), send: 'Send review', sent: n => 'Sent your review of ' + (n > 1 ? 'the ' + n + ' pairs' : 'the pair'),
@@ -2619,6 +2639,41 @@
         return p.title + ': ' + (m === 'same' ? 'same' : m === 'diff' ? 'NOT the same' + (nt ? ' (' + nt + ')' : '') : 'not reviewed'); },
     },
   };
+  // ── Matrix: several parts of one page varied together ────────────────
+  // Each axis is one part of the page, switched by a word in its address
+  // (?aiLook=b).  The pane shows the open axis's options; under it ONE live
+  // page carries the pick of every axis at once (an axis not yet picked shows
+  // its first option, how it is today), so any combination can be seen.
+  function _matrixUrl(items, st, cur) {
+    const page = items.length ? items[0].page : '';
+    let u;
+    try { u = new URL(page, location.href); } catch (_e) { return ''; }
+    items.forEach(a => {
+      const o = a.options.find(x => x.key === st.pick[a.id]) || a.options[0];
+      if (o) u.searchParams.set(a.param, o.value);
+    });
+    // The open axis's part of the page, when it names one: the page scrolls to it.
+    const open = items[cur || 0];
+    if (open && open.anchor) u.hash = open.anchor;
+    return /^\/(?!\/)/.test(page) ? u.pathname + u.search + u.hash : u.href;
+  }
+  function _matrixStage(stage, items, st, cur) {
+    let f = stage.querySelector('iframe');
+    if (!f) {
+      stage.innerHTML = '<div class="lm-mx-bar"><span class="lm-mx-combo"></span>' +
+        '<span class="lm-mx-dev" role="group" aria-label="Screen size"><button type="button" data-dev="web" class="on">Web</button><button type="button" data-dev="phone">Phone</button></span></div>' +
+        '<div class="lm-mx-view"><iframe title="The page with every pick applied"></iframe></div>';
+      f = stage.querySelector('iframe');
+      _matchTheme(f);
+    }
+    stage.querySelector('.lm-mx-combo').innerHTML = items.map(a => {
+      const o = a.options.find(x => x.key === st.pick[a.id]) || a.options[0];
+      return '<span class="c' + (st.pick[a.id] ? '' : ' d') + '">' + inl(a.question) + ': <b>' + inl(o ? o.label : '') + '</b></span>';
+    }).join('');
+    const src = _reviewSrc(_matrixUrl(items, st, cur));
+    const next = src ? _themedSrc(src) : 'about:blank';
+    if (f.dataset.at !== next) { f.dataset.at = next; f.src = next; }
+  }
   /** The split-view template a card uses and its items, or null. */
   function _splitOf(n) {
     for (const key of Object.keys(_SPLIT)) {
@@ -2645,6 +2700,18 @@
       '<div class="body"><div class="lm-fm-split"><div class="lm-fm-rail" role="tablist"></div><div class="lm-fm-pane"></div></div></div>';
     const top = el.querySelector('.top'), rail = el.querySelector('.lm-fm-rail'), pane = el.querySelector('.lm-fm-pane'),
       go = el.querySelector('.go'), cnt = top.querySelector('.cnt'), lab = top.querySelector('.lab');
+    // A template with a stage (the matrix's one live page) keeps it under the
+    // pane for the whole popup, so moving between items never reloads it.
+    let stage = null;
+    if (t.stage) {
+      const col = document.createElement('div');
+      col.className = 'lm-mx-col';
+      pane.replaceWith(col);
+      stage = document.createElement('div');
+      stage.className = 'lm-mx-stage';
+      col.append(pane, stage);
+    }
+    const drawStage = () => { if (stage) t.stage(stage, items, st, cur); };
     const done = () => items.filter(x => st.pick[x.id]).length;
     const drawRail = () => {
       rail.innerHTML = items.map((x, i) => '<button type="button" role="tab" class="lm-fm-ri' + (i === cur ? ' on' : '') + '" data-q="' + i + '" aria-selected="' + (i === cur) + '">' +
@@ -2671,7 +2738,7 @@
       syncPane(false);
       pane.scrollTop = 0;
     };
-    const goTo = i => { if (i < 0 || i >= items.length || i === cur) return; cur = i; drawRail(); drawPane();
+    const goTo = i => { if (i < 0 || i >= items.length || i === cur) return; cur = i; drawRail(); drawPane(); drawStage();
       const on = rail.querySelector('.lm-fm-ri.on');
       if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       _stagger(pane, { transform: 'translateY(8px)' }, 0, 25); };
@@ -2679,11 +2746,17 @@
       if (ev.target.closest('.xf')) { _closeDecide(true); return; }
       const ri = ev.target.closest('.lm-fm-ri');
       if (ri) { goTo(Number(ri.dataset.q)); return; }
+      const dv = ev.target.closest('[data-dev]');
+      if (dv && stage) {
+        stage.querySelectorAll('[data-dev]').forEach(b => b.classList.toggle('on', b === dv));
+        stage.classList.toggle('phone', dv.dataset.dev === 'phone');
+        return;
+      }
       const pk = ev.target.closest('[data-pick]');
       if (pk) {
         const x = items[cur], v = pk.dataset.pick;
         st.pick[x.id] = v;
-        drawRail(); syncPane(true);
+        drawRail(); syncPane(true); drawStage();
         if (t.advance(v)) {
           const nx = items.findIndex(y => !st.pick[y.id]), me = _dz;
           if (nx >= 0) setTimeout(() => { if (_dz === me && items[cur] === x) goTo(nx); }, _rm() ? 0 : 280);
@@ -2720,7 +2793,7 @@
     _dz = { el, onKey, onResize, btn, scrim };
     const dl = [...document.querySelectorAll('#live-log .lm-decide')], di = dl.indexOf(btn);
     _panelOpened(di >= 0 ? 'decide:' + (dl.length - di) : '');
-    drawRail(); drawPane(); onResize();
+    drawRail(); drawPane(); drawStage(); onResize();
     const clip = _btnClip(btn);
     if (clip) _anim(el, [{ clipPath: clip }, { clipPath: _FULL }], { duration: 560, easing: _EXPO });
     else _anim(el, [{ opacity: 0, transform: 'scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: _EXPO });

@@ -329,6 +329,8 @@ def skeleton(kind: str, facts=None) -> dict:
                  "why": f"<≤{L} words: why these block the work>",
                  "next": f"<≤{L} words: what you do with the answers>",
                  split: [dict(t["example"], id=f"<short id {i + 1}>") for i in range(max(t["min"], 2))]}
+        if split == "matrix":
+            needs["matrix_page"] = "<the live page every axis switches: http://127.0.0.1:<port>/... or /static/...>"
     card["needs"] = needs
     if isinstance(open_choice, dict):
         card["_open_choice"] = ("The user has not answered this earlier choice; ask it again with its buttons or "

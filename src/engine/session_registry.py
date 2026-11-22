@@ -28,6 +28,13 @@ MAX_RECOVERY_AGE = 3600  # 1 hour
 # reset many hours after the session last did anything.
 ARMED_RECOVERY_AGE = 7 * 86400
 
+# Sent to a session that was mid-turn when the Session Engine went down
+# (a shutdown, a power cut, a crash).  Starts with "[VibeNode" so the chat
+# labels it an automated message (shared/transcripts.automated_source).
+RECOVERY_CONTINUE_PROMPT = (
+    "[VibeNode] The computer shut down or the Session Engine stopped while "
+    "you were in the middle of this. Continue from where you left off.")
+
 # States that mean a session was in active use before the last shutdown.
 # These are the states we "remember" across a restart so the UI can mark the
 # session as previously-active instead of collapsing it to a generic
@@ -299,6 +306,29 @@ class SessionRegistry:
                         cleared_parents.add(sid)
 
             now = time.time()
+            # Age is measured up to when the engine was LAST ALIVE, not up to
+            # now.  Every live entry is stamped on each registry save, so the
+            # newest ``last_activity`` is the engine's last save before it
+            # went down.  Measured against ``now``, a computer switched off
+            # for more than ``max_age`` lost every session that was mid-task
+            # when it went down: they were seconds old at the shutdown, and
+            # the hours the machine was off counted against them.
+            # Carried-forward dormant entries keep their ORIGINAL stamp, so a
+            # session that failed to come back still ages out once any other
+            # session has run since.
+            stamps = [
+                float(m.get("last_activity") or 0)
+                for m in sessions.values() if isinstance(m, dict)
+            ]
+            last_alive = min(now, max(stamps or [now]))
+            if now - last_alive > 60:
+                logger.info(
+                    "Session Engine was down %.0f min before this start; "
+                    "recovery ages sessions up to %s",
+                    (now - last_alive) / 60,
+                    time.strftime("%Y-%m-%d %H:%M:%S",
+                                  time.localtime(last_alive)),
+                )
             recovered = 0
             # Read persisted queues — sessions with messages waiting in their
             # queue at restart time MUST be recovered too, otherwise the
@@ -339,8 +369,8 @@ class SessionRegistry:
                 if meta.get("session_type") == "planner":
                     continue
 
-                last_activity = meta.get("last_activity", 0)
-                age = now - last_activity
+                last_activity = meta.get("last_activity", 0) or 0
+                age = last_alive - last_activity
                 if age > (max(max_age, ARMED_RECOVERY_AGE) if armed else max_age):
                     logger.info(
                         "Skipping stale session %s (%.0f min old)", sid, age / 60
@@ -394,10 +424,19 @@ class SessionRegistry:
                     meta.get("auto_report_on_idle", False)
                 )
 
+                # A session cut off mid-turn is told to go on.  A bare resume
+                # (empty prompt) only reconnects and goes IDLE, so the work it
+                # was doing never continued and the session sat silent while
+                # its last summary still said Working.  "waiting" is an open
+                # permission prompt (reported as lost by SessionDurable), and a
+                # queued or armed session is driven by its queue or timer, so
+                # those reconnect only.
+                prompt = RECOVERY_CONTINUE_PROMPT if state in (
+                    "working", "starting") else ""
                 # Use start_session with resume=True to reconnect via SDK --resume
                 result = start_session_fn(
                     session_id=sid,
-                    prompt="",       # no new prompt; just reconnect
+                    prompt=prompt,
                     cwd=cwd,
                     name=name,
                     resume=True,

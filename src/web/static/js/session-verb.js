@@ -282,7 +282,10 @@
     // you.  A verdict is a 'done' hold (above): Accept / Got it / Sent it or
     // the double-click.  The backlog was marked once on the server
     // (src/web/session_holds.py backfill_reviewed).
-    if (v === 'waiting') return 'waiting';
+    // A Working summary promises work in flight, which needs a running
+    // session: asleep (a shutdown, a crash, a stop), nothing will wake it,
+    // so it is the person's move.
+    if (v === 'waiting') return st === 'sleeping' ? 'review' : 'waiting';
     if (v === 'read' || v === 'send') return v;
     return 'review';
   }

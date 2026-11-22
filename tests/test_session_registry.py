@@ -441,12 +441,9 @@ class TestRecoverSessions:
         start_fn.assert_not_called()
 
     def test_skips_stale_sessions(self, tmp_path):
-        """Sessions older than MAX_RECOVERY_AGE are skipped.
-
-        WHY: Very old sessions are unlikely to still be relevant.
-        Recovering a 12-hour-old session would waste resources and
-        possibly send stale messages to a model that has lost context.
-        """
+        """A working entry more than MAX_RECOVERY_AGE older than the engine's
+        last save is skipped: the engine ran on after it, so it is a
+        carried-forward session that already failed to come back."""
         reg = SessionRegistry()
         registry_file = tmp_path / "registry.json"
         now = time.time()
@@ -456,7 +453,14 @@ class TestRecoverSessions:
                 "state": "working",
                 "cwd": "/tmp",
                 "model": "",
-                "last_activity": now - 7200,  # 2 hours ago (> 1 hour max)
+                "last_activity": now - 7200,  # 2 hours before the last save
+            },
+            "sess-recent": {
+                "name": "Recent",
+                "state": "idle",
+                "cwd": "/tmp",
+                "model": "",
+                "last_activity": now,
             },
         }
         _write_registry(registry_file, sessions)
@@ -465,6 +469,55 @@ class TestRecoverSessions:
         with patch('engine.session_registry.REGISTRY_PATH', registry_file):
             reg.recover_sessions(start_fn, store, max_age=3600)
         start_fn.assert_not_called()
+
+    def test_time_the_computer_was_off_does_not_count(self, tmp_path):
+        """Sessions mid-task when the computer shut down come back however
+        long it stayed off: the engine's last save was seconds after their
+        last activity, and the hours with the machine off are not their age."""
+        reg = SessionRegistry()
+        registry_file = tmp_path / "registry.json"
+        down = time.time() - 21 * 3600          # shut down 21 hours ago
+        sessions = {
+            "sess-a": {"name": "A", "state": "working", "cwd": "/tmp",
+                       "model": "", "last_activity": down - 30},
+            "sess-b": {"name": "B", "state": "working", "cwd": "/tmp",
+                       "model": "", "last_activity": down},
+            "sess-idle": {"name": "C", "state": "idle", "cwd": "/tmp",
+                          "model": "", "last_activity": down},
+        }
+        _write_registry(registry_file, sessions)
+        start_fn = MagicMock(return_value={"ok": True})
+        store = self._make_mock_store()
+        with patch('engine.session_registry.REGISTRY_PATH', registry_file):
+            reg.recover_sessions(start_fn, store, max_age=3600)
+        woken = sorted(c.kwargs["session_id"] for c in start_fn.call_args_list)
+        assert woken == ["sess-a", "sess-b"]
+
+    def test_a_session_cut_off_mid_turn_is_told_to_continue(self, tmp_path):
+        """A bare resume only reconnects and goes idle, so the interrupted
+        work never went on.  Working sessions get the continue message;
+        a session waiting on a permission prompt only reconnects."""
+        from engine.session_registry import RECOVERY_CONTINUE_PROMPT
+        from shared.transcripts import automated_source
+        reg = SessionRegistry()
+        registry_file = tmp_path / "registry.json"
+        now = time.time()
+        sessions = {
+            "sess-w": {"name": "W", "state": "working", "cwd": "/tmp",
+                       "model": "", "last_activity": now},
+            "sess-p": {"name": "P", "state": "waiting", "cwd": "/tmp",
+                       "model": "", "last_activity": now},
+        }
+        _write_registry(registry_file, sessions)
+        start_fn = MagicMock(return_value={"ok": True})
+        store = self._make_mock_store()
+        with patch('engine.session_registry.REGISTRY_PATH', registry_file):
+            reg.recover_sessions(start_fn, store, max_age=3600)
+        prompts = {c.kwargs["session_id"]: c.kwargs["prompt"]
+                   for c in start_fn.call_args_list}
+        assert prompts == {"sess-w": RECOVERY_CONTINUE_PROMPT, "sess-p": ""}
+        # Drawn in the chat as an automated message, never as the owner's.
+        assert automated_source(RECOVERY_CONTINUE_PROMPT)
 
     def test_skips_planner_sessions(self, tmp_path):
         """Planner sessions are never recovered.
@@ -587,8 +640,8 @@ class TestRecoverSessions:
     def test_start_session_fn_receives_correct_args(self, tmp_path):
         """start_session_fn is called with the correct keyword arguments.
 
-        WHY: The recovery must pass session_id, prompt="", cwd, name,
-        resume=True, and model.  Wrong args could create a new session
+        WHY: The recovery must pass session_id, the continue prompt (the
+        session was working), cwd, name, resume=True, and model.  Wrong args could create a new session
         instead of resuming, or resume the wrong one.
         """
         reg = SessionRegistry()
@@ -606,11 +659,12 @@ class TestRecoverSessions:
         _write_registry(registry_file, sessions)
         start_fn = MagicMock(return_value={"ok": True})
         store = self._make_mock_store()
+        from engine.session_registry import RECOVERY_CONTINUE_PROMPT
         with patch('engine.session_registry.REGISTRY_PATH', registry_file):
             reg.recover_sessions(start_fn, store)
         start_fn.assert_called_once_with(
             session_id="sess-abc",
-            prompt="",
+            prompt=RECOVERY_CONTINUE_PROMPT,
             cwd=os.path.normpath("/projects/myapp"),
             name="My Session",
             resume=True,

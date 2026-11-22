@@ -3890,6 +3890,20 @@
     });
   }
 
+  // When the open session stopped running, or 0 while it runs.  A Working
+  // summary's clock counts only while its session can do the work: after a
+  // shutdown or crash it kept counting, "21 hours overdue" for a session that
+  // had done nothing since the computer went off.  The stop is the newest
+  // timestamp in the thread, the last thing the session wrote.
+  function _haltedAt() {
+    const sid = typeof liveSessionId !== 'undefined' ? liveSessionId : '';
+    if (!sid || typeof getSessionStatus !== 'function') return 0;
+    try { if (getSessionStatus(sid) !== 'sleeping') return 0; } catch (_e) { return 0; }
+    let m = 0;
+    document.querySelectorAll('#live-log [data-ts]').forEach(e => { const v = Number(e.dataset.ts) || 0; if (v > m) m = v; });
+    return m ? (m < 1e12 ? m * 1000 : m) : 0;
+  }
+
   // ── Live timing: one shared ticker, only while a timing card is on the page ──
   let _timer = null;
   function _tick() {
@@ -3897,15 +3911,15 @@
     if (!els.length) { if (_timer) { clearInterval(_timer); _timer = null; } return; }
     if (!_timer) _timer = setInterval(_tick, 1000);
     try { _syncLive(); } catch (_e) { /* the clock keeps going */ }
-    const now = Date.now();
+    const now = Date.now(), halted = _haltedAt();
     els.forEach(el => {
       const start = Number(el.dataset.clock), eta = Number(el.dataset.eta);
       if (!start || !eta) return;
-      const end = Number(el.dataset.stop) || now;
+      const own = Number(el.dataset.stop), end = own || (halted > start ? halted : 0) || now;
       const t = Math.max(0, Math.min(now, end) - start), over = t > eta;
       el.querySelector('[data-f="since"]').textContent = fmtDur(t);
       el.querySelector('[data-f="delta"]').textContent = (over ? '+' : '') + fmtDur(Math.abs(eta - t));
-      el.querySelector('[data-f="dlabel"]').textContent = over ? 'overdue' : 'left';
+      el.querySelector('[data-f="dlabel"]').textContent = (over ? 'overdue' : 'left') + (!own && end !== now ? ', then it stopped' : '');
       el.classList.toggle('is-over', over);
       const scale = Math.max(eta * 1.25, t * 1.06);
       el.querySelector('.fill').style.width = (Math.min(t, eta) / scale * 100) + '%';

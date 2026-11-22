@@ -14,8 +14,12 @@ function getSessionStatus(id) {
   // back to the state it held before the restart — from /api/sessions, seeded
   // into window.sessionLastState — so it shows idle/working just like you left
   // it instead of collapsing to "sleeping". Any live state above always wins.
+  // A session that was WORKING but did not come back is not running: drawn
+  // as working it sat under Working, its summary counting hours "overdue",
+  // while nothing ran (the engine brings mid-task sessions back by itself;
+  // one still here failed to come back).  Only the idle memory is kept.
   const last = window.sessionLastState && window.sessionLastState[id];
-  if (last === 'working' || last === 'idle') return last;
+  if (last === 'idle') return last;
   return 'sleeping';
 }
 

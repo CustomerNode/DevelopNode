@@ -432,14 +432,15 @@ html.lm-ov-open, html.lm-ov-open body { overflow: hidden !important; }
 .lm-ov-pick .opt.on { border-color: rgb(var(--tone)); background: rgba(var(--tone), .14); }
 .lm-ov-pick .opt.on .k { background: rgb(var(--tone)); color: #15120c; box-shadow: none; }
 .lm-ov-pick .send { all: unset; box-sizing: border-box; cursor: pointer; padding: 11px 22px; border-radius: 12px; background: rgb(var(--tone)); color: #15120c;
-  font-size: 14px; font-weight: 700; white-space: nowrap; box-shadow: 0 8px 20px -10px rgba(var(--tone), .9); transition: filter .12s, opacity .12s; }
+  font-size: 14px; font-weight: 700; white-space: nowrap; box-shadow: 0 8px 20px -10px rgba(var(--tone), .9); transition: filter .12s, opacity .12s;
+  grid-column: 2; justify-self: end; }
 .lm-ov-pick .send:hover { filter: brightness(1.07); }
 .lm-ov-pick .send[disabled] { opacity: .45; cursor: default; box-shadow: none; filter: none; }
 @media (max-width: 640px) {
   .lm-ov-pick { grid-template-columns: 1fr; }
   .lm-ov-pick .opts { flex-direction: column; overflow: visible; }
   .lm-ov-pick .opt { max-width: none; }
-  .lm-ov-pick .send { text-align: center; }
+  .lm-ov-pick .send { text-align: center; grid-column: 1; justify-self: stretch; }
 }
 .lm-ov-pick .lm-ov-note { grid-column: 1 / -1; font-size: 12px; color: var(--text-faint); }
 .lm-ov-pick .lm-ov-note:empty { display: none; }

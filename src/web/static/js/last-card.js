@@ -3155,8 +3155,11 @@
           return '<button type="button" class="opt' + (r.classList.contains('picked') ? ' on' : '') + '" data-i="' + i + '" data-key="' + esc(key) + '">' +
             '<span class="k">' + esc(key) + '</span><span class="l">' + esc(label) + (rec ? '<span class="rec">Recommended</span>' : '') + '</span></button>';
         }).join('') + '</div>' +
-        '<div class="lm-ov-note"></div>' +
+        // the button comes right after the choices so it shares their row;
+        // the note spans the row below (before it, the button fell to a row
+        // of its own and stretched the full width)
         '<button type="button" class="send" disabled>' + (done ? 'Already sent' : 'Pick one above') + '</button>' +
+        '<div class="lm-ov-note"></div>' +
       '</div>';
     // style the overlay in the card's colour
     const tone = getComputedStyle(root).getPropertyValue('--tone');

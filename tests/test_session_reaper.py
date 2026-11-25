@@ -141,7 +141,11 @@ def test_reaps_orphans_of_a_dead_session(spawned) -> None:
     pids = _spawn_dead_session(2, ledger=spawned.ledger)
     spawned.extend(pids)
 
-    found = mod.find_leaked(min_cpu=20.0, min_age_min=0.0)
+    # The rule under test is "leader dead"; the CPU bar only has to separate a
+    # burner from an idle process (0%).  A burner running flat out gets far
+    # less than 20% of a core in a 0.3s sample while the whole suite runs in
+    # parallel on the same CPUs, so a 20% bar failed only under load.
+    found = mod.find_leaked(min_cpu=1.0, min_age_min=0.0)
     found_pids = {f.pid for f in found}
     assert set(pids) <= found_pids, (
         f"leaked burners {pids} not detected; found {sorted(found_pids)}"

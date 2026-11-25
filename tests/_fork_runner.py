@@ -148,6 +148,18 @@ class _Forwarder:
             pass
 
 
+class _SilentReporter:
+    """A worker's "terminalreporter": a writer for assertion explanations, no hooks."""
+
+    def __init__(self, config) -> None:
+        import io
+        from _pytest._io import TerminalWriter
+        self.config = config
+        self.stats: dict = {}
+        self._tw = TerminalWriter(file=io.StringIO())
+        self._tw.hasmarkup = False
+
+
 def _become_worker(session, name: str, rfd: int, wfd: int) -> None:
     config = session.config
     pm = config.pluginmanager
@@ -166,6 +178,12 @@ def _become_worker(session, name: str, rfd: int, wfd: int) -> None:
         plugin = pm.get_plugin(plugin_name)
         if plugin is not None:
             pm.unregister(plugin)
+    # Assertion rewriting explains a failed comparison (sets, lists, strings)
+    # through config.get_terminal_writer(), which asserts a plugin named
+    # "terminalreporter" exists.  Without one, every such failure is replaced
+    # by a bare AssertionError from inside pytest and its message is lost.
+    # A stand-in with no hooks gives it a writer and prints nothing.
+    pm.register(_SilentReporter(config), "terminalreporter")
     from _pytest.junitxml import xml_key
     xml = config.stash.get(xml_key, None)
     if xml is not None:

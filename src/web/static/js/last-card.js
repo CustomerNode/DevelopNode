@@ -3052,7 +3052,10 @@
         '</div>' +
         '<div class="lm-rv-answer" hidden><span class="h"></span><span class="a"></span>' +
           '<button type="button" class="ok">Looks right</button><button type="button" class="no">Still wrong</button></div>';
-      el.querySelector('.lm-ov-top').after(bar);
+      // In the title's own row, in place of the title: one bar, not two.
+      const top = el.querySelector('.lm-ov-top');
+      top.classList.add('lm-ov-top-rv');
+      top.insertBefore(bar, top.querySelector('.nt, .x'));
       bar.addEventListener('click', ev => {
         const b = ev.target.closest('button');
         if (!b || !st) return;

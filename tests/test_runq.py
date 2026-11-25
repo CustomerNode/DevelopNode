@@ -341,3 +341,76 @@ def test_a_sessions_node_job_goes_through_the_queue(tmp_path):
     two = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, env=env, timeout=120)
     assert one.returncode == 0 and "typecheck ok" in one.stdout, one.stderr
     assert "replaying" in two.stderr and "typecheck ok" in two.stdout, two.stderr
+
+
+def _hold_me(rq, label="release gate"):
+    """A machine hold owned by this (live) test process."""
+    return rq.hold(label, os.getpid())
+
+
+def test_a_machine_hold_makes_suites_wait_but_not_single_files(rq, tmp_path):
+    """While a hold is live (a release gate running), a new suite waits; a
+    one-process run still starts; the suite starts once the hold ends."""
+    _hold_me(rq)
+    got = {}
+    th = threading.Thread(target=lambda: got.setdefault("suite", rq.admit("pytest", 6000, tmp_path, ["suite"])))
+    th.start()
+    time.sleep(0.5)
+    assert "suite" not in got, "a suite started while the machine was held"
+    small = rq.admit("pytest", 1400, tmp_path, ["one_file"])
+    assert small[0] == "run", "a single-file run waited behind the hold"
+    rq.finish(small[1], 1)
+    released = time.time()
+    rq.release(os.getpid())
+    th.join(10)
+    assert got["suite"][0] == "run" and got["suite"] is not None
+    rq.finish(got["suite"][1], 1)
+    assert released <= time.time()
+
+
+def test_a_hold_whose_owner_died_is_ignored(rq, tmp_path):
+    with rq.state_lock():
+        rq._write(rq.HOLDS / "999999.json", {"pid": 999999, "started": 1.0, "label": "gone", "t": time.time()})
+    assert rq.admit("pytest", 6000, tmp_path, ["suite"])[0] == "run"
+
+
+def test_a_hold_older_than_its_limit_is_ignored(rq, tmp_path):
+    """A hold left by a crash on a recycled pid must not block the machine forever."""
+    rec = rq.hold("stuck", os.getpid())
+    with rq.state_lock():
+        rec["t"] = time.time() - rq.HOLD_MAX_S - 1
+        rq._write(rq.HOLDS / f"{os.getpid()}.json", rec)
+    assert rq.admit("pytest", 6000, tmp_path, ["suite"])[0] == "run"
+
+
+def test_a_suite_held_back_past_the_longest_wait_still_starts(rq, tmp_path):
+    rq.MAX_WAIT_S = 0
+    _hold_me(rq)
+    assert rq.admit("pytest", 6000, tmp_path, ["suite"])[0] == "run"
+
+
+def test_a_hold_written_by_a_shell_script_is_honoured(rq, tmp_path):
+    """The protocol a non-Python owner (a release script) follows: a JSON file
+    named after its pid in the holds folder, with pid, label and its start time
+    as field 22 of /proc/<pid>/stat."""
+    if os.name == "nt":
+        pytest.skip("the shell protocol reads /proc")
+    script = ('d="$RUNQ_STATE_DIR/holds"; mkdir -p "$d"; '
+              'printf \'{"pid": %s, "started": %s, "label": "gate", "t": %s}\' '
+              '"$$" "$(awk \'{print $22}\' /proc/$$/stat)" "$(date +%s)" > "$d/$$.json"; sleep 30')
+    sh = subprocess.Popen(["bash", "-c", script], env=dict(os.environ))
+    try:
+        deadline = time.time() + 10
+        while not list(rq.HOLDS.glob("*.json")) and time.time() < deadline:
+            time.sleep(0.05)
+        got = {}
+        th = threading.Thread(target=lambda: got.setdefault("suite", rq.admit("pytest", 6000, tmp_path, ["suite"])))
+        th.start()
+        time.sleep(0.5)
+        assert "suite" not in got, "a shell-written hold did not hold the machine"
+    finally:
+        sh.kill()
+        sh.wait()
+    th.join(10)
+    assert got["suite"][0] == "run", "the suite did not start after the hold's owner ended"
+    rq.finish(got["suite"][1], 1)

@@ -17,6 +17,14 @@ guarded by a file lock.  A lease belongs to a live process; when the process
 dies, the lease is dropped by the next caller.  Every failure inside runq
 fails OPEN: the job runs as if runq were not there.
 
+A machine HOLD (a release gate, a benchmark: work whose timing other jobs
+would distort) makes new heavy jobs wait while its owner lives; light jobs
+still start. A hold is a JSON file named after its owner's pid in the holds
+folder: {"pid", "started" (field 22 of /proc/<pid>/stat on Linux), "label",
+"t" (epoch seconds)}, so a shell script can take one without importing runq.
+A hold whose owner died, or older than HOLD_MAX_S, is ignored, and a waiter
+past MAX_WAIT_S starts anyway: a hold delays the queue, never stops it.
+
 Two lanes, each oldest-first: LIGHT jobs (one process: a single test file
 with no workers, a type check) and HEAVY ones (a parallel suite, a build).
 A light job never waits behind a suite; a lane with nothing running always
@@ -40,6 +48,7 @@ used yet; what it uses is already gone from free memory.
   RUNQ_MAX_WAIT_S         after this long, the head of a lane starts even
                           without room, still one at a time  (default 2700)
   RUNQ_REUSE_S        how long a finished run is replayed (default 600)
+  RUNQ_HOLD_MAX_S     a machine hold older than this is ignored (default 7200)
 """
 from __future__ import annotations
 
@@ -58,6 +67,7 @@ STATE = Path(os.environ.get("RUNQ_STATE_DIR")
 LEASES = STATE / "leases"
 WAITING = STATE / "waiting"
 RESULTS = STATE / "results"
+HOLDS = STATE / "holds"
 LOCK = STATE / ".lock"
 LOG = STATE / "runq.log"
 
@@ -82,6 +92,7 @@ PROFILES = STATE / "profiles.json"
 LEARN_MARGIN = 1.15   # learned peak x this = the budget
 MAX_WAIT_S = _env_int("RUNQ_MAX_WAIT_S", 2700)
 REUSE_S = _env_int("RUNQ_REUSE_S", 600)
+HOLD_MAX_S = _env_int("RUNQ_HOLD_MAX_S", 7200)
 FRESH_S = 90          # a lease this young has not reached its full memory yet
 POLL_S = 2.0
 
@@ -175,7 +186,7 @@ def alive(rec):
 @contextlib.contextmanager
 def state_lock():
     STATE.mkdir(parents=True, exist_ok=True)
-    for d in (LEASES, WAITING, RESULTS):
+    for d in (LEASES, WAITING, RESULTS, HOLDS):
         d.mkdir(exist_ok=True)
     fh = open(LOCK, "a+")
     try:
@@ -222,6 +233,28 @@ def _live(folder):
         else:
             p.unlink(missing_ok=True)
     return out
+
+
+def _holds():
+    """Live machine holds younger than HOLD_MAX_S (call under the state lock)."""
+    now = time.time()
+    return [h for h in _live(HOLDS) if now - float(h.get("t") or 0) < HOLD_MAX_S]
+
+
+def hold(label, pid=None):
+    """Hold the machine for ``pid`` (default: this process) until release()
+    or its exit: new heavy jobs wait meanwhile."""
+    pid = int(pid or os.getpid())
+    rec = {"pid": pid, "started": process_started(pid), "label": str(label), "t": time.time()}
+    with state_lock():
+        _write(HOLDS / f"{pid}.json", rec)
+    log(f"hold by pid {pid}: {label}")
+    return rec
+
+
+def release(pid=None):
+    with state_lock():
+        (HOLDS / f"{int(pid or os.getpid())}.json").unlink(missing_ok=True)
 
 
 # --- what a job is ------------------------------------------------------------
@@ -512,7 +545,8 @@ def _admit(kind, weight, cwd, args, pid, label):
                     # without room, but still one at a time and holding a
                     # lease: a long queue drains in order, never all at once.
                     overdue = time.time() - t0 > MAX_WAIT_S
-                    if not ahead and (overdue or _fits(weight, leases, avail)):
+                    held = [] if light(weight) else _holds()
+                    if not ahead and (overdue or (not held and _fits(weight, leases, avail))):
                         lease_id = ticket
                         cap = RESULTS / f"{ticket}.out"
                         rec = dict(me, t=time.time(), capture=str(cap))
@@ -527,6 +561,9 @@ def _admit(kind, weight, cwd, args, pid, label):
                 told = time.time()
                 if twin:
                     say(f"an identical {kind} run is in progress; waiting to reuse its result")
+                elif held:
+                    say(f"queued: the machine is held by {held[0].get('label') or 'another job'}; "
+                        f"starting when it ends")
                 else:
                     say(f"queued: {len(leases)} heavy job(s) running, {avail} MB free; "
                         f"waiting for room ({weight} MB needed)")
@@ -568,8 +605,11 @@ def _prune_results(keep_s=3 * 3600):
 def status():
     with state_lock():
         leases, waiting = _live(LEASES), sorted(_live(WAITING), key=lambda r: r["t"])
+        holds = _holds()
     now = time.time()
     print(f"free memory: {available_mb()} MB  reserve: {RESERVE_MB} MB  max jobs: {MAX_JOBS}")
+    for h in holds:
+        print(f"held by pid {h['pid']} for {now - float(h.get('t') or now):.0f}s: {h.get('label', '')[:80]}")
     print(f"running ({len(leases)}):")
     for r in leases:
         used = f"{r['cur']:>6}" if "cur" in r else "     ?"
@@ -591,6 +631,12 @@ def main(argv=None):
     if cmd == "admit":      # admit KIND WEIGHT PID CWD JSON_ARGS LABEL
         kind, weight, pid, cwd, args, label = argv[1], int(argv[2]), int(argv[3]), argv[4], json.loads(argv[5]), argv[6]
         print(json.dumps(admit(kind, weight, cwd, args, pid=pid, label=label)))
+        return 0
+    if cmd == "hold":       # hold LABEL [PID]
+        hold(argv[1], int(argv[2]) if len(argv) > 2 else None)
+        return 0
+    if cmd == "release":    # release [PID]
+        release(int(argv[1]) if len(argv) > 1 else None)
         return 0
     if cmd == "sample":     # sample LEASE PID
         sample(argv[1], int(argv[2]))

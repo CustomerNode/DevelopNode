@@ -85,8 +85,8 @@ html #project-overlay .project-item-mark { color: var(--text-secondary) !importa
 html #project-overlay .project-item-add .project-item-mark,
 html #project-overlay .project-item-all .project-item-mark { background: none !important; border: 1px dashed rgba(var(--pm-bt), .25); color: var(--text-muted) !important; }
 /* Choose…: a quiet ink link */
-html #project-overlay .ap-choose { color: var(--text-secondary); }
-html #project-overlay .ap-choose:hover { color: var(--text-heading); background: var(--pm-row-hover); }
+html #project-overlay .ap-fold { color: var(--text-muted); }
+html #project-overlay .ap-fold:hover { color: var(--text-heading); background: var(--pm-row-hover); }
 html #project-overlay .ap-sub input { accent-color: var(--pm-ink); }
 html #project-overlay .project-act-btn:hover { background: rgba(var(--pm-bt), .08); }
 

@@ -47,14 +47,21 @@
 .vn-ap > .session-item .vn-ap-label { flex: none; margin-left: 6px; padding: 1px; border: 0; background: none; }
 .vn-ap > .session-item .vn-ap-nm { display: none; }
 
-/* The picker's Choose list under All projects (_renderProjectOverlay, app.js):
-   Choose… on the row opens a checklist of the projects; the ticked ones are
-   what All projects shows (all-projects.js shown()). */
-#project-overlay .ap-choose { font: 500 12px var(--font-sans); color: var(--accent); background: none; border: 0; border-radius: 6px; padding: 4px 6px; cursor: pointer; }
-#project-overlay .ap-choose:hover { background: rgba(var(--bt), .07); }
-#project-overlay .ap-sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 4px 6px 52px; }
-#project-overlay .ap-sub label { display: flex; align-items: center; gap: 10px; font: 13px var(--font-sans); color: var(--text-primary); padding: 5px 6px; border-radius: 7px; cursor: pointer; }
+/* The picker's All projects row (_renderProjectOverlay, app.js) shows the summed
+   counts of the projects it covers; the arrow beside its name folds open each
+   project with its own counts and a tick that puts it in or out of the total
+   (all-projects.js shown()).  The counts line up with the columns above. */
+#project-overlay .ap-fold { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 2px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--text-muted); cursor: pointer; transition: transform .15s; }
+#project-overlay .ap-fold.open { transform: rotate(90deg); }
+#project-overlay .ap-fold:hover { color: var(--text-heading); background: rgba(var(--bt), .07); }
+#project-overlay .ap-sub { display: flex; flex-direction: column; gap: 1px; margin: 0 0 6px; }
+#project-overlay .ap-sub label { display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; align-items: center; gap: 10px; font: 13px var(--font-sans); color: var(--text-primary); padding: 4px 12px 4px 52px; border-radius: 7px; cursor: pointer; }
 @media (hover: hover) { #project-overlay .ap-sub label:hover { background: rgba(var(--bt), .06); } }
+#project-overlay .ap-sub label.out { color: var(--text-faint); }
+#project-overlay .ap-sub label.out :is(.ps-n, .project-item-count) { opacity: .35; }
 #project-overlay .ap-sub input { flex: none; accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
-#project-overlay .ap-sub label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#project-overlay .ap-sub label > span:not(.ps-cols):not(.project-item-count) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#project-overlay .ap-sub .ps-n { font-size: 12px; }
+/* The phone layout draws its rows with no right padding: the counts keep to the same columns. */
+html.vn-mhl #project-overlay .ap-sub label { padding-right: 0; }
 #project-overlay .project-item-all .project-item-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

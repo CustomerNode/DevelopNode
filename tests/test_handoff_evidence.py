@@ -543,3 +543,65 @@ def test_an_interrupted_request_joins_the_restatement():
 def test_an_interrupted_request_with_nothing_after_it_stays():
     f = facts(user("fix the sort on the journey picker"), user("[Request interrupted by user]"))
     assert f.requests == ["fix the sort on the journey picker"]
+
+
+# ── Each background job is followed by its own id ─────────────────────────
+# A Monitor posts one notice per event it sees while it keeps watching; those
+# are progress, not endings.  A job ends only when a final notice (one with a
+# status) names its id, and a new message from the user ends nothing.
+
+def _monitor(task_id):
+    return tool("Monitor", "watch the render log",
+                f"Monitor started (task {task_id}, expires in 30m unless the source ends first).")
+
+
+def _event(task_id, line):
+    return user(f"<task-notification>\n<task-id>{task_id}</task-id>\n"
+                f"<summary>Monitor event: \"render log\"</summary>\n<event>{line}</event>\n</task-notification>")
+
+
+def _final(task_id, status="completed", extra=""):
+    return user(f"<task-notification>\n<task-id>{task_id}</task-id>\n<status>{status}</status>\n"
+                f"<summary>Background command \"render\" {status}</summary>{extra}\n</task-notification>")
+
+
+RENDER = tool("Bash", "bash render_all.sh", "Command running in background with ID: bren7. Output is being written to: /tmp/x.")
+
+
+def test_monitor_events_are_not_endings():
+    # One render still running, a Monitor that has reported three pages:
+    # the events must not cancel out the render.
+    assert _working_faults(RENDER, _monitor("mwat1"), _event("mwat1", "page 1 done"),
+                           _event("mwat1", "page 2 done"), _event("mwat1", "page 3 done")) == []
+
+
+def test_a_new_message_from_the_user_does_not_end_running_work():
+    f = facts(user("render every page"), RENDER, _monitor("mwat1"), _event("mwat1", "page 1 done"),
+              _event("mwat1", "page 2 done"), user("the last summary looked off, redo it"))
+    assert f.background_live is True
+
+
+def test_a_job_ends_only_on_a_final_notice_naming_it():
+    assert _working_faults(RENDER, _final("bother9")) == []          # someone else's job ended
+    assert _working_faults(RENDER, _final("bren7"))                   # this one ended
+    assert _working_faults(RENDER, _final("bren7", "failed"))
+    assert _working_faults(_monitor("mwat1"), _final("mwat1"))        # the Monitor expired
+
+
+def test_a_stopped_notice_listing_several_ids_ends_each():
+    other = tool("Bash", "bash serve.sh", "Command running in background with ID: bsrv2.")
+    stopped = user("<task-notification>\n<task-id>bren7</task-id>\n<task-id>bsrv2</task-id>\n"
+                   "<task-id>__orphan_summary__:shell</task-id>\n<status>stopped</status>\n"
+                   "<summary>2 background shell command tasks did not finish</summary>\n</task-notification>")
+    assert _working_faults(RENDER, other, stopped)
+
+
+def test_an_interim_agent_notice_keeps_the_agent_out():
+    interim = _final("a1", extra="\n<note>It may resume on its own when that work completes.</note>")
+    assert _working_faults(AGENT_LAUNCH, interim) == []
+
+
+def test_a_launch_without_an_id_still_pairs_with_a_notice():
+    bare = tool("Bash", "bash render_all.sh", "Command running in background with ID")
+    assert _working_faults(bare) == []
+    assert _working_faults(bare, user("<task-notification><status>completed</status></task-notification>"))

@@ -143,31 +143,73 @@ def _automated_label(e) -> str:
         return "an automated message"
 
 
-_BG_LAUNCHED = re.compile(r"running in (?:the )?background with ID|Async agent launched", re.I)
+_BG_LAUNCHED = re.compile(r"running in (?:the )?background with ID|Async agent launched"
+                          r"|Monitor started \(task", re.I)
+# The id a launch reports: a background command's ID, an agent's agentId, a
+# Monitor's task.  The CLI names the same id in the notices about that job.
+_BG_ID = re.compile(r"background with ID:?\s*([\w-]+)|agentId:\s*([\w-]+)"
+                    r"|Monitor started \(task\s+([\w-]+)", re.I)
 _WAKE_TOOLS = ("ScheduleWakeup", "Monitor", "CronCreate")
+_NOTICE_IDS = re.compile(r"<task-id>\s*([^<\s]+)\s*</task-id>")
+_NOTICE_STATUS = re.compile(r"<status>\s*([\w-]+)\s*</status>")
+# An agent that stopped with work of its own still running notifies again
+# when that work ends: its "completed" notice is interim.
+_INTERIM = re.compile(r"may resume on its own|result below may be interim", re.I)
+
+
+def _notice_is_final(text: str) -> bool:
+    """A task notice that says the job ENDED.  A Monitor posts one notice per
+    event it sees (no status) while it keeps watching; only its closing
+    notice, like every job's, carries a status."""
+    if _NOTICE_STATUS.search(text):
+        return not _INTERIM.search(text)
+    return "<event>" not in text and "Monitor event" not in text
 
 
 def _background_live(entries: list, last_human: int) -> bool:
-    """Something this session launched is still out: more background
-    launches than completion notices, or a wake-up scheduled since the user's
-    latest message."""
-    launched = notified = 0
-    wakes = set()   # wake-up calls since his latest message, by call id
+    """Something this session launched is still out.
+
+    Each background command, agent and Monitor is followed by the id its
+    launch reported, and is over only when a final notice names that id
+    (completed, failed, killed, stopped, a Monitor's expiry).  Progress
+    notices (a Monitor's events) end nothing, and a new message from the user
+    ends nothing either: a job launched before it is still running.  A launch
+    with no readable id is matched against final notices with no known id,
+    by count.  A wake-up with no id (ScheduleWakeup, CronCreate, a Monitor
+    whose start names no task) counts from the user's latest message, once
+    it came back without an error."""
+    out = set()          # ids launched and not yet ended
+    anonymous = 0        # launches with no readable id, not yet matched to a notice
+    wakes = set()        # id-less wake-up calls since his latest message, by call id
+    wake_live = False
     for i, e in enumerate(entries):
         kind = getattr(e, "kind", "")
-        if kind == "tool_result" and getattr(e, "tool_use_id", "") in wakes:
-            # A wake-up counts only once it came back without an error:
-            # a failed or unanswered one would keep a false Working card.
-            if not getattr(e, "is_error", False):
-                return True
-        elif kind == "tool_result" and _BG_LAUNCHED.search((getattr(e, "text", "") or "")[:400]):
-            launched += 1
-        elif kind == "user" and (getattr(e, "text", "") or "").lstrip().startswith("<task-notification>"):
-            notified += 1
+        text = getattr(e, "text", "") or ""
+        if kind == "tool_result":
+            head = text[:600]
+            m = _BG_ID.search(head) if _BG_LAUNCHED.search(head) else None
+            if m and not getattr(e, "is_error", False):
+                out.add(next(g for g in m.groups() if g))
+            elif getattr(e, "tool_use_id", "") in wakes:
+                # A wake-up counts only once it came back without an error:
+                # a failed or unanswered one would keep a false Working card.
+                if not getattr(e, "is_error", False):
+                    wake_live = True
+            elif _BG_LAUNCHED.search(head) and not getattr(e, "is_error", False):
+                anonymous += 1
+        elif kind == "user" and text.lstrip().startswith("<task-notification>"):
+            if not _notice_is_final(text):
+                continue
+            ids = [t for t in _NOTICE_IDS.findall(text) if not t.startswith("__")]
+            known = [t for t in ids if t in out]
+            for t in known:
+                out.discard(t)
+            if not known and anonymous:
+                anonymous -= 1
         elif kind == "tool_use" and i > last_human and (getattr(e, "name", "") or "") in _WAKE_TOOLS:
             if getattr(e, "id", ""):
                 wakes.add(e.id)
-    return launched > notified
+    return bool(out) or anonymous > 0 or wake_live
 
 
 def working_problems(card: dict, facts: TurnFacts) -> list:
@@ -176,8 +218,9 @@ def working_problems(card: dict, facts: TurnFacts) -> list:
     if card.get("type") != "working" or facts.background_live is not False:
         return []
     return ["This is a \"working\" card, but nothing this session launched is still running: no "
-            "background command, agent or scheduled wake-up is out. Finish the work now, or use the "
-            "card type that says where it really stands."]
+            "background command, agent, Monitor or scheduled wake-up is out. If your work runs where "
+            "this session cannot see it (a job started some other way), put a Monitor on it; "
+            "otherwise finish the work now, or use the card type that says where it really stands."]
 
 
 def _closes_task(text: str) -> bool:

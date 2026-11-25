@@ -677,16 +677,17 @@ function _renderProjectOverlay(fromStatus) {
     <div class="project-item project-item-all${_inAll ? ' active' : ''}" data-encoded="${VNAllProjects.ALL}" title="Every project's sessions in one list">
       <span class="project-item-mark" aria-hidden="true">\u2217</span>
       <div class="project-item-info">
-        <div class="project-item-name"><span>All projects</span>${_inAll ? _check : ''}</div>
-        <div class="project-item-path">${_apNarrow ? escHtml(_apShown.map(_projectShortName).join(', ')) : 'Every session in one list'}</div>
+        <div class="project-item-name"><span>All projects</span>${_apHas
+          ? `<button type="button" class="ap-fold${_apChooseOpen ? ' open' : ''}" aria-expanded="${_apChooseOpen}" title="Show the projects in All projects and their counts"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>` : ''}${_inAll ? _check : ''}</div>
+        <div class="project-item-path">${_apNarrow ? escHtml(_apShown.map(_projectShortName).join(', ')) : 'Every project'}</div>
       </div>
-      <div class="project-item-right">${_apHas
-        ? `<button type="button" class="ap-choose" aria-expanded="${_apChooseOpen}" title="Choose which projects All projects shows">${_apChooseOpen ? 'Done' : 'Choose…'}</button>`
-        : (_cols ? _colsHtml(_allCounts) : `<span class="project-item-count" title="${_sessions(_total)}">${_total}</span>`)}</div>
+      <div class="project-item-right">${_cols ? _colsHtml(_allCounts) : `<span class="project-item-count" title="${_sessions(_total)}">${_total}</span>`}</div>
     </div>
     ${(_apHas && _apChooseOpen) ? '<div class="ap-sub">' + _allProjects.map(p => {
       const nm = _projectShortName(p);
-      return `<label><input type="checkbox" data-ap="${escHtml(p.encoded)}"${VNAllProjects.included(p.encoded) || !_apNarrow ? ' checked' : ''}><span>${escHtml(nm)}</span></label>`;
+      const inn = VNAllProjects.included(p.encoded) || !_apNarrow;
+      const cnt = _cols ? _colsHtml(_pc[p.encoded]) : `<span class="project-item-count">${p.session_count || 0}</span>`;
+      return `<label class="${inn ? '' : 'out'}"><input type="checkbox" data-ap="${escHtml(p.encoded)}"${inn ? ' checked' : ''}><span>${escHtml(nm)}</span>${cnt}</label>`;
     }).join('') + '</div>' : ''}
     <div class="project-sep" aria-hidden="true"></div>` : '';
   const _addRow = _asking ? '' : `
@@ -731,15 +732,13 @@ function _renderProjectOverlay(fromStatus) {
   // Event delegation for project items
   const _allItem = list.querySelector('.project-item-all');
   if (_allItem) _allItem.onclick = () => selectProjectFromOverlay(VNAllProjects.ALL);
-  // Choose… opens the list of projects under the row; Done closes it, and
-  // opens All projects when it is not open yet.
-  const _choose = list.querySelector('.ap-choose');
-  if (_choose) _choose.onclick = e => {
+  // The arrow beside All projects folds open its projects, each with its own
+  // counts and a tick that puts it in or out of the row's total.
+  const _fold = list.querySelector('.ap-fold');
+  if (_fold) _fold.onclick = e => {
     e.stopPropagation();
-    const closing = _apChooseOpen;
     _apChooseOpen = !_apChooseOpen;
     try { if (_apChooseOpen) localStorage.setItem('vnApChooseOpen', '1'); else localStorage.removeItem('vnApChooseOpen'); } catch (e2) {}
-    if (closing && !VNAllProjects.on()) { selectProjectFromOverlay(VNAllProjects.ALL); return; }
     _renderProjectOverlay(true);
   };
   list.querySelectorAll('.ap-sub input[data-ap]').forEach(cb => {
@@ -2401,6 +2400,9 @@ async function loadSessions() {
     // (the _myGen / _nowProj checks below) discard it cleanly.
     return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
+  // Live summaries heard before this moment are older than the list it returns
+  // (SessionVerbCore.adoptList below).
+  const _listAskedAt = Date.now();
   const [resp] = await Promise.all([
     _fetchSessions(),
     (typeof initFolderTree === 'function') ? initFolderTree().catch(function(){}) : Promise.resolve(),
@@ -2435,6 +2437,9 @@ async function loadSessions() {
     !_remaps[s.id]
   ));
   _rebuildSessionIds();   // multi-selection prune
+  // The list's summaries are newer than what this page heard before asking:
+  // a summary missed while the tab slept or reconnected is taken from them.
+  if (window.SessionVerbCore && SessionVerbCore.adoptList) SessionVerbCore.adoptList(_freshSessions, _listAskedAt);
   // A reload computed before a title was saved must not wipe a title this
   // page already received (see _knownSessionTitles).  Fills nameless rows only.
   if (_knownSessionTitles.size) {

@@ -238,3 +238,33 @@ def test_new_session_has_no_verdict_and_done_is_grey(browser):
         assert not app.errors, app.errors
     finally:
         app.close()
+
+
+def test_a_missed_summary_is_taken_from_the_list_on_reload(browser):
+    # A tab hears a progress message with no summary, then misses the turn's
+    # final Working summary (it slept or lost its connection).  The reload a
+    # reconnect runs brings the summary in the list: the status must follow
+    # it, not stay on the "no summary" the tab heard last (Needs you).
+    s = fake_sessions(3)
+    sid = s[0]["id"]
+    app = FakeApp(browser, s, init=init_script("sessions", "grid"), clock=True)
+    try:
+        app.push("session_state", {"session_id": sid, "state": "working", "cwd": CWD})
+        app.push("session_entry", {"session_id": sid, "index": 5,
+                                   "entry": {"kind": "asst", "text": "Page three of five is pictured."}})
+        app.push("session_state", {"session_id": sid, "state": "idle", "cwd": CWD})
+        app.advance(600)
+        assert app.eval(VERBS, [sid])[sid] == "review"     # what the tab heard: no summary
+        app.sessions[0]["next_step"] = {"verb": "waiting", "line": "Pictures still running"}
+        app.eval("() => loadSessions()")
+        app.advance(600)
+        assert app.eval(VERBS, [sid])[sid] == "waiting"
+        assert app.eval(LABELS)[sid] == "Working"
+        # A summary heard after the list was asked for stays: it is newer.
+        app.push("session_entry", {"session_id": sid, "index": 6, "entry": {
+            "kind": "asst", "text": "```handoff\n" + json.dumps({"type": "done", "headline": "All pictured"}) + "\n```"}})
+        app.push("session_state", {"session_id": sid, "state": "idle", "cwd": CWD})
+        app.advance(600)
+        assert app.eval(VERBS, [sid])[sid] == "review"
+    finally:
+        app.close()

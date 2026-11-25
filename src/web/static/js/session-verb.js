@@ -143,6 +143,10 @@
   // sid -> {verb, line} | {verb: null}.  An explicit null means "the newest
   // message has no card", so a stale `next_step` from the list load can't win.
   const _live = new Map();
+  // sid -> when this page last set _live for it (Date.now()), so a fresher
+  // list load can take over (adoptList).
+  const _liveAt = new Map();
+  function _setLive(sid, step) { _live.set(sid, step); _liveAt.set(sid, Date.now()); }
   // Sessions this page has seen an assistant reply from.
   const _replied = new Set();
 
@@ -376,10 +380,10 @@
     // hold is pinned to the message that was newest when it was set).
     if (holdOf(sid)) { const b = display(sid); _hold.set(sid, null); _holdSince.set(sid, 0); const row = (typeof SessionStore !== 'undefined' && SessionStore.get) ? SessionStore.get(sid) : null; if (row) { delete row.hold; delete row.hold_since; } if (display(sid) !== b) repaint(sid, b); _refreshComposer(sid); }
     const prev = _cardStep(sid);
-    if (prev && step.verb === prev.verb && step.line === prev.line) { _live.set(sid, step); return; }
-    if (!prev && !step.verb) { _live.set(sid, step); return; }
+    if (prev && step.verb === prev.verb && step.line === prev.line) { _setLive(sid, step); return; }
+    if (!prev && !step.verb) { _setLive(sid, step); return; }
     const before = display(sid);
-    _live.set(sid, step);
+    _setLive(sid, step);
     if (display(sid) !== before) repaint(sid, before);
   }
 
@@ -395,13 +399,35 @@
     const prev = _cardStep(sid);
     if (prev && prev.verb === verb) return;
     const before = display(sid);
-    _live.set(sid, { verb: verb, line: cardLine(card) });
+    _setLive(sid, { verb: verb, line: cardLine(card) });
     _replied.add(sid);
     if (display(sid) !== before) repaint(sid, before);
   }
 
+  // A list load is newer than anything this page heard before it started.
+  // The server reads each transcript's newest message, so its `next_step` is
+  // the truth for every live memory older than the fetch.  Without this, a
+  // tab that slept or lost its connection through a session's final summary
+  // kept what it heard last (a progress message with no card: Needs you), and
+  // the reload on reconnect could not correct it, because the live memory
+  // outranks the list.  Only memories set before the fetch began are dropped:
+  // a message that arrived while the fetch ran is newer than the list.
+  function adoptList(rows, fetchStartedAt) {
+    if (!Array.isArray(rows)) return;
+    const since = +fetchStartedAt || 0;
+    for (const r of rows) {
+      const sid = r && r.id;
+      if (!sid || !_live.has(sid)) continue;
+      if ((_liveAt.get(sid) || 0) >= since) continue;
+      const before = display(sid);
+      _live.delete(sid);
+      _liveAt.delete(sid);
+      if (display(sid) !== before) repaint(sid, before);
+    }
+  }
+
   const core = {
-    ORDER, LABEL, ACCEPT, GROUP_LABEL, shown, display, rank, filterBucket, listIconHtml, cardParts, noteEntry, noteCard, repaint,
+    ORDER, LABEL, ACCEPT, GROUP_LABEL, shown, display, rank, filterBucket, listIconHtml, cardParts, noteEntry, noteCard, repaint, adoptList,
     holdOf, holdSince, setHold, applyHold,
     /** A drawn status's own picture (needs, standby, done, …), e.g. for menus. */
     iconHtml: (g, size) => _svg(g, size || 16, 2, 'vs-ic'),

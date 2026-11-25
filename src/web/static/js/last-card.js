@@ -3017,6 +3017,7 @@
   function _closeReview() {
     if (!_ov) return;
     _panelClosed();
+    if (_ov.off) _ov.off();
     if (_ov.restore) _ov.restore(); else _ov.el.remove();   // a full-screen summary goes back into the thread
     document.documentElement.classList.remove('lm-ov-open');
     document.removeEventListener('keydown', _ov.onKey, true);
@@ -3024,6 +3025,89 @@
   }
   /** A link or screenshot full screen over the chat, with Close and a way out
    *  to a real tab.  Shares the review overlay's slot, Escape and styles. */
+  /** A page in the overlay may be a review page: a list of items to look at
+   *  one by one, each flagged with a note and handed to the session in a
+   *  batch.  Such a page says so by posting `vn-review:state` to its parent
+   *  (the item on screen, its flag and note, the answer on it, how many notes
+   *  wait to be sent).  The overlay then carries the review controls in its
+   *  own bar, so the page inside stays the product alone; every press is
+   *  posted back as `vn-review:do` and the page keeps the notes.  Returns the
+   *  listener's remover. */
+  function _reviewBridge(el, frame) {
+    let bar = null, st = null, origin = '', typing = 0, noteTimer = 0;
+    const post = msg => { if (frame.contentWindow && origin) frame.contentWindow.postMessage(Object.assign({ type: 'vn-review:do' }, msg), origin); };
+    const build = () => {
+      bar = document.createElement('div');
+      bar.className = 'lm-rv';
+      bar.innerHTML =
+        '<div class="lm-rv-row">' +
+          '<div class="lm-rv-where"><span class="g"></span><span class="n"></span></div>' +
+          '<div class="lm-rv-seg" role="group" aria-label="Screen">' +
+            '<button type="button" data-size="desktop">Laptop</button><button type="button" data-size="phone">Phone</button></div>' +
+          '<div class="lm-rv-step"><button type="button" data-move="-1" aria-label="Previous item">&#8592;</button>' +
+            '<button type="button" data-move="1" aria-label="Next item">&#8594;</button></div>' +
+          '<button type="button" class="lm-rv-flag" aria-pressed="false">Flag</button>' +
+          '<input class="lm-rv-note" type="text" maxlength="4000" placeholder="What is wrong here, or what you want instead">' +
+          '<button type="button" class="lm-rv-send" disabled>Send to Claude</button>' +
+        '</div>' +
+        '<div class="lm-rv-answer" hidden><span class="h"></span><span class="a"></span>' +
+          '<button type="button" class="ok">Looks right</button><button type="button" class="no">Still wrong</button></div>';
+      el.querySelector('.lm-ov-top').after(bar);
+      bar.addEventListener('click', ev => {
+        const b = ev.target.closest('button');
+        if (!b || !st) return;
+        if (b.dataset.size) post({ action: 'size', size: b.dataset.size });
+        else if (b.dataset.move) post({ action: 'move', dir: Number(b.dataset.move) });
+        else if (b.classList.contains('lm-rv-flag')) post({ action: 'flag', id: st.item.id, flag: !st.note.flag });
+        else if (b.classList.contains('lm-rv-send')) post({ action: 'send' });
+        else if (b.classList.contains('ok')) post({ action: 'accept', id: st.item.id });
+        else if (b.classList.contains('no')) { const i = bar.querySelector('.lm-rv-note'); i.value = ''; i.placeholder = 'What is still wrong. Send hands it back.'; i.focus(); }
+      });
+      const input = bar.querySelector('.lm-rv-note');
+      input.addEventListener('input', () => {
+        typing = Date.now();
+        clearTimeout(noteTimer);
+        const id = st && st.item.id, text = input.value;
+        noteTimer = setTimeout(() => post({ action: 'note', id, text }), 500);
+      });
+      input.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') input.blur(); });
+    };
+    const draw = () => {
+      if (!bar) build();
+      bar.querySelector('.g').textContent = st.item.group ? st.item.group + (st.item.place ? ' · ' + st.item.place : '') : (st.item.place || '');
+      bar.querySelector('.n').textContent = st.item.name || '';
+      bar.querySelectorAll('[data-size]').forEach(b => b.classList.toggle('on', b.dataset.size === st.size));
+      const flag = bar.querySelector('.lm-rv-flag');
+      flag.setAttribute('aria-pressed', String(!!st.note.flag));
+      flag.textContent = st.note.flag ? 'Flagged' : 'Flag';
+      const input = bar.querySelector('.lm-rv-note');
+      if (input.dataset.id !== st.item.id || (document.activeElement !== input && Date.now() - typing > 1500)) {
+        input.value = st.note.text || '';
+        input.dataset.id = st.item.id;
+        input.placeholder = 'What is wrong here, or what you want instead';
+      }
+      const send = bar.querySelector('.lm-rv-send');
+      send.disabled = !st.canSend || !st.unsent;
+      send.textContent = st.unsent ? 'Send ' + st.unsent + ' to Claude' : (st.canSend ? 'Nothing to send' : 'No session listening');
+      const ans = bar.querySelector('.lm-rv-answer');
+      ans.hidden = !st.answer;
+      if (st.answer) {
+        ans.querySelector('.h').textContent = st.answer.head || 'Claude';
+        ans.querySelector('.a').textContent = st.answer.text || '';
+        ans.querySelector('.ok').hidden = ans.querySelector('.no').hidden = !st.answer.check;
+      }
+    };
+    const onMsg = ev => {
+      if (ev.source !== frame.contentWindow) return;
+      const d = ev.data;
+      if (!d || d.type !== 'vn-review:state' || !d.item || !d.note) return;
+      origin = ev.origin;
+      st = d;
+      draw();
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }
   function _openViewer(title, src, isImage, href) {
     _closeAll();
     if (!src) return;
@@ -3042,7 +3126,7 @@
     el.addEventListener('click', ev => { if (ev.target.closest('.x')) _closeReview(); });
     const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); _closeReview(); } };
     document.addEventListener('keydown', onKey, true);
-    _ov = { el, onKey };
+    _ov = { el, onKey, off: vf ? _reviewBridge(el, vf) : null };
     _panelOpened((isImage ? 'img:' : 'page:') + src);
   }
   // A page on another port of this machine that does not answer framed as a
@@ -3205,7 +3289,7 @@
     });
     const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); _closeReview(); } };
     document.addEventListener('keydown', onKey, true);
-    _ov = { el, onKey };
+    _ov = { el, onKey, off: _reviewBridge(el, frame) };
     _panelOpened('review:' + btn.dataset.review);
   }
 

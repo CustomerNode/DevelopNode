@@ -242,7 +242,15 @@ def _live(folder):
 def _holds():
     """Live machine holds younger than HOLD_MAX_S (call under the state lock)."""
     now = time.time()
-    return [h for h in _live(HOLDS) if now - float(h.get("t") or 0) < HOLD_MAX_S]
+    out = []
+    for h in _live(HOLDS):
+        try:
+            age = now - float(h.get("t") or 0)
+        except (TypeError, ValueError):
+            continue          # unreadable time: no hold, and never an error here
+        if age < HOLD_MAX_S:
+            out.append(h)
+    return out
 
 
 def hold(label, pid=None):
@@ -613,7 +621,7 @@ def status():
     now = time.time()
     print(f"free memory: {available_mb()} MB  reserve: {RESERVE_MB} MB  max jobs: {MAX_JOBS}")
     for h in holds:
-        print(f"held by pid {h['pid']} for {now - float(h.get('t') or now):.0f}s: {h.get('label', '')[:80]}")
+        print(f"held by pid {h['pid']} for {now - float(h['t']):.0f}s: {str(h.get('label', ''))[:80]}")
     print(f"running ({len(leases)}):")
     for r in leases:
         used = f"{r['cur']:>6}" if "cur" in r else "     ?"

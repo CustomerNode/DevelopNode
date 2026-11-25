@@ -437,3 +437,15 @@ def test_an_exited_owner_not_yet_reaped_counts_as_gone(rq, tmp_path):
         assert rq.admit("pytest", 6000, tmp_path, ["suite"])[0] == "run"
     finally:
         child.wait()
+
+
+def test_a_malformed_hold_is_ignored_and_the_queue_still_counts_memory(rq, tmp_path):
+    """A hold whose time is not a number must neither raise (admission would
+    then fail open and skip every memory check) nor hold the machine."""
+    with rq.state_lock():
+        rq._write(rq.HOLDS / f"{os.getpid()}.json", {"pid": os.getpid(), "label": "x", "t": "soon"})
+    rq.MAX_JOBS = 1
+    first = rq.admit("pytest", 5000, tmp_path, ["one"])
+    assert first[0] == "run", "a malformed hold made the queue skip its checks or hold the machine"
+    assert first[1] is not None, "admission failed open instead of granting a lease"
+    rq.finish(first[1], 1)

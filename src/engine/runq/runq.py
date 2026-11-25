@@ -173,8 +173,12 @@ def process_started(pid):
     except OSError:
         return None
     try:
-        return float(Path(f"/proc/{pid}/stat").read_text().split()[21])
-    except OSError:
+        # Fields after the command name, which may hold spaces: [0] is the
+        # state, [19] the start time (field 22). An exited process its parent
+        # has not reaped (state Z) still answers kill(0) but runs nothing.
+        fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+        return None if fields[0] == "Z" else float(fields[19])
+    except (OSError, IndexError, ValueError):
         return 0.0
 
 

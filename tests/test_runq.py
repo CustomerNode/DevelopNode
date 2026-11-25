@@ -414,3 +414,26 @@ def test_a_hold_written_by_a_shell_script_is_honoured(rq, tmp_path):
     th.join(10)
     assert got["suite"][0] == "run", "the suite did not start after the hold's owner ended"
     rq.finish(got["suite"][1], 1)
+
+
+def test_an_exited_owner_not_yet_reaped_counts_as_gone(rq, tmp_path):
+    """A finished process its parent has not waited for (a zombie) still
+    answers kill(0); it holds no machine and no memory, so it must not keep a
+    hold or a lease alive."""
+    if os.name == "nt":
+        pytest.skip("zombies are a POSIX state")
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    try:
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                if Path(f"/proc/{child.pid}/stat").read_text().rsplit(")", 1)[1].split()[0] == "Z":
+                    break
+            except OSError:
+                break
+            time.sleep(0.02)
+        assert rq.process_started(child.pid) is None, "an exited, unreaped process counted as running"
+        rq.hold("gate", child.pid)
+        assert rq.admit("pytest", 6000, tmp_path, ["suite"])[0] == "run"
+    finally:
+        child.wait()

@@ -453,6 +453,8 @@ function openProjectOverlay() {
   // The Add flow pads the list differently; put it back.
   const list = document.getElementById('project-list');
   if (list) list.style.padding = '';
+  // Every open starts out of Edit order.
+  _projEditing = false;
 
   // Show the overlay immediately so the tap feels responsive, then render.
   overlay.classList.add('show');
@@ -585,6 +587,8 @@ function _refreshProjectStatus() {
 function _renderProjectOverlay(fromStatus) {
   const list = document.getElementById('project-list');
   if (!list) return;
+  // A project is being dragged: a redraw would replace the row under the finger.
+  if (window._projDragActive) return;
   // A row just picked is showing "opening": a late count refresh must not
   // redraw it away.  Opening the picker again starts clean.
   if (list.classList.contains('project-picked')) {
@@ -619,6 +623,29 @@ function _renderProjectOverlay(fromStatus) {
     _sub.textContent = _asking ? '' : `${_allProjects.length} ${_allProjects.length === 1 ? 'project' : 'projects'}`;
     _sub.hidden = !!_asking;
   }
+  // Edit order: a header button turns on the drag handles; Done turns them off
+  // (src/web/project_order.py saves the order).  Not while asking which project.
+  const _canReorder = !_asking && _allProjects.length > 1;
+  if (!_canReorder) _projEditing = false;
+  if (_hdr) {
+    let eb = _hdr.querySelector('.project-edit-order');
+    if (!eb) {
+      eb = document.createElement('button');
+      eb.type = 'button';
+      eb.className = 'project-edit-order';
+      eb.onclick = e => { e.stopPropagation(); _projEditing = !_projEditing; _renderProjectOverlay(true); };
+      _hdr.appendChild(eb);
+    }
+    eb.hidden = !_canReorder;
+    eb.textContent = _projEditing ? 'Done' : 'Edit order';
+  }
+  const _pcard = document.getElementById('project-card');
+  if (_pcard) _pcard.classList.toggle('project-editing', _projEditing);
+  list.classList.toggle('editing', _projEditing);
+  const _customOrder = _allProjects.some(p => p.ordered);
+  const _sortLine = _canReorder ? `<div class="project-sortline">${_customOrder
+    ? '<span>Your order</span><span aria-hidden="true">·</span><button type="button" class="project-sort-reset">Sort by name</button>'
+    : '<span>Sorted by name</span>'}</div>` : '';
   const _inAll = !_asking && !!(window.VNAllProjects && VNAllProjects.on());
   // All projects covers the projects ticked in its Choose list (all-projects.js).
   const _apHas = !!(window.VNAllProjects && VNAllProjects.shown);
@@ -672,7 +699,7 @@ function _renderProjectOverlay(fromStatus) {
   // which project from All projects (New Session, Workflow, Subsessions)
   // offers only the projects that view covers.
   const _rows = (_asking && _apHas && VNAllProjects.on()) ? _apShown : _allProjects;
-  list.innerHTML = _head + _allRow + _rows.map(p => {
+  list.innerHTML = _sortLine + _head + _allRow + _rows.map(p => {
     const shortName = _projectShortName(p);
     const isActive = !_inAll && !_asking && p.encoded === saved;
     return `
@@ -693,8 +720,13 @@ function _renderProjectOverlay(fromStatus) {
         </button>
       </div>
       </div>
+      ${_canReorder ? `<button type="button" class="project-grip" aria-label="Drag to reorder ${escHtml(shortName)}" title="Drag to reorder">${_PROJECT_GRIP_SVG}</button>` : ''}
     </div>`;
   }).join('') + _addRow;
+
+  const _reset = list.querySelector('.project-sort-reset');
+  if (_reset) _reset.onclick = e => { e.stopPropagation(); _saveProjectOrder([]); };
+  if (_projEditing) _wireProjectReorder(list);
 
   // Event delegation for project items
   const _allItem = list.querySelector('.project-item-all');
@@ -730,13 +762,151 @@ function _renderProjectOverlay(fromStatus) {
   list.querySelectorAll('.project-item:not(.project-item-all):not(.project-item-add)').forEach(item => {
     const enc = item.dataset.encoded;
     const name = item.dataset.name;
-    item.onclick = () => selectProjectFromOverlay(enc);
+    // In Edit order a tap never opens a project (nor the one a drag just let go).
+    item.onclick = () => { if (_projEditing || item._dragged) return; selectProjectFromOverlay(enc); };
     item.querySelector('.project-rename-btn').onclick = e => { e.stopPropagation(); renameProjectOverlay(enc, name); };
     item.querySelector('.project-delete-btn').onclick = e => { e.stopPropagation(); deleteProjectOverlay(enc, name); };
     // Right-click offers the same Rename and Delete as the row's hover buttons,
     // in the session menu's look. Not while asking which project to use: that
     // list hides rename and delete.
     if (!_asking) item.oncontextmenu = e => _projectContextMenu(e, enc, name);
+  });
+}
+
+// ── Edit order: drag projects into your own order ──
+// Live like the pinned sessions: the row lifts and follows the pointer, the
+// others slide out of its way, letting go saves the whole order.  A mouse can
+// grab a row anywhere; a finger grabs the handle, so the list still scrolls.
+let _projEditing = false;
+const _PROJECT_GRIP_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+
+/** Save ``order`` (encoded ids, first on top; [] = sort by name) and redraw
+ *  from the server's list.  A save that fails puts the old list back. */
+async function _saveProjectOrder(order) {
+  const before = _allProjects.slice();
+  if (order.length) {
+    const rank = new Map(order.map((e, i) => [e, i]));
+    _allProjects = _allProjects.slice().sort((a, b) => rank.get(a.encoded) - rank.get(b.encoded))
+      .map(p => Object.assign({}, p, { ordered: true }));
+    _renderProjectOverlay(true);
+  }
+  try {
+    const res = await fetch('/api/project-order', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const fresh = await fetch('/api/projects', { cache: 'no-store' });
+    if (fresh.ok) _allProjects = await fresh.json();
+    if (!order.length && typeof showToast === 'function') showToast('Back to sorting by name');
+  } catch (e) {
+    _allProjects = before;
+    if (typeof showToast === 'function') showToast("Couldn't save the project order. Try again.", true);
+  }
+  _renderProjectOverlay(true);
+}
+
+function _wireProjectReorder(list) {
+  const SEL = '.project-item[data-encoded]:not(.project-item-all):not(.project-item-add)';
+  let st = null;
+
+  function lift(row, y) {
+    const rows = [...list.querySelectorAll(SEL)];
+    const s0 = list.scrollTop;
+    // Positions in the list's own coordinates, so scrolling while dragging is fine.
+    const rects = rows.map(r => { const b = r.getBoundingClientRect(); return { top: b.top + s0, bottom: b.bottom + s0, h: b.height }; });
+    const from = rows.indexOf(row);
+    st = { row, rows, rects, from, to: from, y0: y + s0, y: y, raf: 0 };
+    window._projDragActive = true;
+    row.classList.add('lifting');
+    list.classList.add('dragging');
+    rows.forEach(r => { if (r !== row) r.classList.add('sliding'); });
+    try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
+    move(y);
+    autoScroll();
+  }
+  function move(y) {
+    st.y = y;
+    const r0 = st.rects[st.from];
+    const first = st.rects[0], last = st.rects[st.rects.length - 1];
+    const dy = Math.max(first.top - r0.top, Math.min(last.bottom - r0.bottom, (y + list.scrollTop) - st.y0));
+    st.row.style.transform = `translateY(${dy}px) scale(1.02)`;
+    const mid = r0.top + r0.h / 2 + dy;
+    let to = st.from;
+    st.rects.forEach((r, i) => {
+      if (i < st.from && mid <= r.top + r.h / 2) to = Math.min(to, i);
+      if (i > st.from && mid >= r.top + r.h / 2) to = Math.max(to, i);
+    });
+    st.to = to;
+    st.rows.forEach((r, i) => {
+      if (r === st.row) return;
+      let s = 0;
+      if (st.from < to && i > st.from && i <= to) s = -r0.h;
+      if (st.from > to && i >= to && i < st.from) s = r0.h;
+      r.style.transform = s ? `translateY(${s}px)` : '';
+    });
+  }
+  // Near the list's top or bottom edge, scroll it so a long list can be crossed.
+  function autoScroll() {
+    if (!st) return;
+    const b = list.getBoundingClientRect();
+    const edge = 48;
+    const v = st.y < b.top + edge ? -Math.ceil((b.top + edge - st.y) / 6)
+            : st.y > b.bottom - edge ? Math.ceil((st.y - (b.bottom - edge)) / 6) : 0;
+    if (v) { const before = list.scrollTop; list.scrollTop += v; if (list.scrollTop !== before) move(st.y); }
+    st.raf = requestAnimationFrame(autoScroll);
+  }
+  function drop(cancel) {
+    if (!st) return;
+    const d = st; st = null;
+    cancelAnimationFrame(d.raf);
+    const to = cancel ? d.from : d.to;
+    const r0 = d.rects[d.from], rt = d.rects[to];
+    d.row.classList.add('settling');
+    d.row.style.transform = `translateY(${to === d.from ? 0 : (to > d.from ? rt.bottom - r0.bottom : rt.top - r0.top)}px)`;
+    if (cancel) d.rows.forEach(r => { if (r !== d.row) r.style.transform = ''; });
+    d.row._dragged = true;
+    setTimeout(() => {
+      d.rows.forEach(r => { r.style.transform = ''; r.classList.remove('sliding', 'lifting', 'settling'); });
+      list.classList.remove('dragging');
+      window._projDragActive = false;
+      if (to !== d.from) {
+        const order = d.rows.map(r => r.dataset.encoded);
+        order.splice(to, 0, order.splice(d.from, 1)[0]);
+        _saveProjectOrder(order);
+      }
+      setTimeout(() => { d.row._dragged = false; }, 250);
+    }, 170);
+  }
+
+  list.querySelectorAll(SEL).forEach(row => {
+    row.addEventListener('pointerdown', e => {
+      if (e.button > 0 || st) return;
+      const onGrip = !!e.target.closest('.project-grip');
+      if (e.pointerType !== 'mouse' && !onGrip) return;   // a finger elsewhere scrolls the list
+      if (onGrip) e.preventDefault();
+      const y0 = e.clientY;
+      const mv = ev => {
+        if (st) { ev.preventDefault(); move(ev.clientY); return; }
+        if (Math.abs(ev.clientY - y0) > 4) { lift(row, y0); move(ev.clientY); }
+      };
+      const tm = ev => { if (st) ev.preventDefault(); };
+      const done = cancel => {
+        window.removeEventListener('pointermove', mv);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', cn);
+        window.removeEventListener('keydown', esc, true);
+        document.removeEventListener('touchmove', tm);
+        drop(cancel);
+      };
+      const up = () => done(false);
+      const cn = () => done(true);
+      const esc = ev => { if (ev.key === 'Escape' && st) { ev.stopPropagation(); done(true); } };
+      window.addEventListener('pointermove', mv, { passive: false });
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', cn);
+      window.addEventListener('keydown', esc, true);
+      document.addEventListener('touchmove', tm, { passive: false });
+    });
   });
 }
 
@@ -2921,7 +3091,13 @@ const _MODEL_ALIAS_MIGRATION = {
     localStorage.setItem('defaultModel', _MODEL_ALIAS_MIGRATION[stored]);
   }
 })();
-let defaultModel = localStorage.getItem('defaultModel') || 'claude-opus-4-7';
+// One-time switch of every device's default to Opus 5.5, the new house default.
+// Runs once per browser; a later pick in the Model selector still sticks.
+if (!localStorage.getItem('defaultModel_opus55_set')) {
+  localStorage.setItem('defaultModel', 'claude-opus-5-5');
+  localStorage.setItem('defaultModel_opus55_set', '1');
+}
+let defaultModel = localStorage.getItem('defaultModel') || 'claude-opus-5-5';
 
 // Group model entries by family (Fable / Opus / Sonnet / Haiku) and render a
 // compact, deliberate grouped selector.  Shared by the system Model picker
@@ -3058,7 +3234,7 @@ async function openModelSelector() {
  *  see correct labels without needing to re-select.
  */
 function _modelLabel(modelId) {
-  if (!modelId) return 'Opus 4.7';
+  if (!modelId) return 'Opus 5.5';
   // Legacy short aliases from old localStorage values
   if (modelId === 'opus')   return 'Opus 4.6';
   if (modelId === 'sonnet') return 'Sonnet 4.6';

@@ -207,7 +207,7 @@ class TestResolverLogic:
     def test_falls_back_to_hardcoded_default(self, tmp_path):
         # No default configured, no session known → last-resort fallback id.
         self._run(tmp_path, """
-            assert.strictEqual(SessionModel.effectivePending('ghost'), 'claude-opus-4-7');
+            assert.strictEqual(SessionModel.effectivePending('ghost'), 'claude-opus-5-5');
         """)
 
     def test_system_default_is_respected(self, tmp_path):

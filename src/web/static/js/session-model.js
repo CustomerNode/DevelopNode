@@ -48,7 +48,7 @@ window.SessionModel = (function () {
   var DEFAULT_THINKING_KEY = 'defaultThinking';
   // Last-resort model id if nothing is configured. Kept in sync with the
   // hardcoded fallbacks in app.js/openModelSelector and /api/models.
-  var FALLBACK_MODEL = 'claude-opus-4-7';
+  var FALLBACK_MODEL = 'claude-opus-5-5';
 
   // "[1m]" selects the 1M context window ("claude-opus-5-5[1m]"). It IS a
   // valid --model / set_model value for Opus and Sonnet (verified:

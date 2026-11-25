@@ -20,15 +20,18 @@ CONFIRMED_MODELS_FILE = REPO_ROOT / "confirmed_models.json"
 
 # Offered even when a same-family model is already known (newly launched ones).
 ALWAYS_OFFER_MODELS = [
+    {"id": "claude-fable-5-2", "name": "Fable 5.2"},
     {"id": "claude-fable-5-1", "name": "Fable 5.1"},
     {"id": "claude-opus-5-5", "name": "Opus 5.5"},
     {"id": "claude-opus-5", "name": "Opus 5"},
     {"id": "claude-sonnet-5-5", "name": "Sonnet 5.5"},
     {"id": "claude-sonnet-5", "name": "Sonnet 5"},
+    {"id": "claude-haiku-5-5", "name": "Haiku 5.5"},
 ]
 
 # Used for a family nothing else represents.  Ordered newest first per family.
 FALLBACK_KNOWN_MODELS = [
+    {"id": "claude-fable-5-2", "name": "Fable 5.2"},
     {"id": "claude-fable-5-1", "name": "Fable 5.1"},
     {"id": "claude-fable-5", "name": "Fable 5"},
     {"id": "claude-opus-5-5", "name": "Opus 5.5"},
@@ -37,6 +40,7 @@ FALLBACK_KNOWN_MODELS = [
     {"id": "claude-opus-4-7", "name": "Opus 4.7"},
     {"id": "claude-sonnet-5-5", "name": "Sonnet 5.5"},
     {"id": "claude-sonnet-5", "name": "Sonnet 5"},
+    {"id": "claude-haiku-5-5", "name": "Haiku 5.5"},
     {"id": "claude-haiku-4-5", "name": "Haiku 4.5"},
 ]
 

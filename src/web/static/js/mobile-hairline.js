@@ -201,7 +201,8 @@
       row = e.target.closest('.project-item:not(.project-item-all):not(.project-item-add)'); x0 = e.clientX; y0 = e.clientY;
     });
     list.addEventListener('pointerup', function (e) {
-      if (!on() || x0 === null) return;
+      // Edit order: no swipe for Rename / Delete while projects are being moved.
+      if (!on() || x0 === null || list.classList.contains('editing')) { x0 = null; return; }
       // The list can be redrawn mid-swipe (a fresh project list arrives); find the same project again.
       if (row && !row.isConnected && row.dataset.encoded && window.CSS && CSS.escape) row = list.querySelector('.project-item[data-encoded="' + CSS.escape(row.dataset.encoded) + '"]');
       var dx = e.clientX - x0, dy = Math.abs(e.clientY - y0);

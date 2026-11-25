@@ -84,14 +84,27 @@ def api_projects():
         })
     # Friends who phoned you (src/web/orgs/mirror.py) come first.
     from ..orgs import mirror
+    from ..project_order import sort_projects
     pre = mirror.project_prefix()
     # A phoned project with no session left is never shown.
     results = [r for r in results if not (r["encoded"].startswith(pre) and r["session_count"] == 0)]
     for r in results:
         if r["encoded"].startswith(pre):
             r["phoned"] = True
-    results.sort(key=lambda r: not r["encoded"].startswith(pre))
-    return jsonify(results)
+    # By name, or in the order the person dragged them (src/web/project_order.py).
+    return jsonify(sort_projects(results))
+
+
+@bp.route("/api/project-order", methods=["POST"])
+def api_project_order():
+    """Save the project list's order: ``{"order": [<encoded>, ...]}``, first
+    on top.  An empty list goes back to sorting by name."""
+    from ..project_order import save_order
+    order = (request.get_json(silent=True) or {}).get("order")
+    if not isinstance(order, list):
+        return jsonify({"ok": False, "error": "order must be a list"}), 400
+    # Other tabs and devices refetch the list each time the picker opens.
+    return jsonify({"ok": True, "order": save_order(order)})
 
 
 @bp.route("/api/project-status")

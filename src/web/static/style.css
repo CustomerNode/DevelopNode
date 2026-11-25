@@ -14206,6 +14206,29 @@ header #git-badge-push svg, header #git-badge-pull svg, header #git-badge-sync s
 @media (hover: hover) {
   #project-overlay .ps-cols-on .project-item-actions { position: static; inset: auto; order: -1; margin-right: 6px; }
 }
+/* Edit order (_wireProjectReorder, app.js): a header button turns on drag
+   handles; the counts and row buttons step aside, the rows stop opening, and
+   a lifted row follows the pointer while the others slide out of its way. */
+#project-overlay .project-edit-order { margin-left: auto; border: 0; background: none; font: 500 12.5px var(--font-sans); color: var(--accent); cursor: pointer; padding: 4px 8px; border-radius: 7px; }
+#project-overlay .project-edit-order:hover { background: rgba(var(--bt), .07); }
+#project-overlay .project-edit-order[hidden] { display: none; }
+#project-overlay .project-editing .overlay-close { visibility: hidden; }
+#project-overlay .project-sortline { display: flex; align-items: center; gap: 6px; padding: 0 12px 6px; font-size: 12px; color: var(--text-faint); }
+#project-overlay .project-sortline button { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; }
+#project-overlay .project-sortline button:hover { text-decoration: underline; }
+#project-overlay .project-grip { display: none; flex: none; width: 30px; height: 34px; align-items: center; justify-content: center; border: 0; background: none; padding: 0;
+  color: var(--text-secondary); cursor: grab; touch-action: none; border-radius: 7px; }
+#project-overlay .project-grip:hover { background: rgba(var(--bt), .07); color: var(--text-primary); }
+#project-overlay .editing .project-grip { display: inline-flex; }
+#project-overlay .editing .project-item-right, #project-overlay .editing .ps-head { display: none; }
+#project-overlay .editing .project-item[data-encoded] { position: relative; cursor: grab; }
+#project-overlay .editing .project-item:hover { background: none; }
+#project-overlay .editing .project-item-all, #project-overlay .editing .project-item-add,
+#project-overlay .editing .ap-sub { opacity: .35; pointer-events: none; }
+#project-overlay .editing .project-item.sliding { transition: transform .18s cubic-bezier(.2,.8,.2,1); }
+#project-overlay .editing .project-item.lifting { z-index: 5; transition: none; background: var(--bg-modal) !important; box-shadow: 0 14px 34px -10px rgba(0,0,0,.55); }
+#project-overlay .editing .project-item.settling { transition: transform .16s ease-out; }
+#project-overlay .project-list.dragging, #project-overlay .project-list.dragging * { user-select: none; -webkit-user-select: none; cursor: grabbing !important; }
 /* Compact panel (desktop): a window centred over a heavy blur that ends
    after its last project, a small accent count over a bold title, one project per line with its
    folder, the open one marked by an accent bar. The phone keeps its sheet

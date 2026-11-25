@@ -198,7 +198,7 @@ def test_a_sessions_pytest_run_goes_through_the_queue(tmp_path):
     repo = _git_repo(tmp_path / "repo")
     (repo / "test_ok.py").write_text("def test_ok():\n    assert True\n")
     _commit(repo)
-    cmd = [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_ok.py"]
+    cmd = [PY, "-m", "pytest", "-p", "no:cacheprovider", "-q", "test_ok.py"]
     env = _session_env(tmp_path)
     one = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, env=env, timeout=120)
     two = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, env=env, timeout=120)
@@ -213,7 +213,7 @@ def test_a_sessions_run_is_measured_and_its_budget_learned(tmp_path):
         "import time\ndef test_slow():\n    x = bytearray(120 * 1024 * 1024)\n    time.sleep(8)\n")
     _commit(repo)
     env = _session_env(tmp_path)
-    r = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_slow.py"],
+    r = subprocess.run([PY, "-m", "pytest", "-p", "no:cacheprovider", "-q", "test_slow.py"],
                        cwd=repo, capture_output=True, text=True, env=env, timeout=120)
     assert r.returncode == 0, r.stdout + r.stderr
     import json as _json

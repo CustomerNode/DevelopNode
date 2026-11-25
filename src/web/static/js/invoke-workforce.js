@@ -86,7 +86,7 @@ function _invokeAssetById(assetId) {
 function _effectiveModel() {
   return (typeof SessionModel !== 'undefined')
     ? SessionModel.getDefault()
-    : ((typeof defaultModel !== 'undefined' && defaultModel) || 'claude-opus-4-7');
+    : ((typeof defaultModel !== 'undefined' && defaultModel) || 'claude-opus-5-5');
 }
 
 /** System-default thinking level (compat shim → SessionModel.getDefaultThinking). */
@@ -658,7 +658,8 @@ async function _openSessionModelSelector(liveMode, pendingSessionId, preset) {
     models = await resp.json();
   } catch (e) {
     models = [
-      {id: 'claude-fable-5-1', name: 'Fable 5.1',  desc: 'Most capable, 1M context'},
+      {id: 'claude-fable-5-2', name: 'Fable 5.2',  desc: 'Most capable, 1M context'},
+      {id: 'claude-fable-5-1', name: 'Fable 5.1',  desc: 'Previous Fable, 1M context'},
       {id: 'claude-fable-5',   name: 'Fable 5',    desc: 'Deep reasoning, 1M context'},
       {id: 'claude-opus-5-5',  name: 'Opus 5.5',   desc: 'Newest Opus, Fable-level, faster + cheaper'},
       {id: 'claude-opus-5',    name: 'Opus 5',     desc: 'Agentic coding, 1M context'},
@@ -668,6 +669,7 @@ async function _openSessionModelSelector(liveMode, pendingSessionId, preset) {
       {id: 'claude-sonnet-5-5',name: 'Sonnet 5.5', desc: 'Newest Sonnet, 1M context'},
       {id: 'claude-sonnet-5',  name: 'Sonnet 5',   desc: 'Fast + capable, 1M context'},
       {id: 'claude-sonnet-4-6',name: 'Sonnet 4.6', desc: 'Fast, capable, balanced'},
+      {id: 'claude-haiku-5-5', name: 'Haiku 5.5',  desc: 'Newest Haiku, fastest, 1M context'},
       {id: 'claude-haiku-4-5', name: 'Haiku 4.5',  desc: 'Fastest, most cost-efficient'},
     ];
   }

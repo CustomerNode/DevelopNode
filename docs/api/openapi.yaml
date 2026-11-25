@@ -2120,6 +2120,56 @@ paths:
                   session_count: 3
                   active: false
 
+  /api/project-order:
+    post:
+      tags: [Projects]
+      summary: Save the order of the project list
+      operationId: saveProjectOrder
+      description: |
+        Saves the order the person dragged the project list into, first on
+        top. `GET /api/projects` returns projects in this order. An empty
+        list goes back to sorting by name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order]
+              properties:
+                order:
+                  type: array
+                  description: Encoded project directory names, first on top
+                  items:
+                    type: string
+            example:
+              order: ["C-Users-dev-Documents-my-project", "C-Users-dev-Documents-another-app"]
+      responses:
+        "200":
+          description: The order as saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  order:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: "`order` is missing or not a list"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  error:
+                    type: string
+
   /api/project-status:
     get:
       tags: [Projects]

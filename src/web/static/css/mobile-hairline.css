@@ -327,6 +327,11 @@ html.vn-mhl #project-overlay .project-card::before { content: ""; display: block
 html.vn-mhl #project-overlay .project-header { height: 52px; padding: 0 16px !important; display: flex !important; align-items: center !important; justify-content: center; flex-wrap: nowrap !important; position: relative; }
 html.vn-mhl #project-overlay .project-header h2 { font-family: inherit !important; font-size: 17px !important; font-weight: 600 !important; color: var(--mh-text); }
 html.vn-mhl #project-overlay .project-sub { display: none !important; }
+/* Edit order sits at the left of the sheet's header (Done closes on the right). */
+html.vn-mhl #project-overlay .project-edit-order { position: absolute; left: 6px; top: 6px; height: 40px; margin: 0; padding: 0 10px; font-size: 16px; font-weight: 400; color: var(--mh-acc); }
+html.vn-mhl #project-overlay .project-editing .project-edit-order { font-weight: 600; }
+html.vn-mhl #project-overlay .project-sortline { padding: 0 0 8px; justify-content: center; }
+html.vn-mhl #project-overlay .project-list.editing.mh-hint::after { content: none; }   /* no swipe while moving projects */
 html.vn-mhl #project-overlay .project-header p:not([hidden]) { position: absolute; left: 16px; right: 16px; top: 44px; text-align: center; }
 html.vn-mhl #project-overlay .overlay-close {
   top: 6px !important; right: 6px !important; width: auto !important; height: 40px !important; padding: 0 10px !important; border-radius: 10px;

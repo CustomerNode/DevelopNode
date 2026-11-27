@@ -1,7 +1,7 @@
 """Needs-you reel: every session that needs you, one per screen, in a panel out of the right.
 
-``src/web/static/js/doomscroll.js`` adds a button to the left rail, just above
-Settings.  It slides a panel out from the page's right edge and pushes the app
+``src/web/static/js/doomscroll.js`` is opened from the view button on the left
+rail.  It slides a panel out from the page's right edge and pushes the app
 left to make room, so nothing is covered.  Each screen is one session that
 needs you (``GET /api/feed``): its picture, its words, and its summary card's own
 answer buttons as pills that press the real card's buttons; full screen
@@ -52,17 +52,22 @@ def _app(browser, **kw):
                    extra_routes={"/api/feed": _feed}, **kw)
 
 
-def test_rail_button_sits_above_settings_and_the_panel_pushes_the_app_left(browser):
+def _open_reel(page):
+    """Needs you opens from the view button on the rail (view-rail.js)."""
+    page.locator("#vn-views .vv-trg").click()
+    page.locator("#vn-views [data-view=doom]").click()
+
+
+def test_it_opens_from_the_view_button_and_the_panel_pushes_the_app_left(browser):
     app = _app(browser)
     try:
         page = app.page
-        btn, gear = page.locator("#btn-doom").bounding_box(), page.locator("header .hdr-sys").bounding_box()
-        assert btn["y"] < gear["y"] and abs(btn["x"] - gear["x"]) < 4
+        assert page.locator("#btn-doom").count() == 0          # no icon of its own: it is in the view button's menu
 
         closed = app.eval(RECT)
         assert closed["left"] >= closed["w"] and closed["layout"] == closed["w"]   # off the right edge
 
-        page.locator("#btn-doom").click()
+        _open_reel(page)
         page.wait_for_function("document.querySelectorAll('#vn-doom .vd-slide').length === 3")
         app.animations_done()
         r = app.eval(RECT)
@@ -101,7 +106,7 @@ def test_a_card_reply_in_the_panel_answers_that_session(browser):
     try:
         page = app.page
         app.eval("() => { window.__sent = []; window._liveSubmitDirect = (sid, text) => window.__sent.push([sid, text]); }")
-        page.locator("#btn-doom").click()
+        _open_reel(page)
         page.wait_for_function("document.querySelectorAll('#vn-doom .vd-slide').length === 3")
         pill = page.locator("#vn-doom .vd-slide").nth(1).locator(".vr-pill").first
         assert pill.inner_text().strip() == "First"
@@ -146,7 +151,7 @@ def test_a_summary_picture_sits_across_the_top(browser):
     from tests._fake_app import FakeApp, fake_sessions, init_script
     app = FakeApp(browser, fake_sessions(4), init=init_script("sessions", "grid"), extra_routes={"/api/feed": feed})
     try:
-        app.page.locator("#btn-doom").click()
+        _open_reel(app.page)
         app.page.wait_for_function("document.querySelector('#vn-doom .vr-hero img')")
         assert app.eval("() => document.querySelector('#vn-doom .vr-hero img').getAttribute('src')") == "/static/svg/pickaxe.svg"
         top = app.eval("() => [document.querySelector('#vn-doom .vr-hero').getBoundingClientRect().top, document.querySelector('#vn-doom .vr-title').getBoundingClientRect().top]")

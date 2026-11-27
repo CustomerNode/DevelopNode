@@ -1,8 +1,8 @@
 /* Needs-you reel: every session that needs you, one per screen, in a panel
  * that comes out from the right.
  *
- * Opened from the play-square button on the rail above Settings (desktop) or
- * the Needs you entry in the phone's ••• menu (topbar.js).  The panel pushes
+ * Opened from the Needs you entry of the view button on the rail (desktop,
+ * view-rail.js) or of the phone's ••• menu (topbar.js).  The panel pushes
  * the app left to make room, so nothing is covered and the app stays usable.
  * Full screen covers everything; minimize tucks it into a small tab on the
  * right edge with the count; the X closes it.  The size is kept per device.
@@ -39,7 +39,7 @@
     down: _svg('<path d="m6 9 6 6 6-6"/>')
   };
 
-  let panel = null, tab = null, btn = null;
+  let panel = null, tab = null;
   let size = 'drawer', state = 'closed';   // state: closed | open | min
   let items = [], sig = '', timer = null, hooked = false, loading = false, status = 200;
 
@@ -80,19 +80,6 @@
     apply();
   }
 
-  /** The play-square button on the rail, above Settings (header .hdr-sys). */
-  function mountButton() {
-    const sys = document.querySelector('header .hdr-sys');
-    if (btn || !sys) return;
-    btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'btn-doom';
-    btn.title = 'Needs you, one after another';
-    btn.innerHTML = ICON.rail;
-    btn.addEventListener('click', () => (state === 'open' ? close() : open()));
-    sys.parentNode.insertBefore(btn, sys);
-  }
-
   function apply() {
     if (!panel) return;
     panel.dataset.size = size;
@@ -104,7 +91,6 @@
     const sb = panel.querySelector('[data-act="size"]');
     sb.innerHTML = size === 'full' ? ICON.restore : ICON.full;
     sb.title = size === 'full' ? 'Back to the side panel' : 'Full screen';
-    if (btn) btn.classList.toggle('on', state !== 'closed');
   }
 
   function open() {
@@ -279,7 +265,6 @@
   }
 
   function start() {
-    mountButton();
     build();
     hook();
     if (/[?&]needsyou=1(&|$)/.test(location.search)) setTimeout(open, 400);

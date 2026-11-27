@@ -128,6 +128,7 @@
     ['filter', 'Filter sessions', function () { if (typeof toggleFilterMenu === 'function') toggleFilterMenu(); }],
     ['sort', 'Sort and display', function () { if (typeof toggleSidebarMenu === 'function') toggleSidebarMenu(); }],
     ['sync', 'Sync', function () { if (typeof openGitSyncBoth === 'function') openGitSyncBoth(); }],
+    ['fleet', 'Where agents are', function () { if (typeof openAgentFleet === 'function') openAgentFleet(); }],
     ['doom', 'Needs you', function () { if (window.VNDoom) VNDoom.open(); }],
     ['settings', 'Settings', function () { if (typeof toggleHdrSys === 'function') toggleHdrSys(); }],
     ['theme', 'Appearance', function () { if (typeof cycleTheme === 'function') cycleTheme(); }]
@@ -138,6 +139,7 @@
     sort: _svg('<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="8.5" cy="17" r="2.5"/>'),
     sync: _svg('<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1 .5 7.97"/><path d="M12 12v8M9 15l3-3 3 3"/>'),
     doom: _svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 6 4-6 4Z"/>'),
+    fleet: _svg('<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>'),
     settings: _svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>'),
     theme: _svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>')
   };

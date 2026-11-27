@@ -1,14 +1,5 @@
-/* Needs-you reel (js/doomscroll.js): the rail button, the panel that comes out from the right and pushes the app
+/* Needs-you reel (js/doomscroll.js): the panel that comes out from the right and pushes the app
    left, one session per screen with its picture on top, the summary sheet, the minimized tab. */
-
-/* The rail button: the rail's own 32px quiet unit (hairline.css "One control unit"), above Settings. */
-#btn-doom {
-  position: relative; width: 32px; height: 32px; padding: 0; border-radius: 10px; border: 1px solid transparent;
-  background: transparent; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-}
-#btn-doom svg { width: 16px; height: 16px; }
-#btn-doom:hover, #btn-doom.on { color: var(--text-heading); }
-@media (min-width: 769px) { html[data-finish="hairline"] header #btn-doom { order: 2; } }
 
 /* The panel comes out from the right edge; the app moves left to make room (side panel, desktop). */
 .vn-doom {

@@ -1,0 +1,35 @@
+/* The view button on the rail (js/view-rail.js): one quiet 32px button under
+   the cloud and above Settings, and a menu in the look of the Settings menu
+   beside it (style.css .hdr-sys-dropdown).  Colours come from the theme. */
+#vn-views { display: none; }
+@media (min-width: 769px) {
+  #vn-views { display: block; position: relative; }
+  html[data-finish="hairline"] header #vn-views { order: 2; }
+  #vn-views .vv-trg {
+    width: 32px; height: 32px; padding: 0; border-radius: 10px; border: 1px solid transparent; background: transparent;
+    color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  #vn-views svg { width: 16px; height: 16px; flex: none; }
+  #vn-views .vv-trg:hover, #vn-views.open .vv-trg { color: var(--text-heading); }
+  #vn-views .vv-menu {
+    display: none; position: absolute; top: calc(100% + 6px); right: 0; min-width: 190px; padding: var(--sp-1); z-index: 200;
+    background: var(--bg-dropdown); border: 1px solid var(--border-light); border-radius: var(--r-md); box-shadow: var(--elev-3);
+  }
+  /* On the rail the menu opens beside the button, growing upward, as the Settings menu does */
+  html[data-finish="hairline"] header #vn-views .vv-menu { top: auto; bottom: 0; right: auto; left: calc(100% + 8px); }
+  #vn-views.open .vv-menu { display: block; }
+  #vn-views .vv-menu button {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text-secondary); font: inherit; font-size: var(--fs-md); padding: 7px 12px; cursor: pointer; border-radius: var(--r-xs);
+  }
+  #vn-views .vv-menu button:hover { background: var(--bg-hover); color: var(--text-heading); }
+  #vn-views .vv-menu button.on { color: var(--text-heading); }
+  /* The tick on what is open */
+  #vn-views .vv-menu button.on::after {
+    content: ''; margin-left: auto; width: 5px; height: 9px; border: solid currentColor; border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg) translateY(-2px); opacity: .7;
+  }
+  #vn-views .vv-sep { height: 1px; background: var(--border-light); margin: 4px 0; }
+  /* The agents view is drawn above the rail's own layer; the open menu must still be on top of it */
+  html[data-finish="hairline"] header:has(#vn-views.open) { z-index: 1000; }
+}

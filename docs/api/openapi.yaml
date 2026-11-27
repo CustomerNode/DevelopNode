@@ -476,6 +476,123 @@ paths:
                     ts: 1791370000
                     card: {"type": "needs_you", "title": "Card number field"}
 
+  /api/agent-fleet:
+    get:
+      tags: [Sessions]
+      summary: Where agents are, across every project
+      operationId: agentFleet
+      description: |
+        For every project in the picker: the sessions that are working now or
+        whose transcript changed in the last `hours`, the helpers (subagents)
+        each launched, the files each touched (newest first, relative to the
+        project), the edits each made to those files, its last steps and its
+        last few messages. Read from the tail of the transcripts.
+      parameters:
+        - name: hours
+          in: query
+          schema:
+            type: number
+            default: 72
+          description: How far back a session counts as recent (1 to 336).
+      responses:
+        "200":
+          description: The agents, by project
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                at: 1791370000
+                hours: 72
+                projects:
+                  - id: "-home-user-shop"
+                    name: shop
+                    cwd: /home/user/shop
+                    agents:
+                      - id: 3f6c1d2e
+                        name: Card number field
+                        live: true
+                        group: working
+                        files: [src/pay/card.py]
+                        helpers: []
+
+  /api/agent-fleet/dirs:
+    get:
+      tags: [Sessions]
+      summary: The real contents of a project folder
+      operationId: agentFleetDirs
+      description: |
+        Folder and file names of one folder of a project and the folders below
+        it, `depth` levels down. Refused for a path outside the project.
+      parameters:
+        - name: project
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Encoded project identifier.
+        - name: path
+          in: query
+          schema:
+            type: string
+          description: Folder relative to the project root; empty for the root.
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Levels to list below the folder (1 to 4).
+      responses:
+        "200":
+          description: The listing, keyed by folder
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                ok: true
+                dirs:
+                  "src/pay": {d: [tests], f: [card.py], more: 0}
+        "404":
+          description: Unknown project, or not a folder inside it
+
+  /api/agent-fleet/file:
+    get:
+      tags: [Sessions]
+      summary: The start of one text file of a project
+      operationId: agentFleetFile
+      description: |
+        Up to the first 600 lines of a text file inside a project. `kind` is
+        `text`, `missing`, `big` or `binary`; only `text` carries the lines.
+      parameters:
+        - name: project
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Encoded project identifier.
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: File relative to the project root.
+      responses:
+        "200":
+          description: The file, or why it has no text
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                ok: true
+                kind: text
+                total: 2
+                text: "def charge():
+    pass"
+        "404":
+          description: Unknown project
+
   /api/agents:
     get:
       tags: [Sessions]

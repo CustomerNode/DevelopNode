@@ -476,7 +476,11 @@ async function _initKanbanImpl() {
     // Set initial history state so browser back works from drill-down
     // BUT don't overwrite a task hash on refresh
     const _curHash = window.location.hash || '';
-    if (!_curHash.startsWith('#kanban/task/')) {
+    // Only while the board is the view on screen: a load that ends after the
+    // person went back to Sessions must not put #kanban in the address, or
+    // the app follows the address back to the board a moment later.
+    const _onBoard = typeof viewMode === 'undefined' || viewMode === 'kanban';
+    if (_onBoard && !_curHash.startsWith('#kanban/task/')) {
       if (!history.state || history.state.view !== 'kanban') {
         history.replaceState({ view: 'kanban', taskId: null }, '', '#kanban');
       }
@@ -491,8 +495,10 @@ async function _initKanbanImpl() {
     // Attach keyboard shortcuts
     attachKanbanShortcuts();
 
-    // Restore hash state
-    restoreFromHash();
+    // Restore hash state.  Not for a load that ended after the person left the
+    // board: the address still says #kanban for the length of the fade, and
+    // restoring from it would switch the view back.
+    if (_onBoard) restoreFromHash();
   } catch (e) {
     _kanbanFetching = false;
     console.error('[Kanban] Load failed:', e);
